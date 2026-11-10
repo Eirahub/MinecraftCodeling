@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -88,7 +88,7 @@ jobs:
   # :neoforge:runGameTestServer through `check`; the full GameTest suite stays on Fabric.
   neoforge:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -127,7 +127,7 @@ jobs:
   # Gradle provisions Java 21 through the foojay resolver. The client smokes open a game window, so they stay local.
   mc-1-21-1:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -169,7 +169,7 @@ jobs:
   client-gametest:
     needs: build
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
