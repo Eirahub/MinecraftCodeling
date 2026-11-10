@@ -1,0 +1,36 @@
+# NeoForge mod metadata (issue #187). Fabric's counterpart is fabric/src/main/resources/fabric.mod.json.
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "codeling"
+version = "${version}"
+displayName = "Codeling"
+authors = "Tor Einar Enne"
+description = '''Program a robot with blocks, JavaScript or Python. Not approved by or associated with Mojang or Microsoft.'''
+# 26.x: adds the enum game rule type (codeling:robot_camera); see NeoForgePlatform.enumRule. Empty on 1.21.1.
+${enum_extensions}
+
+# Common's mixin config (client mixins only), the same file Fabric loads.
+[[mixins]]
+config = "codeling.mixins.json"
+
+# Common's access transformer, also applied to the compile classpath by ModDevGradle (build.gradle.kts).
+[[accessTransformers]]
+file = "META-INF/accesstransformer.cfg"
+${extra_access_transformers}
+
+[[dependencies.codeling]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoforge_version},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.codeling]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "BOTH"
