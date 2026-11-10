@@ -38,9 +38,10 @@ public class RobotPerformanceGameTests {
      * use 8 percent of it on average and 40 percent in any single tick. A few ticks over the single-tick limit are
      * allowed for garbage collection pauses and the JIT warming up, which the test cannot tell apart from robot work.
      * Measured on the owner's PC (2026-11-09): mean 1.8 ms, max 18 ms; before the crafting fix the mean was 6.5 ms.
-     * The margin is for slower CI machines.
+     * The margin is for slower machines; shared GitHub runners measured 5.1 ms mean, so CI (env CI=true) gets 2.5 times.
      */
-    private static final long MAX_MEAN_NANOS = 4_000_000, MAX_TICK_NANOS = 20_000_000;
+    private static final double SLACK = "true".equals(System.getenv("CI")) ? 2.5 : 1;
+    private static final long MAX_MEAN_NANOS = (long) (4_000_000 * SLACK), MAX_TICK_NANOS = (long) (20_000_000 * SLACK);
     private static final int SLOW_TICKS_ALLOWED = 3;
 
     private record Robot(RobotLinks.Key key, Supplier<RobotCommand> next, List<Result> results) {
