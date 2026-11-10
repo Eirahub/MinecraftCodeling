@@ -1,0 +1,44 @@
+# Gradle
+.gradle/
+build/
+out/
+run/
+logs/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Node / pxt target
+node_modules/
+built/
+target/sim/public/locales/
+target/libs/*/_locales/
+target/libs/*/built/
+target/pxt_modules/
+target/projects/
+target/temp/
+target/typings/
+target/docs/projects/
+target/docs/projects.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/*
+!.idea/codeStyles/
+# Loom regenerates .idea/runConfigurations on every Gradle sync; shared configs live in .run/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+
+# Microsoft MakeCode screenshots: private reference only, never commit
+docs/makecode-screenshots/*.png
+docs/makecode-screenshots/*.jpg
+
+# Playwright MCP scratch output
+.playwright-mcp/
+
+# Agent worktrees
+.claude/worktrees/

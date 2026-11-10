@@ -1,0 +1,217 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Text checks (em dash, CRLF in pxt API files)
+        run: bash scripts/check-text.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            target/package-lock.json
+            e2e/package-lock.json
+
+      # buildtarget runs twice: the first run regenerates sims.d.ts but bundles the old API info.
+      - name: Build pxt target (static editor)
+        working-directory: target
+        run: |
+          npm ci
+          npm run build
+          npm run build
+          npm run staticpkg
+
+      # The Gradle daemon provisions Java 25 itself (gradle/gradle-daemon-jvm.properties), but the wrapper needs a JDK to start.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # :neoforge has its own job below.
+      - name: Build core, common and fabric (includes the editor in the jar), JUnit tests and server GameTests (check runs :fabric:runGameTest)
+        run: ./gradlew :core:build :common:26.3:build :fabric:26.3:build
+
+      # Relay on old Java and libraries without Netty (#188): Java 17 with 1.20.1's Gson and SLF4J, Java 21 with 1.21.1's.
+      # Gradle provisions both JDKs through the foojay resolver. Needs the packaged editor built above.
+      - name: Relay compat check (Java 17 and 21, no Netty)
+        run: ./gradlew :core:relayCompatTest
+
+      # Editor suite (#136): every block round-trips, example programs run, old projects load, branding. The task
+      # starts the standalone relay itself; it needs Node (set up above) and headless Chromium with its Linux libraries.
+      - name: Editor test suite (headless Chromium against the standalone relay)
+        run: |
+          ./gradlew :fabric:26.3:installE2e
+          (cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell)
+          ./gradlew :fabric:26.3:editorTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            core/build/test-results/
+            core/build/reports/
+            fabric/versions/26.3/build/test-results/
+            fabric/versions/26.3/build/reports/
+            fabric/versions/26.3/build/run/gameTest/logs/
+            fabric/versions/26.3/build/editor-test/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeling-jar
+          path: fabric/versions/26.3/build/libs/*.jar
+
+      - name: Upload packaged editor (for the NeoForge and client GameTests jobs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-packaged
+          path: target/built/packaged/
+          retention-days: 1
+
+  # NeoForge (#187): the jar (with the editor from the build job) and the NeoForge smoke GameTests. `build` runs
+  # :neoforge:runGameTestServer through `check`; the full GameTest suite stays on Fabric.
+  neoforge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: editor-packaged
+          path: target/built/packaged/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the NeoForge jar and run the NeoForge GameTests
+        run: ./gradlew :neoforge:26.3:build
+
+      - name: Upload NeoForge GameTest report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoforge-test-reports
+          path: |
+            neoforge/versions/26.3/build/test-results/
+            neoforge/versions/26.3/run/gametest/logs/
+            neoforge/versions/26.3/run/gametest/crash-reports/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeling-neoforge-jar
+          path: neoforge/versions/26.3/build/libs/*.jar
+
+  # Minecraft 1.21.1 (#189): the jar of each loader, built from the same sources by Stonecutter, and its GameTests
+  # (`build` runs them through `check`: all 116 Codeling GameTests on Fabric, the 6 smoke GameTests on NeoForge).
+  # Gradle provisions Java 21 through the foojay resolver. The client smokes open a game window, so they stay local.
+  mc-1-21-1:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        loader: [fabric, neoforge]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: editor-packaged
+          path: target/built/packaged/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the 1.21.1 jar and run its GameTests
+        run: ./gradlew :${{ matrix.loader }}:1.21.1:build
+
+      - name: Upload 1.21.1 test reports and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.loader }}-1.21.1-test-reports
+          path: |
+            ${{ matrix.loader }}/versions/1.21.1/build/test-results/
+            ${{ matrix.loader }}/versions/1.21.1/build/run/gameTest/logs/
+            ${{ matrix.loader }}/versions/1.21.1/run/gametest/logs/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeling-${{ matrix.loader }}-1.21.1-jar
+          path: ${{ matrix.loader }}/versions/1.21.1/build/libs/*.jar
+
+  # Client GameTests start a real Minecraft client (2 to 3 GB), so they run on main and on demand only.
+  client-gametest:
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: editor-packaged
+          path: target/built/packaged/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The end-to-end client GameTest (#135) runs e2e/editor-run.mjs in headless Chromium through playwright-core.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      # :fabric:26.3:installE2e is npm ci in e2e/ (runClientGameTest also depends on it); then the browser and its Linux libraries.
+      - name: Install e2e dependencies and headless Chromium
+        run: |
+          ./gradlew :fabric:26.3:installE2e
+          cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell
+
+      # The task name must match what issue #134 creates (fabric-client-gametest-api-v1, task runClientGameTest).
+      - name: Client GameTests under a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a ./gradlew :fabric:26.3:runClientGameTest
+
+      # The run directory path must match #134's run config; it holds logs and screenshots.
+      - name: Upload client test reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-gametest-reports
+          path: |
+            fabric/versions/26.3/build/test-results/
+            fabric/versions/26.3/build/run/clientGameTest/logs/
+            fabric/versions/26.3/build/run/clientGameTest/screenshots/
