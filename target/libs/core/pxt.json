@@ -1,0 +1,19 @@
+{
+    "name": "core",
+    "description": "Codeling core library",
+    "files": [
+        "README.md",
+        "pxt-core.d.ts",
+        "pxt-helpers.ts",
+        "pxt-python.d.ts",
+        "pxt-python-helpers.ts",
+        "enums.d.ts",
+        "blocks.d.ts",
+        "items.d.ts",
+        "buffer.d.ts",
+        "sims.d.ts",
+        "ns.ts"
+    ],
+    "public": true,
+    "dependencies": {}
+}

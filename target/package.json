@@ -1,0 +1,29 @@
+{
+  "name": "codeling-target",
+  "version": "0.0.2",
+  "private": true,
+  "description": "Codeling editor: a pxt target for programming a Minecraft robot",
+  "license": "MIT",
+  "files": [
+    "README.md",
+    "pxtarget.json",
+    "targetconfig.json",
+    "built/*.js",
+    "built/*.json",
+    "built/*.d.ts",
+    "sim/public"
+  ],
+  "devDependencies": {
+    "typescript": "4.8.3",
+    "semantic-ui-less": "2.4.1",
+    "@types/node": "^9.3.0"
+  },
+  "dependencies": {
+    "pxt-core": "13.3.1"
+  },
+  "scripts": {
+    "build": "node node_modules/pxt-core/built/pxt.js buildtarget",
+    "staticpkg": "node node_modules/pxt-core/built/pxt.js staticpkg --locs-src locales",
+    "serve": "node node_modules/pxt-core/built/pxt.js serve"
+  }
+}
