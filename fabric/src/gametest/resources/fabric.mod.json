@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "codeling-gametest",
+  "version": "0.0.0",
+  "name": "Codeling GameTests",
+  "description": "Server and client GameTests for Codeling. Not shipped in the mod jar.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["codeling.gametest.RobotGameTests", "codeling.gametest.RelayGameTests", "codeling.gametest.RobotPerformanceGameTests",
+      "codeling.gametest.MultiRobotGameTests"],
+    "fabric-client-gametest": ["codeling.gametest.RobotClientGameTest", "codeling.gametest.EditorEndToEndClientGameTest"],
+    "client": ["codeling.gametest.FabricClientSmoke"]
+  },
+  "depends": {
+    "codeling": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}
