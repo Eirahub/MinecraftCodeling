@@ -228,6 +228,11 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | (posisjon) + (annen) | `p.add(other)` | Legger sammen to posisjoner. |
 | (posisjon) = (annen) | `p.equals(other)` | Sann hvis de er like. |
 | (posisjon) som tekst | `p.toString()` | Posisjonen som tekst. |
+| (posisjon) avstand til (annen) | `p.distanceTo(other)` | Hvor mange blokker det er mellom dem i rett linje, med desimaler. En `~`- eller `^`-posisjon mot en annen type gjøres først om til et nøyaktig sted. |
+| (posisjon) - (annen) | `p.subtract(other)` | Hvor langt det er fra den andre til denne, som en posisjon av samme type. |
+| (posisjon) ganger (tall) | `p.scale(2)` | Hvert tall ganget opp, rundet av til hele blokker. |
+| sorter (liste) etter avstand fra (posisjon) | `positions.sortByDistance(list, p)` | En ny liste med de samme posisjonene, nærmeste først. |
+| nærmeste i (liste) til (posisjon) | `positions.nearest(list, p)` | Den nærmeste posisjonen i lista, eller `null` når lista er tom. |
 
 ### Bygge stort (kategoriene Blokker, Former og Bygger)
 

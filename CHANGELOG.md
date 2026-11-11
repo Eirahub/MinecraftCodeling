@@ -10,6 +10,14 @@ Every user-visible change to Codeling is listed here. The format follows
 
 - `loops.pause(ms)` and `loops.forever` with the blocks "pause (ms)" and "forever" in the Loops category: wait in
   one part of a program, and repeat code until the program is stopped (issue #215).
+- Position math in the Positions category: `distanceTo` (straight line, with decimals), `subtract` and `scale` on a
+  position, and `positions.sortByDistance` and `positions.nearest` for a list of positions, so Blocks can pick the
+  closest of a radar list without a function argument (issue #219).
+
+### Fixed
+
+- Positions in the lists from `agent.radar` and `agent.findBounds` lost their methods, so `toString` or `toWorld` on
+  one of them failed (issue #219).
 
 ## [0.0.1] - 2026-11-11
 

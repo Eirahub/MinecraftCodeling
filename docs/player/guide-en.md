@@ -226,6 +226,11 @@ Chests, barrels, hoppers, furnaces and similar blocks.
 | (position) + (other) | `p.add(other)` | Adds two positions. |
 | (position) = (other) | `p.equals(other)` | True if they are the same. |
 | (position) as text | `p.toString()` | The position as text. |
+| (position) distance to (other) | `p.distanceTo(other)` | How many blocks apart they are in a straight line, with decimals. A `~` or `^` position against another kind is first turned into an exact place. |
+| (position) - (other) | `p.subtract(other)` | How far it is from the other one to this one, as a position of the same kind. |
+| (position) times (number) | `p.scale(2)` | Every number multiplied, rounded to whole blocks. |
+| sort (list) by distance from (position) | `positions.sortByDistance(list, p)` | A new list of the same positions, nearest first. |
+| nearest in (list) to (position) | `positions.nearest(list, p)` | The nearest position in the list, or `null` when the list is empty. |
 
 ### Building big (categories Blocks, Shapes and Builder)
 
