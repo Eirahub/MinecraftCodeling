@@ -3,6 +3,13 @@
 namespace pxsim {
     initCurrentRuntime = () => {
         runtime.board = new Board();
+        // Issues #218 and #221: an error nobody catches (a robot error, a failed assert, raise or throw) ends the program
+        // through pxt, which marks the block or line only in debug mode, so the player always gets the message too.
+        runtime.postError = (e: any) => {
+            const text = String(e && e.message).replace(/^unhandled exception: /, "");
+            const where = "(debug mode, the bug button, shows the block or line it came from)";
+            if (!board().relay.told) board().relay.notify("Program error", `${text} ${where}`);
+        };
     };
 
     export function board(): Board {
@@ -45,11 +52,41 @@ namespace pxsim {
     const REOPEN = "Open the editor from the game again with /codeling.";
 
     /**
+     * A robot command the game refused (issue #218). The program gets the text "CODE: message" as the thrown value.
+     * Catchable: an error tied to one command, that is BAD_ARGS, NO_PERMISSION, RATE_LIMITED, PROTECTED, UNLOADED and
+     * OUT_OF_RANGE. Not catchable, they end the program as before: STOPPED, VERSION, a control stop (Stop, /robot stop,
+     * another editor session) and a lost connection.
+     */
+    class RobotError {
+        constructor(public text: string) {
+        }
+    }
+
+    // pxt resumes a program that waits on a promise shim with `promise.then(resume)` and never passes a reject handler,
+    // so a rejected command would leave the program waiting for good. For a RobotError only, the resume runs a frame
+    // (pxt's FnWrapper, as pxtcore.runAction does) that throws the text exactly as the program's own `throw` does: into
+    // the nearest catch, or, with none, pxt ends the program (in debug mode it also marks the line or block). await,
+    // .catch and Promise.all always pass a reject handler, so only that resume takes this path.
+    const then = Promise.prototype.then;
+    Promise.prototype.then = function (this: Promise<any>, ok?: any, no?: any) {
+        if (no !== undefined || typeof ok !== "function") return then.call(this, ok, no);
+        return then.call(this, ok, (e: any) => {
+            if (!(e instanceof RobotError)) throw e;
+            ok(new FnWrapper(() => {
+                // Nobody catches it: the dialog as before (call already logged the command), then pxt ends the program.
+                if (!runtime.currTryFrame()) board().relay.notify("Robot error", e.text);
+                pxtcore.throwValue(e.text);
+                return null;
+            }, null, []));
+        });
+    } as any;
+
+    /**
      * WebSocket link to the relay in the client mod (protocol v2, architecture section 3). The sim frame shares
      * the editor's origin, so it reads the token pxt stored from #local_token and connects to its own host.
      * One socket per run: hello, welcome, control start (the server returns the run id), then the cmds, answered by
-     * id (robots in parallel each have their own command waiting), with a heartbeat every few seconds. On any error
-     * the program stays blocked and a message explains why.
+     * id (robots in parallel each have their own command waiting), with a heartbeat every few seconds. A refused command
+     * throws into the program (RobotError); on any other error the program stays blocked and a message explains why.
      * shortcut: no reconnect; a dropped socket ends the run, the player presses Run again.
      */
     export class Relay {
@@ -57,10 +94,12 @@ namespace pxsim {
         private ready: Promise<void>;
         private run = -1;
         private nextId = 1;
-        private pending: { [id: number]: (msg: any) => void } = {};
+        private pending: { [id: number]: { ok: (msg: any) => void, no: (e: RobotError) => void } } = {};
         private heartbeat: number;
         private welcomed = false;
         private done = false;
+        /** A dialog already told the player why the program ended. */
+        public told = false;
 
         private connect(): Promise<void> {
             if (this.ready) return this.ready;
@@ -91,13 +130,12 @@ namespace pxsim {
                     } else if (msg.t === "error") {
                         if (!this.welcomed && msg.code === "NO_PERMISSION") this.fail("Editor link expired", "The game was restarted since this tab was opened. " + REOPEN);
                         else if (msg.code === "STOPPED") this.fail("Program stopped", "The robot was stopped in the game (" + msg.message + ").");
+                        else if (msg.code !== "VERSION" && this.pending[msg.id]) this.answer(msg.id).no(new RobotError(`${msg.code}: ${msg.message}`));
                         // Before a run exists the relay could not reach the game: its first sentence is the header ("Not in a world").
                         else if (this.run < 0) this.fail(msg.message.split(".")[0], msg.message);
                         else this.fail("Robot error", `${msg.code}: ${msg.message}`);
                     } else if (msg.t === "result" && this.pending[msg.id]) {
-                        const done = this.pending[msg.id];
-                        delete this.pending[msg.id];
-                        done(msg);
+                        this.answer(msg.id).ok(msg);
                     }
                 };
             });
@@ -111,10 +149,16 @@ namespace pxsim {
         async command(op: string, args: any[], robot = board().robot): Promise<any> {
             await this.connect();
             const id = this.nextId++;
-            return new Promise<any>(resolve => {
-                this.pending[id] = resolve;
+            return new Promise<any>((ok, no) => {
+                this.pending[id] = { ok, no };
                 this.send(robot ? { t: "cmd", id, run: this.run, op, args, robot } : { t: "cmd", id, run: this.run, op, args });
             });
+        }
+
+        private answer(id: number) {
+            const waiting = this.pending[id];
+            delete this.pending[id];
+            return waiting;
         }
 
         /** Program stopped in the editor: end the run on the server. */
@@ -130,8 +174,14 @@ namespace pxsim {
 
         private fail(header: string, body: string) {
             if (this.done) return;
-            board().log(`${header}: ${body}`);
             this.shutdown();
+            this.notify(header, body);
+        }
+
+        /** Tells the player in the robot log and in a dialog. */
+        notify(header: string, body: string) {
+            this.told = true;
+            board().log(`${header}: ${body}`);
             Runtime.postMessage(<SimulatorCommandMessage>{ type: "simulator", command: "modal", header, body });
         }
 

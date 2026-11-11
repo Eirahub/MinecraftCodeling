@@ -271,8 +271,13 @@ namespace pxsim.agent {
      */
     export async function call(op: string, args: any[], robot = board().robot): Promise<any> {
         const b = board();
-        const res = await b.relay.command(op, args, robot);
-        b.log(`${who(robot)}${op.replace(/^agent\./, "")} ${args.join(" ")}: ${res.value === undefined ? "done" : res.value}`);
+        const line = `${who(robot)}${op.replace(/^agent\./, "")} ${args.join(" ")}: `;
+        // A refused command (issue #218) goes to the log with its error, then on into the program.
+        const res = await b.relay.command(op, args, robot).catch((e: any) => {
+            b.log(line + e.text);
+            throw e;
+        });
+        b.log(line + (res.value === undefined ? "done" : res.value));
         // Why the robot did less than asked (no blocks left, not on the path): the robot says it in the game too.
         if (res.message) b.log(`${who(robot)}${res.message}`);
         return res.value;
