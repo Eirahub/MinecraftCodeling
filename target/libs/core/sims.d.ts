@@ -1168,5 +1168,26 @@ declare namespace control {
     function runInParallel(handler: () => void): void;
 
 }
+declare namespace loops {
+    /**
+     * Pause this part of the program for some milliseconds (1000 ms is one second). Code in run in parallel and in
+     * other forever loops keeps running.
+     * @param ms how long to pause, in milliseconds, eg: 100
+     */
+    //% blockId=loops_pause block="pause (ms) %ms"
+    //% weight=99
+    //% shim=loops::pauseAsync promise
+    function pause(ms: number): void;
+
+    /**
+     * Run code over and over again, at the same time as the rest of the program, until the program is stopped.
+     * @param handler the code to repeat
+     */
+    //% blockId=loops_forever block="forever"
+    //% afterOnStart=true blockAllowMultiple=1 weight=100
+    //% shim=loops::forever
+    function forever(handler: () => void): void;
+
+}
 
 // Auto-generated. Do not edit. Really.

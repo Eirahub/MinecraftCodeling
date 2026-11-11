@@ -450,6 +450,8 @@
   "builder.turn|block": "bygger snu %direction",
   "console.log|block": "si %text",
   "control.runInParallel|block": "kjør samtidig",
+  "loops.forever|block": "gjenta for alltid",
+  "loops.pause|block": "pause (ms) %ms",
   "posLocal|block": "^%x|^%y|^%z",
   "positions.random|block": "velg tilfeldig posisjon|fra %from=positions_pos|til %to=positions_pos",
   "pos|block": "~%x|~%y|~%z",

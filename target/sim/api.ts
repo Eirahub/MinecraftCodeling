@@ -1426,3 +1426,29 @@ namespace pxsim.control {
         thread.runInBackground(handler);
     }
 }
+
+// Issue #215, names and block texts as in MakeCode for Minecraft. Both use pxt's own fibers, like runInParallel: a
+// pause only holds the code that awaits it, and Stop kills the runtime, so a pause or loop that is waiting never resumes.
+namespace pxsim.loops {
+    /**
+     * Pause this part of the program for some milliseconds (1000 ms is one second). Code in run in parallel and in
+     * other forever loops keeps running.
+     * @param ms how long to pause, in milliseconds, eg: 100
+     */
+    //% blockId=loops_pause block="pause (ms) %ms"
+    //% weight=99
+    export function pauseAsync(ms: number): Promise<void> {
+        return new Promise<void>(resolve => runtime.schedule(resolve, ms));
+    }
+
+    /**
+     * Run code over and over again, at the same time as the rest of the program, until the program is stopped.
+     * @param handler the code to repeat
+     */
+    //% blockId=loops_forever block="forever"
+    //% afterOnStart=true blockAllowMultiple=1 weight=100
+    export function forever(handler: RefAction): void {
+        // thread.forever waits 20 ms between rounds, so a loop that never awaits cannot freeze the editor.
+        thread.forever(handler);
+    }
+}
