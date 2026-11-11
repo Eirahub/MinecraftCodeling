@@ -43,6 +43,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -1163,16 +1164,28 @@ public final class RobotManager {
      * The robot's FakePlayer: the owner's UUID with its own name, so claim and protection mods treat robot edits as
      * the owner's (Fabric's FakePlayer Javadoc recommends this; Platform.fakePlayer). Fetched per action, never kept: a strong reference
      * would keep the level loaded. No instabuild, so breaking drops items and placing uses up the stack.
+     * <p>
+     * Null when the owner may not act at pos (issue #53), and every caller then answers its normal refusal. The robot
+     * calls the game mode directly, so it does here what vanilla's packet handler does first: {@code Level.mayInteract}
+     * (spawn protection, which ops pass by UUID, and the world border). A spectator owner's robot acts on nothing. An
+     * adventure owner's FakePlayer gets {@code mayBuild = false}, the ability vanilla's placing checks; breaking checks
+     * it in {@link #destroy}. An offline owner counts as survival: programs and /robot commands only reach a robot
+     * over its owner's connection, and leaving stops the queue (ServerRelay.playerLeft), so only GameTests act for
+     * an offline owner. Spawn protection still applies to them.
      */
-    private static ServerPlayer fakePlayer(RobotEntity robot) {
+    private static ServerPlayer fakePlayer(RobotEntity robot, BlockPos pos) {
         ServerLevel level = (ServerLevel) robot.level();
         ServerPlayer owner = level.getServer().getPlayerList().getPlayer(robot.owner());
+        GameType mode = owner != null ? owner.gameMode.getGameModeForPlayer() : GameType.DEFAULT_MODE;
+        if (mode == GameType.SPECTATOR) return null;
         String name = owner != null ? owner.getGameProfile().name() : robot.owner().toString().substring(0, 8);
         ServerPlayer player = Platform.INSTANCE.fakePlayer(level, new GameProfile(robot.owner(), "Codeling[" + name + "]"));
-        // Survival rules without setGameMode, which would broadcast a tab-list update for a player clients never saw.
+        // The owner's build rule without setGameMode, which would broadcast a tab-list update for a player clients
+        // never saw. Never instabuild, also for a creative owner.
         player.getAbilities().instabuild = false;
+        player.getAbilities().mayBuild = !mode.isBlockPlacingRestricted();
         player.snapTo(robot.position(), robot.getYRot(), 0);
-        return player;
+        return level.mayInteract(player, pos) ? player : null;
     }
 
     // Places the selected slot's block at pos, as the FakePlayer clicking that (replaceable) position on face.
@@ -1185,7 +1198,8 @@ public final class RobotManager {
 
     // The FakePlayer holds stack and clicks pos on face; rest gets what is left in its hand afterwards.
     private static boolean place(RobotEntity robot, ItemStack stack, BlockPos pos, Direction face, Consumer<ItemStack> rest) {
-        ServerPlayer player = fakePlayer(robot);
+        ServerPlayer player = fakePlayer(robot, pos);
+        if (player == null) return false;
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
         boolean placed = player.gameMode.useItemOn(player, robot.level(), stack, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false)).consumesAction();
@@ -1199,7 +1213,10 @@ public final class RobotManager {
         Level level = robot.level();
         BlockState state = level.getBlockState(pos);
         if (state.isAir() || state.getBlock() instanceof LiquidBlock || state.getDestroySpeed(level, pos) < 0) return false;
-        ServerPlayer player = fakePlayer(robot);
+        ServerPlayer player = fakePlayer(robot, pos);
+        // The FakePlayer's own game mode is survival, so destroyBlock skips vanilla's adventure rule
+        // (Player.blockActionRestricted); the pickaxe has no can_break, so that rule refuses every block.
+        if (player == null || !player.mayBuild()) return false;
         // shortcut: always a diamond pickaxe so stone and ores drop like a player with the right tool; no silk touch or tool choice.
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
         boolean broken = player.gameMode.destroyBlock(pos);
@@ -1220,8 +1237,8 @@ public final class RobotManager {
         Block block = before.getBlock();
         if (!(block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof FenceGateBlock
                 || block instanceof ButtonBlock || block instanceof LeverBlock)) return false;
-        ServerPlayer player = fakePlayer(robot);
-        return player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
+        ServerPlayer player = fakePlayer(robot, pos);
+        return player != null && player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false)).consumesAction() && level.getBlockState(pos) != before;
     }
 
@@ -1254,8 +1271,8 @@ public final class RobotManager {
     private static Container openContainer(RobotEntity robot, BlockPos pos, Direction face) {
         Level level = robot.level();
         if (!(level.getBlockEntity(pos) instanceof BaseContainerBlockEntity entity)) return null;
-        ServerPlayer player = fakePlayer(robot);
-        if (!entity.canOpen(player)) return null;
+        ServerPlayer player = fakePlayer(robot, pos);
+        if (player == null || !entity.canOpen(player)) return null;
         if (!player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false)).consumesAction()) return null;
         BlockState state = level.getBlockState(pos);
