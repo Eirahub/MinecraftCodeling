@@ -38,7 +38,8 @@ In scope:
   getting around the `Host` check (DNS rebinding defence) or the `Origin` check on the WebSocket upgrade, getting around
   the Content-Security-Policy or the framing headers, reading files outside the packaged editor, or crashing or
   stalling the game through the relay.
-- **The editor token**: guessing it, reading it from another origin, finding it in a log or a file, or a session
+- **The editor token**: guessing it, reading it from another origin, finding it in a log, a file another user can read
+  or a process command line, or a session
   accepted without it. It is made per game session with `SecureRandom` and compared in constant time.
 - **Server-side command validation** (`core/src/main/java/codeling/robot/RobotCommand.java` and
   `common/src/main/java/codeling/robot/RobotManager.java`): a payload that controls another player's robot, gets past
