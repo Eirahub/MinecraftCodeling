@@ -111,6 +111,25 @@ En pause holder bare igjen koden den står i. Kode i "kjør samtidig" og i andre
 Et program med "gjenta for alltid" slutter aldri av seg selv: trykk på stoppknappen i editoren, eller skriv
 `/robot stop` i spillet. Begge stopper det med en gang, også midt i en pause.
 
+## Gå gjennom et program steg for steg
+
+Knappen med insektet under simulatoren slår på feilsøkingsmodus. Programmet starter og stopper før sin første
+kommando.
+
+- Klikk på rundingen på en blokk (eller i feltet til venstre for et linjenummer i JavaScript og Python) for å sette et
+  stoppunkt. Programmet stopper der hver gang det kommer dit.
+- I Blokker kjører "Step" én blokk og stopper igjen (knappen har ikke norsk tekst). I JavaScript og Python kjører
+  "Hopp over" én linje (et funksjonskall i ett steg), og "Gå inn i" går inn i funksjonen.
+- Pilen (Fortsett kjøring) kjører videre til neste stoppunkt, eller til slutten.
+- Mens programmet står stille, er blokken eller linjen som kommer etterpå markert, og "Variabler" viser verdien til
+  hver variabel.
+- Skilpaddeknappen (Langsom tilstand) kjører programmet sakte og markerer hver blokk mens den kjører, uten å stoppe.
+
+En robotkommando blir alltid ferdig før programmet stopper. Roboten står stille mens programmet står stille, og det
+gjør også "gjenta for alltid" og "kjør samtidig". For å stoppe programmet trykker du på "Avslutt feilsøkingsmodus",
+eller skriver `/robot stop` i spillet. Når du slår på feilsøkingsmodus eller Langsom tilstand, starter programmet fra
+begynnelsen, så roboten gjør kommandoene sine på nytt fra der den står.
+
 ## Alle robotkommandoene
 
 Retningene gjelder fra robotens side: fremover, bakover, venstre, høyre, opp, ned.

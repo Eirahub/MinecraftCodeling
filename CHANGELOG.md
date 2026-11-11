@@ -16,6 +16,10 @@ Every user-visible change to Codeling is listed here. The format follows
 - An Examples gallery on the editor's start page with the seven example programs the editor suite tests, each with a
   title, one sentence on what it teaches and an icon, in English and Norwegian. Opening one makes a new project in
   Blocks, JavaScript or Python. It works offline like the rest of the editor (issue #216).
+- Debug mode in the editor (the bug button under the simulator): breakpoints and Step in Blocks, JavaScript and
+  Python, the running block or line highlighted, the values of the variables while the program is stopped, and
+  Slow-Mo, which highlights each block as it runs. A robot command always finishes before the program stops.
+  "Exit Debug Mode" stops the program; pxt would have run it again from the start (issue #217).
 
 ### Fixed
 

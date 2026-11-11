@@ -109,6 +109,24 @@ A pause only holds the code it is in. Code in "run in parallel" and in other "fo
 with "forever" never ends by itself: press the stop button in the editor, or type `/robot stop` in the game. Both
 stop it at once, also in the middle of a pause.
 
+## Step through a program
+
+The bug button under the simulator turns on debug mode. The program starts and stops before its first command.
+
+- Click the circle on a block (or the space left of a line number in JavaScript and Python) to set a breakpoint. The
+  program stops there each time it gets to it.
+- In Blocks, "Step" runs one block and stops again. In JavaScript and Python, "Step over" runs one line (a function
+  call in one step), and "Step into" goes into the function.
+- The arrow (Continue) runs on to the next breakpoint, or to the end.
+- While the program is stopped, the block or line that comes next is highlighted, and "Variables" shows the value of
+  each variable.
+- The turtle button (Slow-Mo) runs the program slowly and highlights each block as it runs, without stopping.
+
+A robot command always finishes before the program stops. The robot stands still while the program is stopped, and
+so do "forever" and "run in parallel". To stop the program, press "Exit Debug Mode", or type `/robot stop` in the
+game. Turning debug mode or Slow-Mo on starts the program from the beginning, so the robot does its commands again
+from where it stands.
+
 ## All robot commands
 
 Directions are relative to the robot: forward, back, left, right, up, down.

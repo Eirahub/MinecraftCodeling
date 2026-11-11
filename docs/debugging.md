@@ -36,15 +36,15 @@ a variable, a `for` loop with `agent.move`, `loops.pause`, `agent.say`, two `for
 - Stop at a breakpoint. pxt disables the Run/Stop button for the whole debug session, and "Exit Debug Mode" restarts
   the program in normal mode, so the robot would do the whole program again unasked.
   Fix (small, done): one more `main.js` patch next to the branding patches in `gradle/loader.gradle.kts`. Leaving
-  debug mode stops the program (sends `stop` to the relay) instead of running it again. "Exit Debug Mode" is the Stop
-  button in debug mode. Making pxt's own Stop button work at a breakpoint would need two more patches (its render rule
-  and `stopSimulator`, which skips a paused simulator); not done.
+  debug mode stops the program (sends `stop` to the relay) instead of running it again, and does the rest of what
+  pxt's restart did: it clears the breakpoints and makes the text editor editable again (`setBreakpointsMap` outside
+  debug mode). Without that, old JavaScript breakpoints stayed loaded and debug mode in Python opened `main.ts`.
+  "Exit Debug Mode" is the Stop button in debug mode. Making pxt's own Stop button work at a breakpoint would need two
+  more patches (its render rule, and `stopSimulator`, which skips a paused simulator); not done.
 - Entering debug mode, turning slow motion on or off, and "Restart debugging" start the program from the beginning
   (a new run). The robot does not undo what it did. This is how pxt works; changing it would mean forking its
   debugger flow.
-- Breakpoints set in JavaScript stay in the shared text editor. After switching to Python, debug mode can open
-  `main.ts` with the old breakpoint. Remove breakpoints before switching language. Left as pxt does it.
 - Some debugger texts are missing from pxt's Norwegian strings ("Debug Mode", "Step") and show in English.
 
 Result: the debugger and slow motion work with the setting and one editor patch; nothing in the simulator, the
-protocol or the server has to change.
+protocol or the server has to change. The editor suite checks it (`debugSection` in `e2e/editor-suite.mjs`).
