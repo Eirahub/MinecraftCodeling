@@ -6,6 +6,11 @@
   "description": "Program a robot with blocks, JavaScript or Python. Not approved by or associated with Mojang or Microsoft.",
   "authors": ["Tor Einar Enne"],
   "license": "MIT",
+  "contact": {
+    "homepage": "https://github.com/Eirahub/MinecraftCodeling",
+    "sources": "https://github.com/Eirahub/MinecraftCodeling",
+    "issues": "https://github.com/Eirahub/MinecraftCodeling/issues"
+  },
   "environment": "*",
   "entrypoints": {
     "main": ["codeling.fabric.CodelingFabric"],
