@@ -11,7 +11,7 @@
 import { chromium } from "playwright-core";
 import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { startRelay, URL_PATTERN } from "./lib/relay.mjs";
 import * as editor from "./lib/editor.mjs";
 import { BLOCK_PROGRAMS } from "./programs/blocks.mjs";
@@ -180,7 +180,12 @@ async function main() {
         const page = await (await browser.newContext({ locale: "en-US", viewport: { width: 1280, height: 800 } })).newPage();
         page.setDefaultTimeout(60000);
         page.__editorUrl = relay.url;
-        await page.goto(relay.url);
+        // Issue #191: open the launcher file as /codeling does; it must land on the editor with the token stored.
+        step("open the editor through the launcher file");
+        await page.goto(pathToFileURL(relay.launcher).href);
+        await page.waitForURL(u => u.origin === new URL(relay.url).origin);
+        const stored = await page.waitForFunction(() => localStorage.getItem("codeling/local_token")).then(h => h.jsonValue());
+        check(relay.url.endsWith("#local_token=" + stored), "launcher", "the editor did not store this run's token");
         step("new project");
         await editor.newProject(page);
         step("round trip of every block");
