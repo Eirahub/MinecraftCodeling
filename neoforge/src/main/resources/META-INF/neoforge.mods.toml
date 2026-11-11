@@ -2,12 +2,14 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
 license = "MIT"
+issueTrackerURL = "https://github.com/Eirahub/MinecraftCodeling/issues"
 
 [[mods]]
 modId = "codeling"
 version = "${version}"
 displayName = "Codeling"
 authors = "Tor Einar Enne"
+displayURL = "https://github.com/Eirahub/MinecraftCodeling"
 description = '''Program a robot with blocks, JavaScript or Python. Not approved by or associated with Mojang or Microsoft.'''
 # 26.x: adds the enum game rule type (codeling:robot_camera); see NeoForgePlatform.enumRule. Empty on 1.21.1.
 ${enum_extensions}

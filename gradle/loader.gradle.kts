@@ -25,6 +25,11 @@ val checkJarNames = tasks.register("checkJarNames") {
 }
 tasks.named("build") { dependsOn(checkJarNames) }
 
+// The jar redistributes the editor's libraries (THIRD-PARTY-NOTICES.md), so their licences travel with it (issue #61).
+tasks.named<Jar>("jar") {
+    from(rootProject.files("LICENSE", "THIRD-PARTY-NOTICES.md")) { into("META-INF") }
+}
+
 // The static editor built by `npm run staticpkg` in ../target goes into the jar under codeling-editor/. Loom's split
 // environment has client resources of their own; NeoForge has one resource set.
 val editorDir = rootProject.layout.projectDirectory.dir("target/built/packaged")
