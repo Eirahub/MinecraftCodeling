@@ -20,6 +20,8 @@ Every user-visible change to Codeling is listed here. The format follows
 - `/codeling` no longer puts the editor link with its token on a command line, where other users on the same computer
   could read it (issue #191). It opens a one-time launcher file that only you can read, deleted after a minute, and the
   chat line has a link that copies the editor link for browsers that cannot open the file.
+- Robots follow their owner's rules (issue #53): no edits inside spawn protection unless the owner is an op, no placing
+  or breaking for an owner in adventure mode, and nothing at all for an owner in spectator mode.
 
 ## [0.0.1] - unreleased
 

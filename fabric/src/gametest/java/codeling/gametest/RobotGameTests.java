@@ -554,6 +554,96 @@ public class RobotGameTests {
         });
     }
 
+    /** Absolute positions under spawn protection; SpawnProtectionMixin answers true there (a GameTest server has none). */
+    public static final Set<BlockPos> SPAWN_PROTECTED = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Issue #53 layout, robot at START facing south: an oak door forward, a chest with 3 stone left, a stone block
+     * right, air above, stone in the selected slot. Answers place up, destroy right, interact forward and the chest's
+     * stone count, in that order, as one list.
+     */
+    private static List<Result> protectionOps(GameTestHelper helper, UUID owner) {
+        door(helper, START.south(), Blocks.OAK_DOOR);
+        helper.setBlock(START.east(), Blocks.CHEST);
+        container(helper, START.east()).setItem(0, new ItemStack(Items.STONE, 3));
+        helper.setBlock(START.west(), Blocks.STONE);
+        spawn(helper, owner);
+        inv(owner).setItem(0, new ItemStack(Items.STONE, 5));
+        List<Result> results = new ArrayList<>();
+        send(results, helper, owner, "agent.place", RobotCommand.UP);
+        send(results, helper, owner, "agent.destroy", RobotCommand.RIGHT);
+        send(results, helper, owner, "agent.interact", RobotCommand.FORWARD);
+        send(results, helper, owner, "agent.containerCount", RobotCommand.LEFT, stone());
+        return results;
+    }
+
+    /** An online owner in the given game mode, out of the robot's way. */
+    private static ServerPlayer ownerIn(GameTestHelper helper, GameType mode) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.snapTo(Vec3.atCenterOf(helper.absolutePos(START).above(100)));
+        player.setGameMode(mode);
+        return player;
+    }
+
+    // Issue #53: the robot of an adventure owner opens doors and containers but places and breaks nothing.
+    @GameTest(maxTicks = 100)
+    public void adventureOwnerUsesBlocksButCannotBuild(GameTestHelper helper) {
+        ServerPlayer player = ownerIn(helper, GameType.ADVENTURE);
+        List<Result> results = protectionOps(helper, player.getUUID());
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(results, List.of(Result.ok(false), Result.ok(false), Result.ok(true), Result.ok(3)), "results");
+            helper.assertBlockPresent(Blocks.AIR, START.above());
+            helper.assertBlockPresent(Blocks.STONE, START.west());
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        });
+    }
+
+    // Issue #53: the robot of a spectator owner acts on nothing.
+    @GameTest(maxTicks = 100)
+    public void spectatorOwnerDoesNothing(GameTestHelper helper) {
+        ServerPlayer player = ownerIn(helper, GameType.SPECTATOR);
+        List<Result> results = protectionOps(helper, player.getUUID());
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(results, List.of(Result.ok(false), Result.ok(false), Result.ok(false), Result.ok(0)), "results");
+            helper.assertBlockPresent(Blocks.AIR, START.above());
+            helper.assertBlockPresent(Blocks.STONE, START.west());
+            helper.assertFalse(open(helper, START.south()), "door shut");
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        });
+    }
+
+    // Issue #53: an online survival owner's robot does all four, as before.
+    @GameTest(maxTicks = 100)
+    public void survivalOwnerIsUnchanged(GameTestHelper helper) {
+        ServerPlayer player = ownerIn(helper, GameType.SURVIVAL);
+        List<Result> results = protectionOps(helper, player.getUUID());
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(results, List.of(Result.ok(true), Result.ok(true), Result.ok(true), Result.ok(3)), "results");
+            helper.assertBlockPresent(Blocks.STONE, START.above());
+            helper.assertBlockPresent(Blocks.AIR, START.west());
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        });
+    }
+
+    // Issue #53: inside spawn protection the robot places, breaks, uses and opens nothing, also in a fill.
+    @GameTest(maxTicks = 100)
+    public void spawnProtectionRefusesEveryEdit(GameTestHelper helper) {
+        List<BlockPos> spots = List.of(START.above(), START.west(), START.south(), START.east(), START.north());
+        spots.forEach(p -> SPAWN_PROTECTED.add(helper.absolutePos(p)));
+        UUID owner = UUID.randomUUID();
+        List<Result> results = protectionOps(helper, owner);
+        helper.setBlock(START.north(), Blocks.DIRT);
+        send(results, helper, owner, "blocks.fill", fill(helper, stone(), START.north(), START.north(), RobotShapes.REPLACE));
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(results, List.of(Result.ok(false), Result.ok(false), Result.ok(false), Result.ok(0), Result.ok(0)), "results");
+            spots.forEach(p -> SPAWN_PROTECTED.remove(helper.absolutePos(p)));
+            helper.assertBlockPresent(Blocks.AIR, START.above());
+            helper.assertBlockPresent(Blocks.STONE, START.west());
+            helper.assertBlockPresent(Blocks.DIRT, START.north());
+            helper.assertFalse(open(helper, START.south()), "door shut");
+        });
+    }
+
     // Issue #74: from above the robot fills the input, from the side the fuel, from below it takes the output.
     @GameTest(maxTicks = 400)
     public void furnaceSmeltsCobblestoneWithCoal(GameTestHelper helper) {
