@@ -617,7 +617,7 @@ public final class RobotManager {
     private static void find(RobotEntity robot, RobotQueue queue, RobotQueue.Entry entry) {
         RobotCommand command = entry.command;
         int r = command.b();
-        //? if >=26.1 {
+        //? if >=26.3 {
         if (entry.scan == null) entry.scan = BlockPos.withinBoxByManhattanDistance(robot.blockPosition(), r, r, r).iterator();
         //?} else
         /*if (entry.scan == null) entry.scan = BlockPos.withinManhattan(robot.blockPosition(), r, r, r).iterator();*/

@@ -38,11 +38,14 @@ stonecutter parameters {
     replacements.string(current.parsed < "26.1") {
         replace(".snapTo(", ".moveTo(")
         replace("getGameProfile().name()", "getGameProfile().getName()")
-        replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE")
         replace(".getMinY()", ".getMinBuildHeight()")
         replace("GuiGraphicsExtractor", "GuiGraphics")
-        replace("EntityTypes", "EntityType")
         replace("ContainerInput", "ClickType")
+    }
+    // Renames that came with 26.3.
+    replacements.string(current.parsed < "26.3") {
+        replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE")
+        replace("EntityTypes", "EntityType")
     }
     // Fabric's own @GameTest (structure, maxTicks, environment) came with 1.21.5. Before that the tests use vanilla's
     // annotation with Fabric's empty structure, and a test environment becomes a batch whose @BeforeBatch sets the rule.
