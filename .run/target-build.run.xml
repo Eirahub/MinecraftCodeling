@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="target: build + staticpkg (npm)" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/target/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="build" />
+      <script value="staticpkg" />
+    </scripts>
+    <node-interpreter value="project" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

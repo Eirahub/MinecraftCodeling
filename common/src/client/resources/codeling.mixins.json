@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "codeling.client.mixin",
+  "compatibilityLevel": "${mixin_java}",
+  "client": [
+    "CameraMixin",
+    "MouseHandlerMixin",
+    "PauseOnLostFocusMixin"${extra_client_mixins}
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

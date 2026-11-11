@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "codeling",
+  "version": "${version}",
+  "name": "Codeling",
+  "description": "Program a robot with blocks, JavaScript or Python. Not approved by or associated with Mojang or Microsoft.",
+  "authors": ["Tor Einar Enne"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["codeling.fabric.CodelingFabric"],
+    "client": ["codeling.fabric.client.CodelingFabricClient"]
+  },
+  "mixins": [
+    { "config": "codeling.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "${minecraft_dependency}",
+    "java": ">=${java_version}",
+    "fabric-api": "*"
+  }
+}

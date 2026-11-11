@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/world/level/gamerules/GameRuleType",
+      "name": "CODELING_ENUM",
+      "constructor": "(Ljava/lang/String;)V",
+      "parameters": ["codeling:enum"]
+    }
+  ]
+}

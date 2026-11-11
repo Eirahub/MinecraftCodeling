@@ -1,0 +1,66 @@
+{
+    "id": "codeling",
+    "name": "codeling",
+    "nickname": "codeling",
+    "title": "Codeling",
+    "description": "Program your Minecraft robot with blocks, JavaScript or Python",
+    "corepkg": "core",
+    "bundleddirs": [
+        "libs/core"
+    ],
+    "cloud": {
+        "workspace": false,
+        "packages": false,
+        "sharing": false,
+        "thumbnails": false,
+        "importing": false,
+        "publishing": false,
+        "githubPackages": false,
+        "showBadges": false
+    },
+    "runtime": {
+        "mathBlocks": true,
+        "loopsBlocks": true,
+        "logicBlocks": true,
+        "variablesBlocks": true,
+        "textBlocks": true,
+        "functionBlocks": true,
+        "listsBlocks": true
+    },
+    "simulator": {
+        "autoRun": false
+    },
+    "appTheme": {
+        "logoUrl": "/",
+        "homeUrl": "/",
+        "boardName": "Codeling",
+        "useTextLogo": true,
+        "organization": "Codeling",
+        "organizationText": "Codeling",
+        "organizationShortText": "Codeling",
+        "organizationUrl": "/",
+        "privacyUrl": "/about",
+        "termsOfUseUrl": "/about",
+        "docMenu": [
+            { "name": "About", "path": "/about" }
+        ],
+        "availableLocales": ["en", "nb"],
+        "selectLanguage": true,
+        "disableLiveTranslations": true,
+        "coloredToolbox": true,
+        "monacoToolbox": true,
+        "invertedMenu": true,
+        "showHomeScreen": true,
+        "scriptManager": true,
+        "python": true,
+        "highContrast": true,
+        "feedbackEnabled": false,
+        "githubEditor": false,
+        "showOpenInVscode": false,
+        "shareHomepageContent": false,
+        "immersiveReader": false,
+        "extendEditor": true,
+        "simAnimationEnter": "fly right in",
+        "simAnimationExit": "fly right out"
+    }
+}

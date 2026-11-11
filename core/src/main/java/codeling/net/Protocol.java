@@ -1,0 +1,158 @@
+package codeling.net;
+
+import codeling.robot.Result;
+import codeling.robot.RobotCommand;
+import codeling.robot.RobotException;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Protocol messages (architecture section 3): decoding untrusted JSON and encoding replies.
+ * Plain Java (Gson only) so it is unit-testable without Minecraft. Shared by the relay and the server.
+ * Version 2 (issue #141): {@code cmd} and {@code control} may name one of the player's robots in {@code robot}; without
+ * it (or with "") they are for the default robot, as in version 1. An editor that still speaks version 1 gets the
+ * VERSION error and is asked to reload.
+ */
+public final class Protocol {
+    public static final int VERSION = 2;
+    // shortcut: 8 KiB proposal from architecture section 7, raise when an op needs bigger arguments.
+    public static final int MAX_MESSAGE_BYTES = 8 * 1024;
+    // shortcut: 10 s proposal (section 3), counted in server ticks (20 per second) so a paused singleplayer
+    // game never times out a run; make it a server config value in step 4.
+    public static final int HEARTBEAT_TIMEOUT_TICKS = 200;
+    public static final int HEARTBEAT_TIMEOUT_MS = HEARTBEAT_TIMEOUT_TICKS * 50;
+
+    private Protocol() {
+    }
+
+    /** A validated command: {@code id} is the per-run counter the reply must carry; {@code robot} is "" for the default robot. */
+    public record Cmd(long id, long run, RobotCommand command, String robot) {
+    }
+
+    /** Parses one message and checks size, shape, protocol version and type field. */
+    public static JsonObject parse(String json) throws RobotException {
+        if (json == null || json.getBytes(StandardCharsets.UTF_8).length > MAX_MESSAGE_BYTES) {
+            throw new RobotException(Result.Code.BAD_ARGS, "message is larger than " + MAX_MESSAGE_BYTES + " bytes");
+        }
+        JsonObject msg;
+        try {
+            msg = JsonParser.parseString(json).getAsJsonObject();
+        } catch (RuntimeException e) {
+            throw new RobotException(Result.Code.BAD_ARGS, "message is not a JSON object");
+        }
+        if (!(msg.get("v") instanceof JsonPrimitive v) || !v.isNumber() || v.getAsDouble() != VERSION) {
+            throw new RobotException(Result.Code.VERSION, "protocol version " + VERSION + " expected");
+        }
+        string(msg, "t");
+        return msg;
+    }
+
+    /** The message's {@code id} if it has a whole-number one, else null (for error replies). */
+    public static Long id(JsonObject msg) {
+        try {
+            return number(msg, "id");
+        } catch (RobotException e) {
+            return null;
+        }
+    }
+
+    public static String type(JsonObject msg) {
+        return msg.get("t").getAsString();
+    }
+
+    /** The {@code run} field, or null if absent. */
+    public static Long run(JsonObject msg) throws RobotException {
+        return msg.has("run") ? number(msg, "run") : null;
+    }
+
+    /** Decodes a {@code cmd} and validates its op and arguments with {@link RobotCommand#parse}. */
+    public static Cmd cmd(JsonObject msg) throws RobotException {
+        long id = number(msg, "id");
+        Long run = run(msg);
+        if (run == null) throw new RobotException(Result.Code.BAD_ARGS, "cmd needs a run id (send control start first)");
+        if (!(msg.get("args") instanceof JsonArray array)) throw new RobotException(Result.Code.BAD_ARGS, "args must be an array");
+        List<Object> args = new ArrayList<>();
+        for (JsonElement e : array) {
+            if (!(e instanceof JsonPrimitive p)) throw new RobotException(Result.Code.BAD_ARGS, "args must be numbers, booleans or strings");
+            args.add(p.isNumber() ? (Object) p.getAsDouble() : p.isBoolean() ? (Object) p.getAsBoolean() : p.getAsString());
+        }
+        return new Cmd(id, run, RobotCommand.parse(string(msg, "op"), args), robot(msg));
+    }
+
+    /** The {@code robot} field: which of the player's robots, "" (or absent) for the default robot. */
+    public static String robot(JsonObject msg) throws RobotException {
+        if (!msg.has("robot")) return "";
+        String name = string(msg, "robot");
+        String problem = name.isEmpty() ? null : RobotCommand.nameProblem(name);
+        if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+        return name;
+    }
+
+    /** The {@code op} of a {@code control} message. */
+    public static String controlOp(JsonObject msg) throws RobotException {
+        String op = string(msg, "op");
+        return switch (op) {
+            case "start", "stop", "pause", "resume", "heartbeat", "subscribe" -> op;
+            default -> throw new RobotException(Result.Code.BAD_ARGS, "unknown control op " + op);
+        };
+    }
+
+    public static JsonObject envelope(String type) {
+        JsonObject o = new JsonObject();
+        o.addProperty("v", VERSION);
+        o.addProperty("t", type);
+        return o;
+    }
+
+    /** {@code result} for an ok result, {@code error} otherwise. */
+    public static String reply(long id, Result result) {
+        if (!result.ok()) return error(id, result.code(), result.message());
+        JsonObject o = envelope("result");
+        o.addProperty("id", id);
+        o.addProperty("ok", true);
+        Object value = result.value();
+        if (value instanceof Boolean b) o.addProperty("value", b);
+        else if (value instanceof Number n) o.addProperty("value", n);
+        else if (value instanceof List<?> list) o.add("value", new Gson().toJsonTree(list)); // getPosition: [x, y, z]
+        else if (value != null) o.addProperty("value", value.toString());
+        if (result.message() != null) o.addProperty("message", result.message());
+        return o.toString();
+    }
+
+    public static String error(Long id, Result.Code code, String message) {
+        JsonObject o = envelope("error");
+        if (id != null) o.addProperty("id", id);
+        o.addProperty("code", code.name());
+        o.addProperty("message", message);
+        return o.toString();
+    }
+
+    /** A {@code control} message; {@code message} (may be null) tells the player why. */
+    public static String control(String op, long run, String message) {
+        JsonObject o = envelope("control");
+        o.addProperty("op", op);
+        o.addProperty("run", run);
+        if (message != null) o.addProperty("message", message);
+        return o.toString();
+    }
+
+    private static String string(JsonObject msg, String field) throws RobotException {
+        if (msg.get(field) instanceof JsonPrimitive p && p.isString()) return p.getAsString();
+        throw new RobotException(Result.Code.BAD_ARGS, field + " must be a string");
+    }
+
+    private static long number(JsonObject msg, String field) throws RobotException {
+        if (msg.get(field) instanceof JsonPrimitive p && p.isNumber()) {
+            double d = p.getAsDouble();
+            if (d == Math.rint(d) && Math.abs(d) < 0x1p53) return (long) d;
+        }
+        throw new RobotException(Result.Code.BAD_ARGS, field + " must be a whole number");
+    }
+}

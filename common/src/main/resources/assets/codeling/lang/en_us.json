@@ -1,0 +1,9 @@
+{
+  "entity.codeling.robot": "Robot",
+  "gamerule.codeling.free_items": "Codeling robots get items free",
+  "gamerule.codeling.robot_camera": "Who may see through Codeling robots (off, owner, ops)",
+  "key.category.codeling.codeling": "Codeling",
+  "key.codeling.camera": "Robot camera",
+  "key.codeling.camera_follow": "Robot camera: follow",
+  "hud.codeling.camera": "Robot camera: %s (camera key or /robot camera off to return)"
+}
