@@ -6,6 +6,11 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `loops.pause(ms)` and `loops.forever` with the blocks "pause (ms)" and "forever" in the Loops category: wait in
+  one part of a program, and repeat code until the program is stopped (issue #215).
+
 ## [0.0.1] - 2026-11-11
 
 The first public version, a pre-release for testing.

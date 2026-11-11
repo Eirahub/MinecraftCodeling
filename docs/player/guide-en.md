@@ -83,6 +83,25 @@ In Python, names use underscores: `agent.move_to(...)`, `agent.find_nearest(...)
 Each command waits until the robot is done. Then the next one starts.
 To stop a program, press the stop button in the editor, or type `/robot stop` in the game.
 
+## Wait and repeat
+
+"pause (ms)" in the Loops category waits before the next command: 1000 ms is one second. "forever" runs the code
+inside it over and over, for as long as the program runs. This robot stands guard and walks 3 blocks forward and back
+every two seconds:
+
+```
+loops.forever(function () {
+    agent.move(SixDirection.Forward, 3)
+    agent.turn(TurnDirection.Left)
+    agent.turn(TurnDirection.Left)
+    loops.pause(2000)
+})
+```
+
+A pause only holds the code it is in. Code in "run in parallel" and in other "forever" blocks keeps going. A program
+with "forever" never ends by itself: press the stop button in the editor, or type `/robot stop` in the game. Both
+stop it at once, also in the middle of a pause.
+
 ## All robot commands
 
 Directions are relative to the robot: forward, back, left, right, up, down.
