@@ -83,6 +83,13 @@ In Python, names use underscores: `agent.move_to(...)`, `agent.find_nearest(...)
 Each command waits until the robot is done. Then the next one starts.
 To stop a program, press the stop button in the editor, or type `/robot stop` in the game.
 
+## Examples
+
+The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": seven small
+programs, such as a staircase, a tunnel, a room with a fence and a guard patrol. Click one to read what it teaches,
+then press "Open Example" under Blocks, Python or JavaScript. You get a new project of your own with the program in
+it: press Run to try it, and change it as you like. The example itself stays as it was.
+
 ## Wait and repeat
 
 "pause (ms)" in the Loops category waits before the next command: 1000 ms is one second. "forever" runs the code

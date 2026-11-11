@@ -85,6 +85,13 @@ I Python har navnene understrek: `agent.move_to(...)`, `agent.find_nearest(...)`
 Hver kommando venter til roboten er ferdig. Så starter den neste.
 For å stoppe et program trykker du på stoppknappen i editoren, eller skriver `/robot stop` i spillet.
 
+## Eksempler
+
+Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": sju små programmer,
+for eksempel en trapp, en tunnel, et rom med gjerde og en vaktpatrulje. Klikk på ett for å lese hva det lærer deg,
+og trykk så på "Åpne eksempel" under Blokker, Python eller JavaScript. Da får du et nytt prosjekt med programmet i:
+trykk på Kjør-knappen for å prøve det, og endre det som du vil. Selve eksempelet blir som det var.
+
 ## Vent og gjenta
 
 "pause (ms)" i kategorien Løkker venter før neste kommando: 1000 ms er ett sekund. "gjenta for alltid" kjører koden

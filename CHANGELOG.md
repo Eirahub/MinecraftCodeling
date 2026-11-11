@@ -13,6 +13,9 @@ Every user-visible change to Codeling is listed here. The format follows
 - Position math in the Positions category: `distanceTo` (straight line, with decimals), `subtract` and `scale` on a
   position, and `positions.sortByDistance` and `positions.nearest` for a list of positions, so Blocks can pick the
   closest of a radar list without a function argument (issue #219).
+- An Examples gallery on the editor's start page with the seven example programs the editor suite tests, each with a
+  title, one sentence on what it teaches and an icon, in English and Norwegian. Opening one makes a new project in
+  Blocks, JavaScript or Python. It works offline like the rest of the editor (issue #216).
 
 ### Fixed
 
