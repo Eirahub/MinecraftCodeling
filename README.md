@@ -98,6 +98,7 @@ Without the game the relay answers every command with a fake `ok` after 300 ms, 
 
 Fabric: the Loom run configuration "Minecraft Client (:fabric:26.3)" or `./gradlew :fabric:26.3:runClient` (`:fabric:1.21.1:runClient` for 1.21.1).
 NeoForge: the run configuration "NeoForge Client (:neoforge:26.3)" or `./gradlew :neoforge:26.3:runClient` (game folder `neoforge/versions/26.3/run/client/`); a dedicated server is `./gradlew :neoforge:26.3:runServer`. The same with `1.21.1` for Minecraft 1.21.1.
+To test the built jars in a launcher, `scripts/setup-multimc.ps1` sets up a MultiMC instance for every loader and Minecraft version Codeling supports (group "Codeling", Java 21 or 25, the Codeling jar and Fabric API). Close MultiMC, then run it in the MultiMC folder: `& <repo>\scripts\setup-multimc.ps1`. It takes the jars from the build output, from a folder (`-JarDir`) or from a GitHub release (`-Release v0.0.1`); `-Only "*1.21.1*"` limits it to some instances. Running it again updates the jars and keeps the worlds.
 In game, type `/codeling` to open the editor in your browser. If no browser opens (or it cannot read the file, as with a snap or Flatpak browser on Linux), click the link in the chat line to copy the editor link and paste it into the address bar.
 
 ### From the browser to the robot
