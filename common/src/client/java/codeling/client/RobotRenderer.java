@@ -96,7 +96,10 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
         if (state.nameTagAttachment == null) return;
         poseStack.pushPose();
         for (Component line : state.lines) {
+            //? if >=26.2 {
             collector.submitNameTag(poseStack, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, camera);
+            //?} else
+            /*collector.submitNameTag(poseStack, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, state.distanceToCameraSq, camera);*/
             poseStack.translate(0.0F, LINE, 0.0F);
         }
         poseStack.popPose();

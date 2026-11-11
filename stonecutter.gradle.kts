@@ -40,11 +40,13 @@ stonecutter parameters {
         replace("getGameProfile().name()", "getGameProfile().getName()")
         replace(".getMinY()", ".getMinBuildHeight()")
         replace("GuiGraphicsExtractor", "GuiGraphics")
-        // Only these two: replacements run backwards where the condition is false, and 26.1 on has both
-        // EntityTypes and EntityType. RobotGameTests guards its import.
+        replace("ContainerInput", "ClickType")
+    }
+    // EntityTypes came with 26.2. Only these two: replacements run backwards where the condition is false, and from
+    // 26.2 on both EntityTypes and EntityType exist. RobotGameTests guards its import.
+    replacements.string(current.parsed < "26.2") {
         replace("EntityTypes.PIG", "EntityType.PIG")
         replace("EntityTypes.ZOMBIE", "EntityType.ZOMBIE")
-        replace("ContainerInput", "ClickType")
     }
     // Renames that came with 26.3.
     replacements.string(current.parsed < "26.3") { replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE") }
