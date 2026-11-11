@@ -46,7 +46,8 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v6
+      # Stays on v5: v6 bundles a proprietary caching component under Gradle's Terms of Use; upgrade only after the owner accepts them.
+      - uses: gradle/actions/setup-gradle@v5
 
       # :neoforge has its own job below.
       - name: Build core, common and fabric (includes the editor in the jar), JUnit tests and server GameTests (check runs :fabric:runGameTest)
@@ -108,7 +109,7 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Build the NeoForge jar and run the NeoForge GameTests
         run: ./gradlew :neoforge:26.3:build
@@ -151,7 +152,7 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Build the 1.21.1 jar and run its GameTests
         run: ./gradlew :${{ matrix.loader }}:1.21.1:build
@@ -191,7 +192,7 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v5
 
       # The end-to-end client GameTest (#135) runs e2e/editor-run.mjs in headless Chromium through playwright-core.
       - uses: actions/setup-node@v7

@@ -159,7 +159,7 @@ Effort: **S** under two hours, **M** half a day to two days, **L** more than two
   (a `paths` filter or a label).
 
 - **Done (branch `ci/actions-upgrade`).** All actions are on current majors (checkout v7, setup-node v7, setup-java v6,
-  upload-artifact v7, download-artifact v8, setup-gradle v6) in `ci.yml` and `release.yml`. `push` is limited to `main` and
+  upload-artifact v7, download-artifact v8, setup-gradle v5, because v6 needs the owner to accept Gradle's Terms of Use) in `ci.yml` and `release.yml`. `push` is limited to `main` and
   `develop`, and `ci.yml` has a `concurrency` group that cancels superseded runs except on `main`. Running
   `client-gametest` on pull requests is not done.
 

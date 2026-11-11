@@ -67,7 +67,8 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v6
+      # Stays on v5: v6 bundles a proprietary caching component under Gradle's Terms of Use; upgrade only after the owner accepts them.
+      - uses: gradle/actions/setup-gradle@v5
 
       # build also runs the JUnit tests and the server GameTests of each jar (through check).
       - name: Build the four jars
