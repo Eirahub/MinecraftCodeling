@@ -130,6 +130,59 @@ gjør også "gjenta for alltid" og "kjør samtidig". For å stoppe programmet tr
 eller skriver `/robot stop` i spillet. Når du slår på feilsøkingsmodus eller Langsom tilstand, starter programmet fra
 begynnelsen, så roboten gjør kommandoene sine på nytt fra der den står.
 
+## Feil, og å sjekke sitt eget program
+
+Når spillet avviser en robotkommando (for eksempel en flytting på mer enn 64 blokker), kaster kommandoen en feil inn i
+programmet ditt. Hvis ingenting fanger den, stopper programmet, robotloggen viser kommandoen og feilen, og en
+"Robot error"-boks sier hva som gikk galt. I feilsøkingsmodus markerer editoren også blokken eller linjen den kom fra.
+
+I JavaScript og Python kan programmet fange feilen og fortsette, for eksempel ved å gå hjem i stedet:
+
+```
+try {
+    agent.move(SixDirection.Forward, 100)
+} catch (e) {
+    let error: string = e
+    console.log("klarte ikke: " + error)
+    agent.goHome()
+}
+```
+
+```python
+try:
+    agent.move(SixDirection.FORWARD, 100)
+except:
+    print("klarte ikke å flytte")
+    agent.go_home()
+```
+
+I JavaScript er feilen en tekst: koden, et kolon og meldingen, som `OUT_OF_RANGE: blocks must be 1 to 64`. Legg den
+først i en `string`-variabel, som over, for å bruke den som tekst (for eksempel `error.indexOf("OUT_OF_RANGE") == 0`).
+I Python skriver du bare `except:`. Python i editoren kan ikke gi feilen et navn (`except Exception as e` kompilerer
+ikke), men robotloggen viser den. Blokker har ingen "prøv"-blokk, så å fange feil er for JavaScript og Python.
+
+Feilkodene et program kan fange:
+
+| Kode | Hvorfor |
+|---|---|
+| `BAD_ARGS` | Kommandoen eller en verdi er ugyldig, for eksempel en ting som ikke finnes i denne Minecraft-versjonen. |
+| `NO_PERMISSION` | Du har ikke lov her, for eksempel "robot gi" uten kreativ modus, eller robotkameraet når serveren har slått det av. |
+| `RATE_LIMITED` | Roboten har for mange kommandoer som venter. |
+| `PROTECTED` | Satt av til beskyttede områder. I dag svarer spillet false i stedet (handlingen gjorde ingenting). |
+| `UNLOADED` | Roboten eller blokken er i en del av verden som ikke er lastet, eller roboten er ikke laget. |
+| `OUT_OF_RANGE` | Et tall er for stort eller for lite, for eksempel en flytting på mer enn 64 blokker eller en plass over 27. |
+
+Disse avslutter programmet og kan ikke fanges: stoppknappen, `/robot stop`, "Avslutt feilsøkingsmodus", tapt kontakt
+med spillet, `STOPPED` (spillet stoppet roboten) og `VERSION` (editoren er eldre enn spillet; last den inn på nytt).
+
+Programmet kan også sjekke sitt eget arbeid. "sjekk ... ellers stopp med" i kategorien Logikk stopper programmet med
+meldingen din når betingelsen er usann, og "stopp med feil" stopper det med en gang. I JavaScript er de
+`control.assert(betingelse, melding)` (blokken skriver den som `control.check`) og `control.fail(melding)`, og
+`throw "melding"` gjør det samme. I Python virker `assert betingelse, "melding"` og `raise ValueError("melding")`.
+Programmet stopper, og en "Program error"-boks viser meldingen. Feilsøkingsmodus markerer blokken eller linjen den kom
+fra. En `try`/`catch` (eller `try`/`except`) rundt dem fanger dem som en robotfeil. Eksempelet "Rom og gjerde" sjekker
+hvor glasslinjen ender.
+
 ## Alle robotkommandoene
 
 Retningene gjelder fra robotens side: fremover, bakover, venstre, høyre, opp, ned.

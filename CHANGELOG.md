@@ -20,6 +20,14 @@ Every user-visible change to Codeling is listed here. The format follows
   Python, the running block or line highlighted, the values of the variables while the program is stopped, and
   Slow-Mo, which highlights each block as it runs. A robot command always finishes before the program stops.
   "Exit Debug Mode" stops the program; pxt would have run it again from the start (issue #217).
+- A robot command the game refuses throws an error into the program, the text `CODE: message`, so JavaScript
+  `try`/`catch` and Python `try`/`except` can catch it and go on. Not caught, it stops the program with the "Robot
+  error" dialog as before, and the robot log names the command. Stop, `/robot stop`, a lost connection, `STOPPED` and
+  `VERSION` still end the program and cannot be caught. The player guide lists the error codes (issue #218).
+- `control.assert(condition, message)` and `control.fail(message)`, with the blocks "check ... or stop with" and
+  "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
+  the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
+  it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
 
 ### Fixed
 
