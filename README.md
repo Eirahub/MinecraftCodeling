@@ -78,9 +78,10 @@ The task runs `npm ci` in `e2e/`, then `e2e/editor-suite.mjs`, which starts the 
 - Every block in the toolbox: the visible `blockId`s are read from `target/libs/core/sims.d.ts` and `ns.ts`, and each needs a test program in `e2e/programs/blocks.mjs` (the suite fails when one is missing). All programs together go JavaScript to Blocks to Python to Blocks to JavaScript; it fails on a grey block, on text that comes back different (a lost or changed argument), and on a block the programs do not make.
 - Example programs in MakeCode style (`e2e/programs/examples.mjs`, written for this repo, issue #31): the same round trip, then Run in the simulator, and the robot log must match line by line (the standalone relay's fake answers are fixed).
 - Old saved projects (`e2e/fixtures/`): a `.blocks` file with what an older editor saved and a `.ts` file with the JavaScript it must turn into. The suite packs them as a project saved by editor version 0.0.1 and drops it on the editor, as a player would import it.
+- Opening through the launcher file (issue #191): the suite opens the one-time page that `/codeling` opens (the relay's `--print-launcher`) as a `file:` URL, and it must land on the editor with this run's token stored.
 - Branding: "Codeling" shows once in the header and "MakeCode" and "Microsoft" not at all, the About box says "pxt editor" and not "Microsoft MakeCode", and a new project opens without the README side panel. Screenshots of the header, the About box and the new project go to `fabric/versions/26.3/build/editor-test/` (`CODELING_SHOTS` for another folder).
 
-The last line counts what passed: `editor suite: 90 blocks, 6 example programs, 1 fixtures, 127 checks, 0 failed`. The task fails when a check fails; each failure is a `FAIL` line naming the block, program or file.
+The last line counts what passed: `editor suite: 90 blocks, 6 example programs, 1 fixtures, 128 checks, 0 failed`. The task fails when a check fails; each failure is a `FAIL` line naming the block, program or file.
 A new block needs one line in `e2e/programs/blocks.mjs`, written the way the editor formats it, with values that differ from the block's defaults.
 
 ## Run without Minecraft
@@ -97,7 +98,7 @@ Without the game the relay answers every command with a fake `ok` after 300 ms, 
 
 Fabric: the Loom run configuration "Minecraft Client (:fabric:26.3)" or `./gradlew :fabric:26.3:runClient` (`:fabric:1.21.1:runClient` for 1.21.1).
 NeoForge: the run configuration "NeoForge Client (:neoforge:26.3)" or `./gradlew :neoforge:26.3:runClient` (game folder `neoforge/versions/26.3/run/client/`); a dedicated server is `./gradlew :neoforge:26.3:runServer`. The same with `1.21.1` for Minecraft 1.21.1.
-In game, type `/codeling` to open the editor in your browser.
+In game, type `/codeling` to open the editor in your browser. If no browser opens (or it cannot read the file, as with a snap or Flatpak browser on Linux), click the link in the chat line to copy the editor link and paste it into the address bar.
 
 ### From the browser to the robot
 

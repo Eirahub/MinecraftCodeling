@@ -15,6 +15,12 @@ Every user-visible change to Codeling is listed here. The format follows
   packaged editor.
 - A release workflow that builds the four jars from a `v*` tag and publishes them with SHA-256 sums.
 
+### Security
+
+- `/codeling` no longer puts the editor link with its token on a command line, where other users on the same computer
+  could read it (issue #191). It opens a one-time launcher file that only you can read, deleted after a minute, and the
+  chat line has a link that copies the editor link for browsers that cannot open the file.
+
 ## [0.0.1] - unreleased
 
 The first public version, not tagged or released yet. At release the lines under Unreleased move into this section

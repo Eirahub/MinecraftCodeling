@@ -171,4 +171,4 @@ A change to how old Blocks files load needs a patch rule in `target/editor/exten
 
 - Never commit usernames, passwords, API keys, tokens or private keys, not even local dev values.
 - Configuration that needs a secret reads it from the environment or a `.env` file (gitignored); only an `.env.example` with empty placeholders is checked in. Release tokens and signing keys belong in GitHub Actions secrets.
-- The editor token is made at runtime with `SecureRandom` and must never be logged or written to a file. Keep it out of process arguments too; issue #191 tracks the one place that still passes it in argv (opening the browser on Linux and macOS).
+- The editor token is made at runtime with `SecureRandom` and must never be logged or written to a file. Keep it out of process arguments and environment variables too: `/codeling` opens a one-time launcher file that only the user can read, never the URL itself (`EditorLauncher`, issue #191).
