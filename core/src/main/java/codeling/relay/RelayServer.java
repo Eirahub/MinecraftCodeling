@@ -757,6 +757,13 @@ public final class RelayServer implements AutoCloseable {
                 write(Protocol.error(null, Result.Code.BAD_ARGS, "cmd needs an id"));
                 return;
             }
+            // For the editor suite (issue #218): say "refuse <CODE>" is refused with that code, as the game refuses a command.
+            String said = msg.get("args") instanceof JsonArray a && a.size() == 1 && a.get(0) instanceof JsonPrimitive p && p.isString() ? p.getAsString() : "";
+            Result.Code refusal = java.util.Arrays.stream(Result.Code.values()).filter(c -> said.equals("refuse " + c.name())).findFirst().orElse(null);
+            if (refusal != null && msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("agent.say")) {
+                schedule(() -> write(Protocol.error(id, refusal, "refused on purpose by the standalone relay")), STUB_ACK_MS);
+                return;
+            }
             // The second argument (max or length) as a number from 0 to MAX_MEASURE, for the measuring answers.
             int second = msg.get("args") instanceof JsonArray a && a.size() > 1 && a.get(1) instanceof JsonPrimitive p && p.isNumber()
                     ? (int) Math.max(0, Math.min((long) p.getAsDouble(), RobotCommand.MAX_MEASURE)) : 0;
