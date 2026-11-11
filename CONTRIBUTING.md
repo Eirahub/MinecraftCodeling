@@ -91,7 +91,7 @@ Areas in use: `Core`, `Editor`, `Minecraft mod`, `NeoForge loader`, `Build`, `CI
 
 ### What CI checks
 
-`.github/workflows/ci.yml` runs on every push, pull request and manual run:
+`.github/workflows/ci.yml` runs on every pull request, on pushes to `main` and `develop`, and on manual runs (a newer run for the same pull request or branch cancels the older one, except on `main`):
 
 1. `build` job: `scripts/check-text.sh`, the pxt target build (twice, then `staticpkg`), `./gradlew :core:build :common:26.3:build :fabric:26.3:build` (JUnit, server GameTests, import guards, jar names), `:core:relayCompatTest` and `:fabric:26.3:editorTest`.
 2. `neoforge` job: `./gradlew :neoforge:26.3:build` (with the NeoForge smoke GameTests).

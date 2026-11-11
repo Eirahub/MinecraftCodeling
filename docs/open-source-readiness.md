@@ -158,6 +158,11 @@ Effort: **S** under two hours, **M** half a day to two days, **L** more than two
   `client-gametest` on pull requests that touch `common/src/client/`, `fabric/src/client/` or `core/.../relay/`
   (a `paths` filter or a label).
 
+- **Done (branch `ci/actions-upgrade`).** All actions are on current majors (checkout v7, setup-node v7, setup-java v6,
+  upload-artifact v7, download-artifact v8, setup-gradle v6) in `ci.yml` and `release.yml`. `push` is limited to `main` and
+  `develop`, and `ci.yml` has a `concurrency` group that cancels superseded runs except on `main`. Running
+  `client-gametest` on pull requests is not done.
+
 ### 9. Dependabot or Renovate (Should, S)
 
 - **Current state.** No `.github/dependabot.yml` and no Renovate config. Dependabot security updates are `disabled`.

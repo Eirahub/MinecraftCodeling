@@ -2,8 +2,14 @@ name: ci
 
 on:
   push:
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
+
+# A newer run for the same PR or branch replaces the old one; runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -12,12 +18,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Text checks (em dash, CRLF in pxt API files)
         run: bash scripts/check-text.sh
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -35,12 +41,12 @@ jobs:
           npm run staticpkg
 
       # The Gradle daemon provisions Java 25 itself (gradle/gradle-daemon-jvm.properties), but the wrapper needs a JDK to start.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # :neoforge has its own job below.
       - name: Build core, common and fabric (includes the editor in the jar), JUnit tests and server GameTests (check runs :fabric:runGameTest)
@@ -61,7 +67,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
@@ -72,13 +78,13 @@ jobs:
             fabric/versions/26.3/build/run/gameTest/logs/
             fabric/versions/26.3/build/editor-test/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codeling-jar
           path: fabric/versions/26.3/build/libs/*.jar
 
       - name: Upload packaged editor (for the NeoForge and client GameTests jobs)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: editor-packaged
           path: target/built/packaged/
@@ -90,26 +96,26 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: editor-packaged
           path: target/built/packaged/
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build the NeoForge jar and run the NeoForge GameTests
         run: ./gradlew :neoforge:26.3:build
 
       - name: Upload NeoForge GameTest report and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: neoforge-test-reports
           path: |
@@ -117,7 +123,7 @@ jobs:
             neoforge/versions/26.3/run/gametest/logs/
             neoforge/versions/26.3/run/gametest/crash-reports/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codeling-neoforge-jar
           path: neoforge/versions/26.3/build/libs/*.jar
@@ -133,26 +139,26 @@ jobs:
       matrix:
         loader: [fabric, neoforge]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: editor-packaged
           path: target/built/packaged/
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build the 1.21.1 jar and run its GameTests
         run: ./gradlew :${{ matrix.loader }}:1.21.1:build
 
       - name: Upload 1.21.1 test reports and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.loader }}-1.21.1-test-reports
           path: |
@@ -160,7 +166,7 @@ jobs:
             ${{ matrix.loader }}/versions/1.21.1/build/run/gameTest/logs/
             ${{ matrix.loader }}/versions/1.21.1/run/gametest/logs/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codeling-${{ matrix.loader }}-1.21.1-jar
           path: ${{ matrix.loader }}/versions/1.21.1/build/libs/*.jar
@@ -173,22 +179,22 @@ jobs:
     # A client that cannot open a window hangs instead of exiting; GitHub's default timeout is 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: editor-packaged
           path: target/built/packaged/
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # The end-to-end client GameTest (#135) runs e2e/editor-run.mjs in headless Chromium through playwright-core.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -213,7 +219,7 @@ jobs:
       # The run directory path must match #134's run config; it holds logs and screenshots.
       - name: Upload client test reports and screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: client-gametest-reports
           path: |
