@@ -170,6 +170,8 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # A client that cannot open a window hangs instead of exiting; GitHub's default timeout is 6 hours.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -199,11 +201,12 @@ jobs:
           cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell
 
       # The task name must match what issue #134 creates (fabric-client-gametest-api-v1, task runClientGameTest).
+      # xvfb-run defaults to an 8-bit screen, which has no GLX visual for OpenGL; 24-bit plus Mesa gives software OpenGL.
       - name: Client GameTests under a virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb
-          xvfb-run -a ./gradlew :fabric:26.3:runClientGameTest
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:26.3:runClientGameTest
 
       # The run directory path must match #134's run config; it holds logs and screenshots.
       - name: Upload client test reports and screenshots
