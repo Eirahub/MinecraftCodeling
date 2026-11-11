@@ -201,12 +201,14 @@ jobs:
           cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell
 
       # The task name must match what issue #134 creates (fabric-client-gametest-api-v1, task runClientGameTest).
-      # xvfb-run defaults to an 8-bit screen, which has no GLX visual for OpenGL; 24-bit plus Mesa gives software OpenGL.
+      # With CI set, Loom starts the client under its own xvfb-run. Xvfb's GLX has no sRGB-capable visual, which the
+      # 26.3 OpenGL backend asks for, so the client falls back to Vulkan; mesa-vulkan-drivers gives it lavapipe
+      # (Fabric API's CI does the same). Without a Vulkan driver both backends fail and the client hangs.
       - name: Client GameTests under a virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri
-          xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew :fabric:26.3:runClientGameTest
+          sudo apt-get install -y xvfb mesa-vulkan-drivers
+          ./gradlew :fabric:26.3:runClientGameTest
 
       # The run directory path must match #134's run config; it holds logs and screenshots.
       - name: Upload client test reports and screenshots
