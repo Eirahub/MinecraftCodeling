@@ -162,7 +162,7 @@ namespace pxsim.positions {
     //% weight=59
     export async function sortByDistanceAsync(list: Position[], from: Position): Promise<Position[]> {
         const sorted = (await distances(list, from)).sort((a, b) => a.d - b.d).map(e => e.p);
-        return RefCollection.fromAny(sorted) as any;
+        return RefCollection.fromAny(sorted, false) as any;
     }
 
     /**
@@ -453,7 +453,8 @@ namespace pxsim.agent {
         const v: number[] = await call("agent.radar", [kind, radius]);
         const found: Position[] = [];
         for (let i = 0; i + 2 < v.length; i += 3) found.push(new Position(v[i], v[i + 1], v[i + 2]));
-        return RefCollection.fromAny(found) as any;
+        // Not deep: a deep copy turns each Position into a plain record without its methods (toString, toWorld).
+        return RefCollection.fromAny(found, false) as any;
     }
 
     /**
@@ -610,7 +611,7 @@ namespace pxsim.agent {
     //% group="Measuring" weight=67
     export async function findBoundsAsync(max: number): Promise<Position[]> {
         const v: number[] = await call("agent.findBounds", [max]);
-        return v ? RefCollection.fromAny([new Position(v[0], v[1], v[2]), new Position(v[3], v[4], v[5])]) as any : null;
+        return v ? RefCollection.fromAny([new Position(v[0], v[1], v[2]), new Position(v[3], v[4], v[5])], false) as any : null;
     }
 
     /**
