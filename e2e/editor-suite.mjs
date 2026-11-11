@@ -2,12 +2,14 @@
 // Run it with ./gradlew :fabric:26.3:editorTest (not part of `build`). It checks:
 //   1. every toolbox block from target/libs/core: JavaScript to Blocks to Python to Blocks to JavaScript, no grey
 //      blocks, no changed or lost arguments, and a test program for every block (programs/blocks.mjs);
-//   2. small MakeCode-style example programs (programs/examples/) round-trip the same way and run unchanged in the
+//   2. small MakeCode-style example programs (programs/examples.mjs) round-trip the same way and run unchanged in the
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
 //   5. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
-//   6. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
+//   6. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
+//      with no request to another host;
+//   7. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
 //      project opens without the README side panel. Screenshots go to CODELING_SHOTS (default fabric/versions/26.3/build/editor-test).
 // The relay token stays in this process (lib/relay.mjs). Output: progress lines, then one summary line.
 import { chromium } from "playwright-core";
@@ -17,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { startRelay, URL_PATTERN } from "./lib/relay.mjs";
 import * as editor from "./lib/editor.mjs";
 import { BLOCK_PROGRAMS } from "./programs/blocks.mjs";
-import { EXAMPLES } from "./programs/examples.mjs";
+import { EXAMPLES, galleryCards } from "./programs/examples.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const core = join(here, "..", "target", "libs", "core");
@@ -230,6 +232,58 @@ async function fixturesSection(page) {
     }
 }
 
+// Issue #216: the home screen's Examples gallery has one card per tested program (EXAMPLES reads its programs from the
+// gallery's pages), each card opens a project with that program, the Norwegian cards show with ?lang=nb, and no
+// request leaves the relay. Each language gets its own context: pxt keeps the chosen language in the browser.
+async function gallerySection(browser, url) {
+    const cards = galleryCards();
+    const nbCards = galleryCards("_locales/nb/examples.md");
+    const pages = EXAMPLES.map(e => `/examples/${e.page}`);
+    check(JSON.stringify(cards.map(c => c.url)) === JSON.stringify(pages), "gallery",
+        `docs/examples.md cards ${JSON.stringify(cards.map(c => c.url))}, tested examples ${JSON.stringify(pages)}`);
+    check(JSON.stringify(nbCards.map(c => c.url)) === JSON.stringify(pages), "gallery nb",
+        `docs/_locales/nb/examples.md cards ${JSON.stringify(nbCards.map(c => c.url))}, tested examples ${JSON.stringify(pages)}`);
+    const origin = new URL(url).origin;
+    const foreign = [];
+    const home = async (lang, shot) => {
+        const context = await browser.newContext({ locale: "en-US", viewport: { width: 1280, height: 800 } });
+        context.on("request", r => { if (!/^(data|blob):/.test(r.url()) && new URL(r.url()).origin !== origin) foreign.push(r.url()); });
+        const page = await context.newPage();
+        page.setDefaultTimeout(60000);
+        await page.goto(lang ? url.replace("/#", `/?lang=${lang}#`) : url);
+        const shown = page.locator(".gallerysegment:not(.mystuff-segment) .ui.card");
+        await shown.nth(cards.length - 1).waitFor();
+        await page.waitForTimeout(1000);
+        await page.screenshot({ path: join(shots, shot) });
+        return { context, page, titles: (await shown.locator(".header").allInnerTexts()).map(t => t.trim()) };
+    };
+
+    step("examples gallery: one card per tested program, each opens its program");
+    const en = await home(null, "gallery.png");
+    check(JSON.stringify(en.titles) === JSON.stringify(cards.map(c => c.name)), "gallery",
+        `cards on the home screen ${JSON.stringify(en.titles)}, expected ${JSON.stringify(cards.map(c => c.name))}`);
+    for (const [i, example] of EXAMPLES.entries()) {
+        const page = en.page;
+        if (i > 0) {
+            await page.goto("about:blank");
+            await page.goto(url);
+        }
+        await page.locator(`.gallerysegment:not(.mystuff-segment) .ui.card[aria-label="${cards[i].name}"]`).click();
+        await page.locator("button:visible:has-text('Open Example')").first().click();
+        await page.locator(".blocks-menuitem.selected").first().waitFor();
+        const js = await editor.toJavaScript(page);
+        check(js.trim() === example.js.trim(), `gallery ${example.page}`, changedLines(example.js, js));
+    }
+    await en.context.close();
+
+    step("examples gallery in Norwegian");
+    const nb = await home("nb", "gallery-nb.png");
+    check(JSON.stringify(nb.titles) === JSON.stringify(nbCards.map(c => c.name)), "gallery nb",
+        `cards with ?lang=nb ${JSON.stringify(nb.titles)}, expected ${JSON.stringify(nbCards.map(c => c.name))}`);
+    await nb.context.close();
+    check(foreign.length === 0, "gallery", `requests to other hosts: ${[...new Set(foreign)].join(", ")}`);
+}
+
 // Issue #16 and commit f0cdd02: our name once in the header, pxt (not Microsoft MakeCode) in About, no README panel.
 async function brandingSection(page) {
     await page.goto("about:blank");
@@ -283,6 +337,7 @@ async function main() {
         await timingSection(page);
         await positionMathSection(page);
         await fixturesSection(page);
+        await gallerySection(browser, relay.url);
         step("header, About box, side panel");
         await brandingSection(page);
     } catch (e) {
