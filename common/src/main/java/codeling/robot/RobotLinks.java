@@ -49,8 +49,13 @@ public final class RobotLinks extends SavedData {
     //? if >=1.21.5 {
     // null DataFixTypes: no data fixer for mod data. Fabric's SavedDataStorageMixin accepts it, and NeoForge patches
     // SavedDataType and SavedDataStorage to skip the fixer when it is null (checked in 26.3.0.102, issue #187).
+    //? if >=26.1 {
     private static final SavedDataType<RobotLinks> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath("codeling", "robots"), RobotLinks::new, CODEC, null);
+    //?} else {
+    /*// Before 26.1 the id is a file name, as before 1.21.5: data/codeling_robots.dat.
+    private static final SavedDataType<RobotLinks> TYPE = new SavedDataType<>("codeling_robots", RobotLinks::new, CODEC, null);
+    *///?}
     //?} else {
     /*// Before 1.21.5 saved data is a CompoundTag under a plain file name: data/codeling_robots.dat (26.x:
     // data/codeling/robots.dat). The fields inside are the same, written by the same CODEC. null DataFixTypes as above.
@@ -96,10 +101,13 @@ public final class RobotLinks extends SavedData {
     }
 
     public static RobotLinks get(MinecraftServer server) {
-        //? if >=1.21.5 {
+        //? if >=26.1 {
         return server.getDataStorage().computeIfAbsent(TYPE);
-        //?} else
-        /*return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);*/
+        //?} else if >=1.21.5 {
+        /*return server.overworld().getDataStorage().computeIfAbsent(TYPE);
+        *///?} else {
+        /*return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);
+        *///?}
     }
 
     /** The owner's default robot. */

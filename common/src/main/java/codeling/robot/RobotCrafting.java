@@ -11,7 +11,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.SimpleContainer;
-//? if >=26.1 {
+//? if >=1.21.2 {
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.StackedItemContents;
 //?} else {
@@ -31,7 +31,7 @@ import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
-//? if >=26.1
+//? if >=1.21.2
 import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -86,12 +86,12 @@ final class RobotCrafting {
      * each call cost about a millisecond, so 20 crafting robots used most of a tick (issue #138).
      */
     private static List<Recipe<?>> recipesFor(ServerLevel level, Item item) {
-        //? if >=26.1 {
+        //? if >=1.21.2 {
         RecipeManager manager = level.recipeAccess();
         //?} else
         /*RecipeManager manager = level.getRecipeManager();*/
         if (manager != indexed) {
-            //? if >=26.1 {
+            //? if >=1.21.2 {
             Map<Item, List<Recipe<?>>> map = new HashMap<>();
             manager.getRecipes().stream()
                     .sorted(Comparator.comparing(h -> h.id().identifier().toString()))
@@ -126,7 +126,7 @@ final class RobotCrafting {
     // One craft on the copy: take one of each ingredient, assemble, put output and remainders back. On any failure the
     // copy is restored and 0 is answered.
     private static int once(ServerLevel level, SimpleContainer sim, Recipe<?> recipe, Item item) {
-        //? if >=26.1 {
+        //? if >=1.21.2 {
         StackedItemContents available = new StackedItemContents();
         for (int i = 0; i < sim.getContainerSize(); i++) available.accountSimpleStack(sim.getItem(i));
         List<Holder<Item>> picked = new ArrayList<>();
@@ -175,7 +175,7 @@ final class RobotCrafting {
     private static ItemStack takeOne(SimpleContainer sim, Holder<Item> item) {
         for (int i = 0; i < sim.getContainerSize(); i++) {
             ItemStack stack = sim.getItem(i);
-            //? if >=26.1 {
+            //? if >=1.21.2 {
             if (stack.is(item) && Inventory.isUsableForCrafting(stack)) return stack.split(1);
             //?} else {
             /*// The stacks 1.21.1's StackedContents.accountSimpleStack counts.
@@ -190,7 +190,7 @@ final class RobotCrafting {
     private static CraftingInput input(CraftingRecipe recipe, List<ItemStack> taken) {
         if (recipe instanceof ShapedRecipe shaped) {
             List<ItemStack> grid = new ArrayList<>();
-            //? if >=26.1 {
+            //? if >=1.21.2 {
             for (int index : recipe.placementInfo().slotsToIngredientIndex()) grid.add(index < 0 ? ItemStack.EMPTY : taken.get(index));
             //?} else {
             /*// The pattern's ingredients, row by row; the picked items follow the non-empty ones in order.
@@ -207,7 +207,7 @@ final class RobotCrafting {
     // The player's own 2x2 grid.
     private static boolean fitsTwoByTwo(Recipe<?> recipe) {
         if (recipe instanceof ShapedRecipe shaped) return shaped.getWidth() <= 2 && shaped.getHeight() <= 2;
-        //? if >=26.1 {
+        //? if >=1.21.2 {
         return !(recipe instanceof CraftingRecipe) || recipe.placementInfo().ingredients().size() <= 4;
         //?} else
         /*return !(recipe instanceof CraftingRecipe) || recipe.getIngredients().stream().filter(i -> !i.isEmpty()).count() <= 4;*/

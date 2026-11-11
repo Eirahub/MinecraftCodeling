@@ -26,9 +26,9 @@ include("core")
 // the module's build.gradle.kts. 26.3 is the active version: its code is what src/ holds and what git stores.
 stonecutter {
     create(rootProject) {
-        branch("common") { versions("26.3", "26.2", "26.1.2", "1.21.1") }
-        branch("fabric") { versions("26.3", "26.2", "26.1.2", "1.21.1") }
-        branch("neoforge") { versions("26.3", "26.2", "26.1.2", "1.21.1") }
+        branch("common") { versions("26.3", "26.2", "26.1.2", "1.21.11", "1.21.1") }
+        branch("fabric") { versions("26.3", "26.2", "26.1.2", "1.21.11", "1.21.1") }
+        branch("neoforge") { versions("26.3", "26.2", "26.1.2", "1.21.11", "1.21.1") }
         vcsVersion = "26.3"
     }
 }

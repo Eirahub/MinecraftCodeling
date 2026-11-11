@@ -1,6 +1,6 @@
 # Codeling
 
-A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
+A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 and 1.21.11 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
 The editor is a custom pxt target that runs in your browser and is served by the mod on `127.0.0.1`.
 Each robot command goes over a local WebSocket to the mod.
 
@@ -41,7 +41,7 @@ cd ..
 ./gradlew build
 ```
 
-Gradle runs on Java 25 and downloads it on first use (`gradle/gradle-daemon-jvm.properties` and the foojay toolchain resolver), so an installed Java 21 is enough to start the wrapper. It also downloads Java 21 for the 1.21.1 projects.
+Gradle runs on Java 25 and downloads it on first use (`gradle/gradle-daemon-jvm.properties` and the foojay toolchain resolver), so an installed Java 21 is enough to start the wrapper. It also downloads Java 21 for the 1.21.x projects.
 After changing `target/sim/api.ts`, run `npm run build` twice: the first run regenerates `sims.d.ts` but bundles the old API info (CI always builds twice).
 Build the target first; otherwise the jars have no editor. One build makes a Fabric and a NeoForge jar for every Minecraft version:
 
@@ -53,6 +53,8 @@ Build the target first; otherwise the jars have no editor. One build makes a Fab
 | 26.2 | NeoForge | `./gradlew :neoforge:26.2:build` | `neoforge/versions/26.2/build/libs/codeling-neoforge-26.2-<version>.jar` |
 | 26.1 to 26.1.2 | Fabric | `./gradlew :fabric:26.1.2:build` | `fabric/versions/26.1.2/build/libs/codeling-fabric-26.1.2-<version>.jar` |
 | 26.1 to 26.1.2 | NeoForge | `./gradlew :neoforge:26.1.2:build` | `neoforge/versions/26.1.2/build/libs/codeling-neoforge-26.1.2-<version>.jar` |
+| 1.21.11 | Fabric | `./gradlew :fabric:1.21.11:build` | `fabric/versions/1.21.11/build/libs/codeling-fabric-1.21.11-<version>.jar` |
+| 1.21.11 | NeoForge | `./gradlew :neoforge:1.21.11:build` | `neoforge/versions/1.21.11/build/libs/codeling-neoforge-1.21.11-<version>.jar` |
 | 1.21.1 | Fabric (Fabric API 0.116) | `./gradlew :fabric:1.21.1:build` | `fabric/versions/1.21.1/build/libs/codeling-fabric-1.21.1-<version>.jar` |
 | 1.21.1 | NeoForge 21.1 | `./gradlew :neoforge:1.21.1:build` | `neoforge/versions/1.21.1/build/libs/codeling-neoforge-1.21.1-<version>.jar` |
 

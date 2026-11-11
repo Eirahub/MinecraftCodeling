@@ -8,7 +8,7 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ### Added
 
-- Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25).
+- Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11 (Java 21).
 
 ## [0.0.1] - 2026-11-11
 

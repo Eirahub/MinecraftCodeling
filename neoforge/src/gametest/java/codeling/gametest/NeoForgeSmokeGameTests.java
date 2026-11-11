@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
-//? if >=26.1 {
+//? if >=1.21.5 {
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -44,7 +44,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
-//? if >=26.1
+//? if >=1.21.5
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -63,11 +63,11 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.FakePlayer;
-//? if >=26.1
+//? if >=1.21.5
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
-//? if >=26.1
+//? if >=1.21.5
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -77,7 +77,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
  * codeling:gametest_empty is 8x8x8 air, like Fabric's fabric-gametest-api-v1:empty. Before 1.21.5 (issue #189) the
  * tests come from a @GameTestGenerator in a @GameTestHolder instead of the test registries.
  */
-//? if <26.1
+//? if <1.21.5
 /*@GameTestHolder(Codeling.MOD_ID)*/
 @EventBusSubscriber(modid = Codeling.MOD_ID)
 public final class NeoForgeSmokeGameTests {
@@ -102,7 +102,7 @@ public final class NeoForgeSmokeGameTests {
         return Identifier.fromNamespaceAndPath(Codeling.MOD_ID, path);
     }
 
-    //? if >=26.1 {
+    //? if >=1.21.5 {
     @SubscribeEvent
     public static void registerFunctions(RegisterEvent event) {
         TESTS.forEach((name, test) -> event.register(Registries.TEST_FUNCTION, id(name), () -> test));
@@ -110,7 +110,7 @@ public final class NeoForgeSmokeGameTests {
 
     @SubscribeEvent
     public static void registerTests(RegisterGameTestsEvent event) {
-        Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(id("smoke"));
+        var environment = event.registerEnvironment(id("smoke"));
         TESTS.keySet().forEach(name -> event.registerTest(id(name), new FunctionGameTestInstance(
                 ResourceKey.create(Registries.TEST_FUNCTION, id(name)), new TestData<>(environment, STRUCTURE, 100, 0, true))));
     }

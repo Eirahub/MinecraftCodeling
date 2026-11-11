@@ -9,7 +9,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-//? if >=1.21.2
+//? if >=26.3
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -24,7 +24,7 @@ import net.minecraft.util.Mth;
  */
 public final class RobotCameraClient {
     /** Unbound by default; set it in Controls under Codeling. The loader registers both keys. */
-    //? if >=26.1 {
+    //? if >=1.21.9 {
     public static final KeyMapping KEY = new KeyMapping("key.codeling.camera",
             InputConstants.UNKNOWN.getValue(), KeyMapping.Category.register(Identifier.fromNamespaceAndPath(Codeling.MOD_ID, "codeling")));
     //?} else {
@@ -94,13 +94,12 @@ public final class RobotCameraClient {
         }
     }
 
-    //? if >=1.21.2 {
+    //? if >=26.3 {
     /**
      * End of level extraction: the first-person hand and the fire, water and portal overlays belong to the player.
      * Before 26.3 the level render state has no player part; GameRendererMixin hides the hand there.
      */
     public static void extracted(LevelRenderState state) {
-        //? if >=26.3
         if (robot != null) state.playerRenderState.reset();
     }
     //?}

@@ -11,7 +11,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 //? if >=26.3 {
 import com.mojang.blaze3d.Blaze3D;
-//?} else if >=26.1 {
+//?} else if >=1.21.11 {
 /*import net.minecraft.util.Util;
 *///?} else
 /*import net.minecraft.Util;*/
@@ -98,7 +98,7 @@ public final class CodelingClient {
         }
         Minecraft client = Minecraft.getInstance();
         // The click copies the link; the chat log gets only the visible text.
-        //? if >=26.1 {
+        //? if >=1.21.5 {
         Component copy = Component.literal("[copy the editor link]")
                 .withStyle(s -> s.withClickEvent(new ClickEvent.CopyToClipboard(relay.editorUrl())).withUnderlined(true));
         //?} else {

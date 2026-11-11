@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+//? if >=26.1
 import net.minecraft.client.renderer.block.BlockModelResolver;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -44,6 +45,7 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
     private static final double OWNER_DISTANCE_SQ = 8 * 8;
     /** One text line over the robot, as vanilla stacks a score under a name. */
     private static final float LINE = 9.0F * 1.15F * 0.025F;
+    //? if >=26.1
     private final BlockModelResolver blockModelResolver;
 
     /** The text lines over the robot, bottom first. */
@@ -53,6 +55,7 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
 
     public RobotRenderer(EntityRendererProvider.Context context) {
         super(context);
+        //? if >=26.1
         this.blockModelResolver = context.getBlockModelResolver();
     }
 
@@ -64,9 +67,12 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
     @Override
     public void extractRenderState(RobotEntity entity, State state, float partialTicks) {
         super.extractRenderState(entity, state, partialTicks);
+        //? if >=26.1 {
         blockModelResolver.update(state.blockState,
                 Blocks.OBSERVER.defaultBlockState().setValue(ObserverBlock.FACING, entity.getDirection()),
                 TntRenderer.BLOCK_DISPLAY_CONTEXT);
+        //?} else
+        /*state.blockState = Blocks.OBSERVER.defaultBlockState().setValue(ObserverBlock.FACING, entity.getDirection());*/
         state.lines.clear();
         if (state.nameTag == null) return; // nothing to show, or too far away
         // agent.say: while the robot talks, its bubble takes the place of the tag (issue #80).
@@ -92,7 +98,10 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
     }
 
     @Override
+    //? if >=26.1 {
     protected void submitNameDisplay(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
+    //?} else
+    /*protected void submitNameTag(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {*/
         if (state.nameTagAttachment == null) return;
         poseStack.pushPose();
         for (Component line : state.lines) {
@@ -110,7 +119,10 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
         poseStack.pushPose();
         poseStack.scale(SCALE, SCALE, SCALE);
         poseStack.translate(-0.5F, 0.0F, -0.5F);
+        //? if >=26.1 {
         state.blockState.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
+        //?} else
+        /*if (state.blockState != null) collector.submitBlock(poseStack, state.blockState, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);*/
         poseStack.popPose();
         super.submit(state, poseStack, collector, camera);
     }
