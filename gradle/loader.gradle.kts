@@ -48,8 +48,9 @@ tasks.named<ProcessResources>(editorResources) {
             "runnerembed.js", "ai.2.min.js",
         )
     }
-    // pxt hardcodes "Microsoft MakeCode" in the editor UI (issue #16). Patch the copied main.js and fail the
-    // build when a pattern is gone, so a pxt upgrade cannot bring the branding back unnoticed.
+    // pxt hardcodes "Microsoft MakeCode" in the editor UI (issue #16), and its debug mode reruns the program on exit
+    // (issue #217). Patch the copied main.js and fail the build when a pattern is gone, so a pxt upgrade cannot bring
+    // them back unnoticed.
     val mainJs = destinationDir.resolve("codeling-editor/main.js")
     doLast {
         val patches = listOf(
@@ -60,10 +61,18 @@ tasks.named<ProcessResources>(editorResources) {
             "different version of Microsoft MakeCode." to "different version of the Codeling editor.",
             // Screen-reader heading on the home screen.
             "lf(\"MakeCode Home\")" to "lf(\"Codeling Home\")",
+            // Issue #217: pxt disables Stop in debug mode and runs the program again when the player leaves it, so the
+            // robot would do the whole program unasked. Leaving debug mode stops the program instead. The restart also
+            // cleared the breakpoints and made the text editor editable again (setBreakpointsMap outside debug mode).
+            // The pattern ends in the next method, so `h` is known to be pxt's simulator module here.
+            "this.editor.updateToolbox()),this.restartSimulator()}dbgPauseResume(){h.dbgPauseResume()}" to
+                "this.editor.updateToolbox()),this.state.debugging?this.restartSimulator():(h.driver.stop(),this.stopSimulator()," +
+                "this.editor.clearHighlightedStatements(),this.blocksEditor.clearBreakpoints(),this.textEditor.setBreakpointsMap())}" +
+                "dbgPauseResume(){h.dbgPauseResume()}",
         )
         var text = mainJs.readText()
         for ((from, to) in patches) {
-            if (!text.contains(from)) throw GradleException("Editor branding patch: pattern not found in $mainJs (pxt upgrade?): $from")
+            if (!text.contains(from)) throw GradleException("Editor patch: pattern not found in $mainJs (pxt upgrade?): $from")
             text = text.replace(from, to)
         }
         mainJs.writeText(text)
