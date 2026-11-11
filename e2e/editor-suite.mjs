@@ -5,8 +5,9 @@
 //   2. small MakeCode-style example programs (programs/examples/) round-trip the same way and run unchanged in the
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
-//   4. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
-//   5. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
+//   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
+//   5. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
+//   6. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
 //      project opens without the README side panel. Screenshots go to CODELING_SHOTS (default fabric/versions/26.3/build/editor-test).
 // The relay token stays in this process (lib/relay.mjs). Output: progress lines, then one summary line.
 import { chromium } from "playwright-core";
@@ -167,6 +168,39 @@ async function timingSection(page) {
         `lines after Stop: ${after.slice(atStop.length).join(" | ") || "none"}`);
 }
 
+// Issue #219: known positions give known answers. pos(0, 64, 0) against a world position goes through
+// positions.toWorld, which the standalone relay answers with the same numbers, so it is world 0 64 0 here.
+// The relay answers findBounds with two world 0 0 0 corners: a list from the game must keep working Positions.
+const POSITION_MATH = `let a = world(0, 64, 0)
+let b = world(3, 68, 0)
+console.log("distance " + a.distanceTo(b))
+console.log("mixed " + pos(0, 64, 0).distanceTo(b))
+console.log("subtract " + b.subtract(a).toString())
+console.log("scale " + pos(3, -3, 1).scale(0.5).toString())
+let list = [world(10, 64, 0), world(1, 64, 0), world(5, 64, 0)]
+let sorted = positions.sortByDistance(list, a)
+console.log("sorted " + sorted[0].toString() + ", " + sorted[1].toString() + ", " + sorted[2].toString())
+console.log("list " + list[0].toString())
+console.log("nearest " + positions.nearest(list, world(6, 64, 0)).toString())
+let empty: Position[] = []
+console.log("empty " + (positions.nearest(empty, a) ? "found" : "none") + " " + positions.sortByDistance(empty, a).length)
+let bounds = agent.findBounds(8)
+console.log("bounds " + bounds[1].toString() + " " + positions.nearest(bounds, b).toString())
+`;
+const POSITION_MATH_SAYS = ["distance 5", "mixed 5", "subtract 3 4 0", "scale ~2 ~-2 ~1",
+    "sorted 1 64 0, 5 64 0, 10 64 0", "list 10 64 0", "nearest 5 64 0", "empty none 0",
+    "bounds 0 0 0 0 0 0"];
+
+async function positionMathSection(page) {
+    step("position math: distance, subtract, scale, sort and nearest");
+    await editor.toJavaScript(page, true);
+    await editor.setSource(page, "ts", POSITION_MATH);
+    const says = (await editor.run(page, 2 + POSITION_MATH_SAYS.length)).filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    await editor.stop(page);
+    check(JSON.stringify(says) === JSON.stringify(POSITION_MATH_SAYS), "position math",
+        `said ${JSON.stringify(says)}, expected ${JSON.stringify(POSITION_MATH_SAYS)}`);
+}
+
 // Projects saved before commit d506004 have the Block dropdown as a field where the item slot is now an input.
 // Each fixture is the main.blocks (and main.ts) such a project saved. It is packed into a project file as editor
 // version 0.0.1 saved it (every version before the fix), so loading it runs pxt's upgrade with our blocklyPatch.
@@ -247,6 +281,7 @@ async function main() {
         await blocksSection(page);
         await examplesSection(page);
         await timingSection(page);
+        await positionMathSection(page);
         await fixturesSection(page);
         step("header, About box, side panel");
         await brandingSection(page);
