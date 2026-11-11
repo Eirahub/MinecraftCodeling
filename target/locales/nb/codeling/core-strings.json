@@ -452,6 +452,8 @@
   "builder.teleportTo|block": "bygger teleporter til %position=positions_pos",
   "builder.turn|block": "bygger snu %direction",
   "console.log|block": "si %text",
+  "control.assert|block": "sjekk %condition|ellers stopp med %message",
+  "control.fail|block": "stopp med feil %message",
   "control.runInParallel|block": "kjør samtidig",
   "loops.forever|block": "gjenta for alltid",
   "loops.pause|block": "pause (ms) %ms",

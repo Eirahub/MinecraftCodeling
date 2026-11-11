@@ -130,3 +130,40 @@ namespace blocks {
         return block;
     }
 }
+
+// Issue #221. MakeCode Python turns `assert x, "text"` into control.assert and `raise Error("text")` into control.fail,
+// so these names make both compile. Both throw like JavaScript `throw`: a try/catch catches the text, and with none
+// the program ends with the text in a dialog (debug mode also marks the line or block).
+namespace control {
+    /**
+     * Stop the program with a message when a condition is false, to check that the program did what it should.
+     * @param condition what must be true, eg: true
+     * @param message what to show when it is false, eg: "check failed"
+     */
+    // pxt writes Python calls by name, and `control.assert(...)` is not Python (assert is a keyword). So the block
+    // writes control.check (blockAliasFor), and control.assert in JavaScript or Python decompiles to the same block.
+    //% blockId=control_assert block="check %condition|or stop with %message"
+    //% blockNamespace=logic weight=10 blockAliasFor="control.check"
+    export function assert(condition: boolean, message: string): void {
+        if (!condition) throw message;
+    }
+
+    /**
+     * Stop the program with a message when a condition is false, to check that the program did what it should.
+     * @param condition what must be true, eg: true
+     * @param message what to show when it is false, eg: "check failed"
+     */
+    export function check(condition: boolean, message: string): void {
+        assert(condition, message);
+    }
+
+    /**
+     * Stop the program with an error message.
+     * @param message what went wrong, eg: "something went wrong"
+     */
+    //% blockId=control_fail block="stop with error %message"
+    //% blockNamespace=logic weight=9
+    export function fail(message: string): void {
+        throw message;
+    }
+}

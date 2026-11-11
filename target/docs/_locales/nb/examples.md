@@ -41,7 +41,7 @@ beskrivelse er oversatt. Programmene finnes bare i docs/examples/<side>.md. -->
     },
     {
         "name": "Rom og gjerde",
-        "description": "Merker to hjørner med byggeren, fyller et hult rom og tegner en linje av glass.",
+        "description": "Merker to hjørner med byggeren, fyller et hult rom, tegner en linje av glass og sjekker hvor den ender.",
         "url": "/examples/room-and-fence",
         "imageUrl": "/static/examples/room-and-fence.svg",
         "cardType": "example",

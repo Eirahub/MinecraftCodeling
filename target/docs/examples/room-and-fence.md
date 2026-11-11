@@ -15,4 +15,5 @@ builder.mark()
 builder.move(SixDirection.Right, 2)
 builder.line(Block.Glass)
 console.log(builder.position().toString())
+control.check(builder.position().equals(world(12, 64, 9)), "the line of glass does not end at 12 64 9")
 ```

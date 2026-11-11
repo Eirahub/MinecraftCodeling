@@ -41,7 +41,7 @@ editor suite tests (e2e/programs/examples.mjs). The Norwegian cards are in _loca
     },
     {
         "name": "Room and fence",
-        "description": "Marks two corners with the builder, fills a hollow room and draws a line of glass.",
+        "description": "Marks two corners with the builder, fills a hollow room, draws a line of glass and checks where it ends.",
         "url": "/examples/room-and-fence",
         "imageUrl": "/static/examples/room-and-fence.svg",
         "cardType": "example",
