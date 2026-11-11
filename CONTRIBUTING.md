@@ -71,7 +71,8 @@ Run the client GameTests yourself before a pull request that touches the client,
 
 ## Branches and pull requests
 
-- `main` is the release branch. Never push to it, and do not open pull requests against it.
+- `main` is the release branch. Never push to it, and do not open pull requests against it (only the release pull
+  request from `develop` goes there, see [Releases](#releases)).
 - Branch from `develop` (for example `feature/robot-attack` or `fix/relay-port`) and open the pull request against `develop`. GitHub's default branch is `main`, so pick `develop` as the base when you open it.
 - One topic per pull request. Link the issue it closes.
 - CI must be green.
@@ -96,6 +97,32 @@ Areas in use: `Core`, `Editor`, `Minecraft mod`, `NeoForge loader`, `Build`, `CI
 2. `neoforge` job: `./gradlew :neoforge:26.3:build` (with the NeoForge smoke GameTests).
 3. `mc-1-21-1` job: `./gradlew :fabric:1.21.1:build` and `:neoforge:1.21.1:build`.
 4. `client-gametest` job, on `main` and manual runs only: `./gradlew :fabric:26.3:runClientGameTest` under Xvfb.
+
+## Versioning
+
+Three version numbers change independently of each other:
+
+| Version | Where | Bump it when |
+|---|---|---|
+| Mod version (SemVer) | `mod_version` in `gradle.properties` | Every release. Major for a change that breaks saved programs, `robots.dat` or an older client or server; minor for new blocks, commands or game rules; patch for fixes only. While it is `0.x`, a minor bump may also break things. |
+| Protocol version | `Protocol.VERSION` in `core/src/main/java/codeling/net/Protocol.java` | When the shape of a relay message changes (see step 3 of "Adding a robot op and its block"). A new op inside `cmd` needs no bump. An editor with another version gets the VERSION error and is asked to reload. |
+| Editor version | `version` in `target/package.json` (and `target/package-lock.json`) | When old Blocks files need an upgrade rule in `target/editor/extension.ts`. pxt passes the version a project was saved with to that rule. |
+
+Every user-visible change gets a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), in the same pull
+request.
+
+## Releases
+
+Maintainers only. `.github/workflows/release.yml` does the build and the upload.
+
+1. In `CHANGELOG.md`, move the lines under `## [Unreleased]` into a new `## [X.Y.Z] - YYYY-MM-DD` section (for 0.0.1:
+   fill in the existing section, replace its intro paragraph and "unreleased" with the date). Set
+   `mod_version=X.Y.Z` in `gradle.properties` if it is not already. Merge that to `develop`.
+2. Open a pull request from `develop` to `main` and merge it when CI is green.
+3. Tag the merge commit on `main` and push the tag: `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
+4. The workflow fails if the tag does not match `mod_version` or `CHANGELOG.md` has no `## [X.Y.Z]` section. Otherwise
+   it builds the editor and the four jars (with their tests), and creates a GitHub release with the jars, a
+   `SHA256SUMS` file and the changelog section as notes. Versions starting with `0.` are marked as pre-releases.
 
 ## Code style
 
