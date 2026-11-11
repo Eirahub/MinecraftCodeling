@@ -101,24 +101,31 @@ export async function dropFile(page, name, xml) {
     await settle(page, () => blockTypes(page), types => types.length > 1, "imported Blocks");
 }
 
-// Presses Run and waits until the simulator's robot log has `count` lines and no more come for 1 s; returns the lines
-// without their times. The log is emptied first, so lines from the previous run cannot count.
-export async function run(page, count, timeout = 60000) {
-    const robotLog = async () => {
-        const sim = page.frames().find(f => f.url().includes("simulator"));
-        const text = sim ? await sim.evaluate(() => document.getElementById("robotlog")?.innerText ?? "").catch(() => "") : "";
-        return text.split("\n").map(l => l.replace(/^\d\d:\d\d:\d\d\.\d{3} /, "").trim()).filter(Boolean);
-    };
+// The simulator's robot log, one entry per line; without `times` the lines lose their "12:34:56.789 " time.
+export async function robotLog(page, times = false) {
+    const sim = page.frames().find(f => f.url().includes("simulator"));
+    const text = sim ? await sim.evaluate(() => document.getElementById("robotlog")?.innerText ?? "").catch(() => "") : "";
+    return text.split("\n").map(l => (times ? l : l.replace(/^\d\d:\d\d:\d\d\.\d{3} /, "")).trim()).filter(Boolean);
+}
+
+// Empties the robot log, so lines from the previous run cannot count, and presses Run.
+export async function start(page) {
     const sim = page.frames().find(f => f.url().includes("simulator"));
     if (sim) await sim.evaluate(() => { const log = document.getElementById("robotlog"); if (log) log.innerHTML = ""; }).catch(() => {});
     await page.locator("button.play-button").first().click();
+}
+
+// Presses Run and waits until the simulator's robot log has `count` lines and no more come for 1 s; returns the lines
+// without their times.
+export async function run(page, count, timeout = 60000) {
+    await start(page);
     const deadline = Date.now() + timeout;
     let lines = [];
     while (Date.now() < deadline) {
-        lines = await robotLog();
+        lines = await robotLog(page);
         if (lines.length >= count) {
             await page.waitForTimeout(1000);
-            return robotLog();
+            return robotLog(page);
         }
         await page.waitForTimeout(200);
     }

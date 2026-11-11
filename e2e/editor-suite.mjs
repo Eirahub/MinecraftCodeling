@@ -4,8 +4,9 @@
 //      blocks, no changed or lost arguments, and a test program for every block (programs/blocks.mjs);
 //   2. small MakeCode-style example programs (programs/examples/) round-trip the same way and run unchanged in the
 //      simulator against the relay's fake answers, with the robot log they must produce;
-//   3. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
-//   4. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
+//   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
+//   4. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
+//   5. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
 //      project opens without the README side panel. Screenshots go to CODELING_SHOTS (default fabric/versions/26.3/build/editor-test).
 // The relay token stays in this process (lib/relay.mjs). Output: progress lines, then one summary line.
 import { chromium } from "playwright-core";
@@ -112,6 +113,60 @@ async function examplesSection(page) {
     }
 }
 
+// Issue #215: pause holds only its own code, forever repeats, an empty forever does not hang the page, and Stop ends
+// the program in the middle of a pause. Times come from the robot log's own time stamps.
+const TIMING = `control.runInParallel(function () {
+    for (let index = 0; index < 5; index++) {
+        console.log("tick")
+        loops.pause(100)
+    }
+})
+control.runInParallel(function () {
+    loops.pause(3000)
+    console.log("too late")
+})
+agent.say("start")
+loops.pause(1000)
+console.log("end")
+loops.forever(function () {
+})
+loops.forever(function () {
+    console.log("loop")
+    loops.pause(200)
+})
+`;
+
+async function timingSection(page) {
+    step("timing: pause, forever and Stop");
+    await editor.toJavaScript(page, true);
+    await editor.setSource(page, "ts", TIMING);
+    await editor.start(page);
+    const started = Date.now();
+    let lines = [];
+    while (Date.now() - started < 30000 && lines.filter(l => l.endsWith("say: loop")).length < 3) {
+        await page.waitForTimeout(100);
+        lines = await editor.robotLog(page, true);
+    }
+    await editor.stop(page);
+    // The click reaches the simulator within a few ms; a line already on its way may still land.
+    await page.waitForTimeout(200);
+    const atStop = await editor.robotLog(page, true);
+    // The parallel 3 s pause would have ended by now if Stop had not ended it.
+    await page.waitForTimeout(Math.max(0, started + 4000 - Date.now()));
+    const after = await editor.robotLog(page, true);
+    const ms = line => line && line.slice(0, 12).split(/[:.]/).reduce((t, n, i) => t + Number(n) * [3600000, 60000, 1000, 1][i], 0);
+    const text = atStop.map(l => l.slice(13));
+    const pauseStart = ms(atStop[text.indexOf("say start: true")]), pauseEnd = ms(atStop[text.indexOf("say: end")]);
+    check(pauseEnd - pauseStart >= 950 && pauseEnd - pauseStart <= 1600, "pause",
+        `pause(1000) took ${pauseEnd - pauseStart} ms: ${text.join(" | ")}`);
+    check(text.slice(0, text.indexOf("say: end")).filter(l => l === "say: tick").length === 5, "pause",
+        `run in parallel did not tick 5 times during the pause: ${text.join(" | ")}`);
+    // The empty forever runs next to this one, so lines that keep coming also show it does not hang the page.
+    check(text.filter(l => l === "say: loop").length >= 3, "forever", `the forever loop did not repeat: ${text.join(" | ")}`);
+    check(after.length === atStop.length && !after.some(l => l.endsWith("too late")), "stop",
+        `lines after Stop: ${after.slice(atStop.length).join(" | ") || "none"}`);
+}
+
 // Projects saved before commit d506004 have the Block dropdown as a field where the item slot is now an input.
 // Each fixture is the main.blocks (and main.ts) such a project saved. It is packed into a project file as editor
 // version 0.0.1 saved it (every version before the fix), so loading it runs pxt's upgrade with our blocklyPatch.
@@ -191,6 +246,7 @@ async function main() {
         step("round trip of every block");
         await blocksSection(page);
         await examplesSection(page);
+        await timingSection(page);
         await fixturesSection(page);
         step("header, About box, side panel");
         await brandingSection(page);

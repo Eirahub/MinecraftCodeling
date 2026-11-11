@@ -103,4 +103,21 @@ control.runInParallel(function () {
 `,
         log: [...START, "Miner: move 0 2: done", "Miner: say Done: true"],
     },
+    {
+        // Issue #215: a guard walks back and forth on its own, half a second apart. Two rounds keep the log fixed;
+        // the loop goes on (waiting) until the suite presses Stop.
+        name: "guard patrol (forever and pause)",
+        js: `let rounds = 0
+loops.forever(function () {
+    if (rounds < 2) {
+        agent.move(SixDirection.Forward, 3)
+        agent.turn(TurnDirection.Left)
+        agent.turn(TurnDirection.Left)
+        rounds += 1
+    }
+    loops.pause(500)
+})
+`,
+        log: [...START, "move 0 3: done", "turn 2: done", "turn 2: done", "move 0 3: done", "turn 2: done", "turn 2: done"],
+    },
 ];
