@@ -6,13 +6,15 @@
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
-//   5. debug mode (issue #217): a breakpoint and a step stop before the next robot command, the variables show, the
+//   5. robot errors (issue #218): a refused command is caught in JavaScript, Python and run in parallel code, and
+//      nobody catching it, STOPPED and Stop end the program;
+//   6. debug mode (issue #217): a breakpoint and a step stop before the next robot command, the variables show, the
 //      heartbeat goes on, continue runs to the end, Exit Debug Mode and /robot stop end a stopped program, breakpoints
 //      in Python and JavaScript, and slow motion gives the normal robot log;
-//   6. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
-//   7. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
+//   7. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
+//   8. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
 //      with no request to another host;
-//   8. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
+//   9. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
 //      project opens without the README side panel. Screenshots go to CODELING_SHOTS (default fabric/versions/26.3/build/editor-test).
 // The relay token stays in this process (lib/relay.mjs). Output: progress lines, then one summary line.
 import { chromium } from "playwright-core";
@@ -204,6 +206,132 @@ async function positionMathSection(page) {
     await editor.stop(page);
     check(JSON.stringify(says) === JSON.stringify(POSITION_MATH_SAYS), "position math",
         `said ${JSON.stringify(says)}, expected ${JSON.stringify(POSITION_MATH_SAYS)}`);
+}
+
+// Issue #218: the standalone relay refuses say "refuse <CODE>" with that code. A refused command throws into the
+// program, a catch takes it and the program goes on; nobody catching it, STOPPED and Stop end the program.
+const CONNECTED = ["connected as standalone", "run 0 started"];
+const REFUSED = code => `say refuse ${code}: ${code}: refused on purpose by the standalone relay`;
+const ERRORS = [
+    {
+        name: "caught in JavaScript", lang: "ts",
+        src: `try {
+    agent.say("refuse OUT_OF_RANGE")
+    console.log("not here")
+} catch (e) {
+    let error: string = e
+    console.log("caught " + error.substr(0, error.indexOf(":")))
+}
+console.log("after")
+`,
+        log: [...CONNECTED, REFUSED("OUT_OF_RANGE"), "say: caught OUT_OF_RANGE", "say: after"],
+    },
+    {
+        name: "caught in Python", lang: "py",
+        src: `try:
+    agent.say("refuse PROTECTED")
+    print("not here")
+except:
+    print("caught")
+print("after")
+`,
+        log: [...CONNECTED, REFUSED("PROTECTED"), "say: caught", "say: after"],
+    },
+    {
+        name: "caught in run in parallel", lang: "ts",
+        src: `control.runInParallel(function () {
+    try {
+        agent.say("refuse NO_PERMISSION")
+    } catch (e) {
+        console.log("caught in parallel")
+    }
+})
+console.log("main goes on")
+`,
+        log: ["say: main goes on", ...CONNECTED, REFUSED("NO_PERMISSION"), "say: caught in parallel"],
+    },
+    {
+        name: "not caught", lang: "ts",
+        src: `agent.move(SixDirection.Forward, 1)
+agent.say("refuse OUT_OF_RANGE")
+console.log("not here")
+`,
+        log: [...CONNECTED, "move 0 1: done", REFUSED("OUT_OF_RANGE"), "Robot error: OUT_OF_RANGE: refused on purpose by the standalone relay"],
+        dialog: "Robot error OUT_OF_RANGE: refused on purpose by the standalone relay",
+    },
+    {
+        name: "not caught in forever", lang: "ts",
+        src: `loops.forever(function () {
+    agent.say("refuse PROTECTED")
+})
+`,
+        log: [...CONNECTED, REFUSED("PROTECTED"), "Robot error: PROTECTED: refused on purpose by the standalone relay"],
+        dialog: "Robot error PROTECTED: refused on purpose by the standalone relay",
+    },
+    {
+        name: "STOPPED cannot be caught", lang: "ts",
+        src: `try {
+    agent.say("refuse STOPPED")
+} catch (e) {
+    console.log("caught")
+}
+console.log("after")
+`,
+        log: [...CONNECTED, "Program stopped: The robot was stopped in the game (refused on purpose by the standalone relay)."],
+        dialog: "Program stopped The robot was stopped in the game (refused on purpose by the standalone relay).",
+    },
+];
+
+// Puts a program in the JavaScript or Python editor. Python is reached through Blocks, as roundTrip does.
+async function setProgram(page, lang, src) {
+    await editor.toJavaScript(page, true);
+    await editor.setSource(page, "ts", lang === "ts" ? src : "let x = 0\n");
+    if (lang === "py") {
+        await editor.toBlocks(page);
+        await editor.toPython(page);
+        await editor.setSource(page, "py", src);
+    }
+}
+
+// The dialog the simulator opened (its text, spaces joined), closed again; "" when there is none.
+async function closeDialog(page) {
+    const dialog = page.locator(".ui.modal:visible, .common-modal:visible").first();
+    if (!(await dialog.count())) return "";
+    const text = (await dialog.innerText()).replace(/\s+/g, " ").replace(/ Close$/, "").trim();
+    await dialog.locator("button:has-text('Close'), .closeIcon").first().click();
+    return text;
+}
+
+async function errorsSection(page) {
+    for (const test of ERRORS) {
+        step(`errors: ${test.name}`);
+        await setProgram(page, test.lang, test.src);
+        const log = await editor.run(page, test.log.length);
+        const dialog = await closeDialog(page);
+        await editor.stop(page);
+        check(JSON.stringify(log) === JSON.stringify(test.log), test.name, `robot log ${JSON.stringify(log)}, expected ${JSON.stringify(test.log)}`);
+        check(dialog === (test.dialog ?? ""), test.name, `dialog "${dialog}", expected "${test.dialog ?? ""}"`);
+        // Back to an empty program, so the next one starts from JavaScript.
+        if (test.lang === "py") {
+            await editor.setSource(page, "py", "x = 0\n");
+            await editor.toBlocks(page);
+        }
+    }
+
+    step("errors: Stop cannot be caught");
+    await setProgram(page, "ts", `try {
+    agent.say("start")
+    loops.pause(2000)
+    console.log("not here")
+} catch (e) {
+    console.log("caught")
+}
+`);
+    const started = await editor.run(page, CONNECTED.length + 1);
+    await editor.stop(page);
+    await page.waitForTimeout(2500);
+    check(JSON.stringify(await editor.robotLog(page)) === JSON.stringify(started), "Stop",
+        `lines after Stop: ${(await editor.robotLog(page)).slice(started.length).join(" | ") || "none"}`);
 }
 
 // Issue #217: debug mode (appTheme.debugger) and the main.js patch that makes "Exit Debug Mode" stop the program.
@@ -513,6 +641,7 @@ async function main() {
         await examplesSection(page);
         await timingSection(page);
         await positionMathSection(page);
+        await errorsSection(page);
         await debugSection(page);
         await fixturesSection(page);
         await gallerySection(browser, relay.url);
