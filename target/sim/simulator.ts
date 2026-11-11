@@ -4,11 +4,15 @@ namespace pxsim {
     initCurrentRuntime = () => {
         runtime.board = new Board();
         // Issues #218 and #221: an error nobody catches (a robot error, a failed assert, raise or throw) ends the program
-        // through pxt, which marks the block or line only in debug mode, so the player always gets the message too.
+        // through pxt, which marks the block or line only in debug mode, so the player always gets the message too. The
+        // dialog goes after pxt's own message: before it, pxt no longer marks the block in debug mode.
         runtime.postError = (e: any) => {
             const text = String(e && e.message).replace(/^unhandled exception: /, "");
             const where = "(debug mode, the bug button, shows the block or line it came from)";
-            if (!board().relay.told) board().relay.notify("Program error", `${text} ${where}`);
+            const b = board();
+            if (b.relay.told) return;
+            if (b.robotError) b.relay.notify("Robot error", b.robotError);
+            else b.relay.notify("Program error", `${text} ${where}`);
         };
     };
 
@@ -26,6 +30,8 @@ namespace pxsim {
          * back at once. Commands read it before their first await, so robots in parallel never mix (see Robot.on).
          */
         public robot = "";
+        /** A robot error nobody catches (issue #218), for its dialog. */
+        public robotError = "";
 
         initAsync(msg: pxsim.SimulatorRunMessage): Promise<void> {
             document.getElementById("robotlog").innerHTML = "";
@@ -72,9 +78,11 @@ namespace pxsim {
         if (no !== undefined || typeof ok !== "function") return then.call(this, ok, no);
         return then.call(this, ok, (e: any) => {
             if (!(e instanceof RobotError)) throw e;
-            ok(new FnWrapper(() => {
-                // Nobody catches it: the dialog as before (call already logged the command), then pxt ends the program.
-                if (!runtime.currTryFrame()) board().relay.notify("Robot error", e.text);
+            ok(new FnWrapper((s: StackFrame) => {
+                // pxt marks (in debug mode) the statement of the frame that threw: this one stands where the program waited.
+                s.lastBrkId = s.parent.lastBrkId;
+                // Nobody catches it: pxt ends the program, then postError shows the dialog as before (call logged the command).
+                if (!runtime.currTryFrame()) board().robotError = e.text;
                 pxtcore.throwValue(e.text);
                 return null;
             }, null, []));

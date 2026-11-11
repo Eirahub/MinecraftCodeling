@@ -11,7 +11,8 @@
 //      their message;
 //   6. debug mode (issue #217): a breakpoint and a step stop before the next robot command, the variables show, the
 //      heartbeat goes on, continue runs to the end, Exit Debug Mode and /robot stop end a stopped program, breakpoints
-//      in Python and JavaScript, slow motion gives the normal robot log, and a failed assert marks its block;
+//      in Python and JavaScript, slow motion gives the normal robot log, and an uncaught robot error or failed assert
+//      marks its block;
 //   7. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
 //   8. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
 //      with no request to another host;
@@ -552,28 +553,38 @@ async function debugSection(page) {
     await until(page, stopped, s => s);
     await exit();
 
-    // Issue #221: in debug mode pxt marks the block a failed assert came from, next to the dialog with its message.
-    step("debug mode: a failed assert marks its block");
-    await editor.toJavaScript(page);
-    await editor.setSource(page, "ts", `agent.move(SixDirection.Forward, 1)
-control.assert(1 + 1 == 3, "one and one is not three")
+    // Issues #218 and #221: in debug mode pxt marks the block an uncaught robot error or a failed assert came from,
+    // next to the dialog with its message.
+    const uncaught = [
+        { name: "robot error", line: `agent.say("refuse OUT_OF_RANGE")`, block: "agent_say",
+            dialog: /Robot error\s+OUT_OF_RANGE: refused on purpose/,
+            log: [REFUSED("OUT_OF_RANGE"), "Robot error: OUT_OF_RANGE: refused on purpose by the standalone relay"] },
+        { name: "assert", line: `control.assert(1 + 1 == 3, "one and one is not three")`, block: "control_assert",
+            dialog: /Program error\s+one and one is not three/, log: [`Program error: one and one is not three${DEBUG_HINT}`] },
+    ];
+    for (const test of uncaught) {
+        step(`debug mode: an uncaught ${test.name} marks its block`);
+        await editor.toJavaScript(page);
+        await editor.setSource(page, "ts", `agent.move(SixDirection.Forward, 1)
+${test.line}
 agent.turn(TurnDirection.Left)
 `);
-    await editor.toBlocks(page);
-    await enter();
-    // Continue clicked at once after the stop on start left the program waiting after its first command here.
-    await page.waitForTimeout(2000);
-    await resume();
-    const failed = page.locator(".ui.modal:visible, .common-modal:visible").first();
-    await failed.waitFor();
-    check(/Program error\s+one and one is not three/.test(await failed.innerText()), "debug assert", `dialog: ${(await failed.innerText()).replace(/\s+/g, " ")}`);
-    await failed.locator("button:has-text('Close'), .closeIcon").first().click();
-    const marked = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
-        .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]));
-    check(same(marked, ["control_assert"]), "debug assert", `highlighted blocks ${JSON.stringify(marked)}, expected the check block`);
-    check(same(await log(), [...DEBUG_START, "move 0 1: done", `Program error: one and one is not three${DEBUG_HINT}`]), "debug assert",
-        `logged ${JSON.stringify(await log())}`);
-    await exit();
+        await editor.toBlocks(page);
+        await enter();
+        // Continue clicked at once after the stop on start left the program waiting after its first command here.
+        await page.waitForTimeout(2000);
+        await resume();
+        const failed = page.locator(".ui.modal:visible, .common-modal:visible").first();
+        await failed.waitFor();
+        const text = (await failed.innerText()).replace(/\s+/g, " ");
+        check(test.dialog.test(text), `debug ${test.name}`, `dialog: ${text}`);
+        await failed.locator("button:has-text('Close'), .closeIcon").first().click();
+        const marked = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
+            .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]));
+        check(same(marked, [test.block]), `debug ${test.name}`, `highlighted blocks ${JSON.stringify(marked)}, expected ${test.block}`);
+        check(same(await log(), [...DEBUG_START, "move 0 1: done", ...test.log]), `debug ${test.name}`, `logged ${JSON.stringify(await log())}`);
+        await exit();
+    }
 }
 
 // Projects saved before commit d506004 have the Block dropdown as a field where the item slot is now an input.
