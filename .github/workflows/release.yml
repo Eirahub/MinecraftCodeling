@@ -71,8 +71,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       # build also runs the JUnit tests and the server GameTests of each jar (through check).
+      # --no-parallel: the performance GameTest measures tick time, so the GameTest servers must not run at the same time.
       - name: Build the four jars
-        run: ./gradlew :fabric:26.3:build :neoforge:26.3:build :fabric:1.21.1:build :neoforge:1.21.1:build
+        run: ./gradlew --no-parallel :fabric:26.3:build :neoforge:26.3:build :fabric:1.21.1:build :neoforge:1.21.1:build
 
       - name: Collect the jars and their SHA-256 sums
         run: |

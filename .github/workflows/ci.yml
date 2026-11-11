@@ -60,10 +60,12 @@ jobs:
 
       # Editor suite (#136): every block round-trips, example programs run, old projects load, branding. The task
       # starts the standalone relay itself; it needs Node (set up above) and headless Chromium with its Linux libraries.
+      # The apt package install may fail without failing the job: it mostly adds fonts, and a really missing library makes the browser fail to start below.
       - name: Editor test suite (headless Chromium against the standalone relay)
         run: |
           ./gradlew :fabric:26.3:installE2e
-          (cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell)
+          (cd e2e && node node_modules/playwright-core/cli.js install-deps chromium-headless-shell) || echo "::warning::The Linux packages for Chromium could not be installed (apt unreachable?); the suite runs with what the image has."
+          (cd e2e && node node_modules/playwright-core/cli.js install chromium-headless-shell)
           ./gradlew :fabric:26.3:editorTest
 
       - name: Upload test reports
@@ -202,10 +204,12 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
 
       # :fabric:26.3:installE2e is npm ci in e2e/ (runClientGameTest also depends on it); then the browser and its Linux libraries.
+      # The apt package install may fail without failing the job: it mostly adds fonts, and a really missing library makes the browser fail to start.
       - name: Install e2e dependencies and headless Chromium
         run: |
           ./gradlew :fabric:26.3:installE2e
-          cd e2e && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell
+          (cd e2e && node node_modules/playwright-core/cli.js install-deps chromium-headless-shell) || echo "::warning::The Linux packages for Chromium could not be installed (apt unreachable?); the suite runs with what the image has."
+          cd e2e && node node_modules/playwright-core/cli.js install chromium-headless-shell
 
       # The task name must match what issue #134 creates (fabric-client-gametest-api-v1, task runClientGameTest).
       # With CI set, Loom starts the client under its own xvfb-run. Xvfb's GLX has no sRGB-capable visual, which the
