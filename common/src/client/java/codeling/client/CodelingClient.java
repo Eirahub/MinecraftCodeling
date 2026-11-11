@@ -3,14 +3,17 @@ package codeling.client;
 import codeling.Codeling;
 import codeling.net.Protocol;
 import codeling.net.RelayPayloads;
+import codeling.relay.EditorLauncher;
 import codeling.relay.RelayServer;
 import codeling.platform.ClientPlatform;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
 //? if >=26.1 {
 import com.mojang.blaze3d.Blaze3D;
 //?} else
 /*import net.minecraft.Util;*/
-import java.net.URI;
+import java.io.IOException;
 
 /**
  * The client half of the mod: the editor and relay server. Each loader's client entrypoint registers the renderer,
@@ -32,6 +35,7 @@ public final class CodelingClient {
     /** The game has started: start the editor and relay server. */
     public static void started(Minecraft client) {
         int port = Integer.getInteger("codeling.port", RelayServer.DEFAULT_PORT);
+        EditorLauncher.deleteAll(EditorLauncher.DIR); // left by a crash
         try {
             relay = new RelayServer(port, new GameLink(client)).start();
             Codeling.LOG.info("Codeling editor on http://127.0.0.1:{}/ (token {})", port, relay.tokenHint());
@@ -43,6 +47,7 @@ public final class CodelingClient {
 
     public static void stopping() {
         if (relay != null) relay.close();
+        EditorLauncher.deleteAll(EditorLauncher.DIR);
     }
 
     /** A {@code codeling:to_client} payload goes to the browser session. Runs on the render thread; deliver is thread-safe. */
@@ -74,15 +79,34 @@ public final class CodelingClient {
     }
 
     // shortcut: /codeling client command instead of a key binding; add a key when the HUD comes.
-    /** The {@code /codeling} client command: opens the editor in the browser. */
+    /**
+     * The {@code /codeling} client command: opens the editor in the browser through a one-time launcher file, so the
+     * token is never in a command line (issue #191). The chat line copies the link for a browser that cannot read the
+     * file, such as a snap or Flatpak browser on Linux (no access to /tmp).
+     */
     public static int openEditor() {
         if (relay == null) return 0;
-        // shortcut: on Linux and macOS openUri passes the URL with the token to xdg-open or open in argv, which other
-        // local users can read with ps; hand the token over another way when the security review issue is taken up.
+        try {
+            //? if >=26.1 {
+            EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Blaze3D::openPath);
+            //?} else
+            /*EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Util.getPlatform()::openPath);*/
+        } catch (IOException e) {
+            Codeling.LOG.error("Codeling could not write the editor launcher", e); // a path, never the token
+        }
+        Minecraft client = Minecraft.getInstance();
+        // The click copies the link; the chat log gets only the visible text.
         //? if >=26.1 {
-        Blaze3D.openUri(URI.create(relay.editorUrl()));
-        //?} else
-        /*Util.getPlatform().openUri(URI.create(relay.editorUrl()));*/
+        Component copy = Component.literal("[copy the editor link]")
+                .withStyle(s -> s.withClickEvent(new ClickEvent.CopyToClipboard(relay.editorUrl())).withUnderlined(true));
+        client.gui.hud.getChat().addClientSystemMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
+                .append(copy).append(" and paste it into the address bar."));
+        //?} else {
+        /*Component copy = Component.literal("[copy the editor link]")
+                .withStyle(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, relay.editorUrl())).withUnderlined(true));
+        client.gui.getChat().addMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
+                .append(copy).append(" and paste it into the address bar."));
+        *///?}
         return 1;
     }
 
