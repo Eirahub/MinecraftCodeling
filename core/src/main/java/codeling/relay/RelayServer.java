@@ -50,6 +50,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -118,6 +120,9 @@ public final class RelayServer implements AutoCloseable {
             Map.entry("txt", "text/plain; charset=utf-8"),
             Map.entry("md", "text/plain; charset=utf-8"),
             Map.entry("xml", "application/xml"));
+
+    // Only a plain locale name (nb, en-GB), so the query can never add a path part.
+    private static final Pattern DOCS_LANG = Pattern.compile("[?&]lang=([a-z]{2,3}(?:-[A-Za-z]{2,4})?)(?:&|$)");
 
     private final int port;
     private final Link link;
@@ -420,6 +425,13 @@ public final class RelayServer implements AutoCloseable {
             return text(out, req, 400, "bad path");
         }
         URLConnection file = open(rel);
+        // A packaged pxt editor asks for docs pages as docs/<page>.md?lang=<locale> and has no translations of its own
+        // offline, so a docs/_locales/<locale>/<page>.md shipped with the editor (issue #216) answers in its place.
+        Matcher lang = DOCS_LANG.matcher(req.target());
+        if (rel.startsWith("docs/") && rel.endsWith(".md") && lang.find()) {
+            URLConnection localized = open("docs/_locales/" + lang.group(1) + "/" + rel.substring("docs/".length()));
+            if (localized != null) file = localized;
+        }
         if (file == null && !rel.contains(".")) {
             rel = rel + ".html"; // pxt static docs routes such as /about
             file = open(rel);
