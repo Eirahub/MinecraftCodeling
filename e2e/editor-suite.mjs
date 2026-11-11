@@ -6,10 +6,13 @@
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
-//   5. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
-//   6. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
+//   5. debug mode (issue #217): a breakpoint and a step stop before the next robot command, the variables show, the
+//      heartbeat goes on, continue runs to the end, Exit Debug Mode and /robot stop end a stopped program, breakpoints
+//      in Python and JavaScript, and slow motion gives the normal robot log;
+//   6. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
+//   7. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
 //      with no request to another host;
-//   7. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
+//   8. branding: the header names Codeling once, the About box says pxt editor and not Microsoft MakeCode, and a new
 //      project opens without the README side panel. Screenshots go to CODELING_SHOTS (default fabric/versions/26.3/build/editor-test).
 // The relay token stays in this process (lib/relay.mjs). Output: progress lines, then one summary line.
 import { chromium } from "playwright-core";
@@ -203,6 +206,180 @@ async function positionMathSection(page) {
         `said ${JSON.stringify(says)}, expected ${JSON.stringify(POSITION_MATH_SAYS)}`);
 }
 
+// Issue #217: debug mode (appTheme.debugger) and the main.js patch that makes "Exit Debug Mode" stop the program.
+// The breakpoint sits on the say line: the moves before it are done, the say and the turn after it are not sent.
+const DEBUG = `let count = 0
+for (let index = 0; index < 3; index++) {
+    count += 1
+    agent.move(SixDirection.Forward, 1)
+}
+agent.say("done " + count)
+agent.turn(TurnDirection.Left)
+`;
+const DEBUG_START = ["connected as standalone", "run 0 started"];
+const DEBUG_MOVES = [...DEBUG_START, "move 0 1: done", "move 0 1: done", "move 0 1: done"];
+const DEBUG_LOG = [...DEBUG_MOVES, "say done 3: true", "turn 2: done"];
+
+// Polls until ok(value) or the time is up; returns the last value.
+async function until(page, poll, ok, ms = 10000) {
+    const deadline = Date.now() + ms;
+    let value = await poll();
+    while (!ok(value) && Date.now() < deadline) {
+        await page.waitForTimeout(100);
+        value = await poll();
+    }
+    return value;
+}
+
+async function debugSection(page) {
+    // Every message the page sends on the relay socket, without the hello (it holds the token).
+    const sent = [];
+    page.on("websocket", ws => ws.on("framesent", f => {
+        const text = String(f.payload);
+        if (!text.includes("\"hello\"")) sent.push(JSON.parse(text));
+    }));
+    const log = () => editor.robotLog(page);
+    const variables = () => page.evaluate(() => document.querySelector(".debugvariables")?.innerText.replace(/\s+/g, " ").trim() ?? "");
+    const stopped = () => page.locator(".debugtoolbar .dbg-pause-resume.play").count().then(n => n > 0);
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const enter = async () => {
+        // pxt restarts the program in debug mode without a new robot log, so the old lines go first.
+        await editor.clearLog(page);
+        await page.locator("button.debug-button").click();
+        await until(page, stopped, s => s);
+    };
+    const exit = async () => {
+        await page.locator(".exit-debugmode-btn").first().click();
+        await page.locator(".debugtoolbar").first().waitFor({ state: "detached" });
+    };
+    const resume = () => page.locator(".debugtoolbar .dbg-pause-resume").click();
+    const sayBreakpoint = () => page.locator(".blocklyWorkspace g.blocklyBlock[data-id][class^=agent_say] > .blocklyIconGroup").first().click();
+    // A breakpoint in the Monaco margin, on the line that starts with `text`.
+    const lineBreakpoint = async text => {
+        const lines = await page.locator(".monaco-editor:visible .view-line").allInnerTexts();
+        const read = () => page.locator(".monaco-editor:visible .view-line").evaluateAll(ls => ls.map(l => l.getBoundingClientRect().top + l.offsetHeight / 2));
+        // The editor moves while the debugger panels open; click once the lines stand still.
+        let tops = await read();
+        for (let last; JSON.stringify(last) !== JSON.stringify(tops); tops = await read()) {
+            last = tops;
+            await page.waitForTimeout(300);
+        }
+        const margin = await page.locator(".monaco-editor:visible .glyph-margin").first().boundingBox();
+        await page.mouse.click(margin.x + margin.width / 2, tops[lines.findIndex(l => l.trim().startsWith(text))]);
+    };
+
+    step("debug mode in Blocks: breakpoint, variables, step, continue");
+    await editor.toJavaScript(page, true);
+    await editor.setSource(page, "ts", DEBUG);
+    await editor.toBlocks(page);
+    await editor.start(page);
+    const normal = await until(page, log, l => l.length >= DEBUG_LOG.length);
+    await editor.stop(page);
+    check(same(normal, DEBUG_LOG), "debug", `normal run logged ${JSON.stringify(normal)}, expected ${JSON.stringify(DEBUG_LOG)}`);
+    await enter();
+    check(await page.locator(".debugtoolbar .dbg-step").isVisible(), "debug mode", "no Step button in the debugger toolbar");
+    check((await log()).length === 0, "debug mode", `the program did not stop before its first command: ${(await log()).join(" | ")}`);
+    await sayBreakpoint();
+    await resume();
+    const atBreakpoint = await until(page, log, l => l.length >= DEBUG_MOVES.length);
+    await until(page, stopped, s => s);
+    await page.waitForTimeout(1500);
+    check(same(await log(), DEBUG_MOVES), "breakpoint", `stopped before say with ${JSON.stringify(await log())}, expected ${JSON.stringify(DEBUG_MOVES)}`);
+    check(/\bcount: 3\b/.test(await variables()), "variables", `the Variables panel shows "${await variables()}", expected count: 3`);
+    const highlighted = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
+        .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]));
+    check(same(highlighted, ["agent_say"]), "breakpoint", `highlighted blocks ${JSON.stringify(highlighted)}, expected the say block`);
+    // The heartbeat keeps the run alive while the program stands still (the game ends a run after 10 s without one).
+    sent.length = 0;
+    await page.waitForTimeout(3500);
+    check(sent.some(m => m.op === "heartbeat") && !sent.some(m => m.t === "cmd"), "breakpoint",
+        `sent while stopped: ${JSON.stringify(sent.map(m => m.op ?? m.t))}, expected a heartbeat and no command`);
+    await page.locator(".debugtoolbar .dbg-step").click();
+    await until(page, log, l => l.length > atBreakpoint.length);
+    await until(page, stopped, s => s);
+    await page.waitForTimeout(1500);
+    check(same(await log(), [...DEBUG_MOVES, "say done 3: true"]), "step",
+        `one step logged ${JSON.stringify((await log()).slice(atBreakpoint.length))}, expected the say only`);
+    await resume();
+    const end = await until(page, log, l => l.length >= DEBUG_LOG.length);
+    check(same(end, DEBUG_LOG), "continue", `continue logged ${JSON.stringify(end)}, expected ${JSON.stringify(DEBUG_LOG)}`);
+
+    step("debug mode: Exit Debug Mode and /robot stop at a breakpoint");
+    await exit();
+    // Leaving debug mode clears the Blocks breakpoints (as pxt does), so each session sets its own.
+    await enter();
+    await sayBreakpoint();
+    await resume();
+    await until(page, log, l => l.length >= DEBUG_MOVES.length);
+    await until(page, stopped, s => s);
+    sent.length = 0;
+    await exit();
+    await page.waitForTimeout(1500);
+    check(sent.some(m => m.t === "control" && m.op === "stop") && !sent.some(m => m.t === "cmd" || m.op === "start"), "stop",
+        `Exit Debug Mode at a breakpoint sent ${JSON.stringify(sent.map(m => m.op ?? m.t))}, expected stop and nothing else`);
+    check(same(await log(), DEBUG_MOVES), "stop", `lines after Exit Debug Mode: ${(await log()).slice(DEBUG_MOVES.length).join(" | ")}`);
+    check(await page.locator("button.play-button:not(.disabled)").first().isVisible(), "stop", "Run is not enabled after Exit Debug Mode");
+    // A second editor session takes the robot over: the relay sends the same control stop as /robot stop.
+    await enter();
+    await sayBreakpoint();
+    await resume();
+    await until(page, log, l => l.length >= DEBUG_MOVES.length);
+    await until(page, stopped, s => s);
+    await page.evaluate(() => new Promise(done => {
+        const ws = new WebSocket(`ws://${location.host}/relay`);
+        ws.onopen = () => ws.send(JSON.stringify({ t: "hello", token: localStorage.getItem("codeling/local_token"), client: "suite", v: 2 }));
+        ws.onmessage = () => { ws.close(); done(); };
+    }));
+    const dialog = page.locator(".ui.modal:visible, .common-modal:visible").first();
+    await dialog.waitFor();
+    check(/Program stopped/.test(await dialog.innerText()), "robot stop", `dialog at a breakpoint: ${(await dialog.innerText()).replace(/\s+/g, " ")}`);
+    await dialog.locator("button:has-text('Close'), .closeIcon").first().click();
+    await resume();
+    await page.waitForTimeout(1500);
+    check(same(await log(), [...DEBUG_MOVES, "Program stopped: Another editor session took over the robot."]), "robot stop",
+        `after the stop and Continue: ${JSON.stringify((await log()).slice(DEBUG_MOVES.length))}`);
+    await exit();
+
+    // Python and JavaScript: a breakpoint in the margin on the say line, the variables, then Exit Debug Mode.
+    for (const lang of ["py", "ts"]) {
+        step(`debug mode in ${lang === "py" ? "Python" : "JavaScript"}: breakpoint and variables`);
+        if (lang === "py") await editor.toPython(page); else await editor.toJavaScript(page);
+        await enter();
+        await lineBreakpoint("agent.say");
+        await resume();
+        await until(page, log, l => l.length >= DEBUG_MOVES.length);
+        await until(page, stopped, s => s);
+        await page.waitForTimeout(1500);
+        check(same(await log(), DEBUG_MOVES), `breakpoint ${lang}`, `stopped before say with ${JSON.stringify(await log())}`);
+        check(/\bcount: 3\b/.test(await variables()), `variables ${lang}`, `the Variables panel shows "${await variables()}"`);
+        check(await page.locator(".monaco-editor:visible .highlight-statement").count() > 0, `breakpoint ${lang}`, "no highlighted statement");
+        await exit();
+    }
+
+    step("slow motion: highlights each block and runs to the end");
+    await editor.toBlocks(page);
+    // New blocks from the source, so no breakpoint is left on them.
+    await editor.toJavaScript(page);
+    await editor.setSource(page, "ts", DEBUG);
+    await editor.toBlocks(page);
+    await enter();
+    await page.locator(".debugtoolbar .dbg-trace").click();
+    const seen = [];
+    const slow = await until(page, async () => {
+        const now = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
+            .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]).join());
+        if (now && seen[seen.length - 1] !== now) seen.push(now);
+        return log();
+    }, l => l.length >= DEBUG_LOG.length, 30000);
+    check(same(slow, DEBUG_LOG), "slow motion", `logged ${JSON.stringify(slow)}, expected ${JSON.stringify(DEBUG_LOG)}`);
+    check(["variables_change", "agent_move", "agent_say", "agent_turn"].every(t => seen.includes(t)), "slow motion",
+        `highlighted ${seen.join(" > ")}`);
+    // Slow motion off again restarts the program in debug mode, where it stops before its first statement.
+    await page.locator(".debugtoolbar .dbg-trace").click();
+    await until(page, stopped, s => s);
+    await exit();
+}
+
 // Projects saved before commit d506004 have the Block dropdown as a field where the item slot is now an input.
 // Each fixture is the main.blocks (and main.ts) such a project saved. It is packed into a project file as editor
 // version 0.0.1 saved it (every version before the fix), so loading it runs pxt's upgrade with our blocklyPatch.
@@ -336,6 +513,7 @@ async function main() {
         await examplesSection(page);
         await timingSection(page);
         await positionMathSection(page);
+        await debugSection(page);
         await fixturesSection(page);
         await gallerySection(browser, relay.url);
         step("header, About box, side panel");

@@ -108,10 +108,15 @@ export async function robotLog(page, times = false) {
     return text.split("\n").map(l => (times ? l : l.replace(/^\d\d:\d\d:\d\d\.\d{3} /, "")).trim()).filter(Boolean);
 }
 
-// Empties the robot log, so lines from the previous run cannot count, and presses Run.
-export async function start(page) {
+// Empties the robot log, so lines from the previous run cannot count.
+export async function clearLog(page) {
     const sim = page.frames().find(f => f.url().includes("simulator"));
     if (sim) await sim.evaluate(() => { const log = document.getElementById("robotlog"); if (log) log.innerHTML = ""; }).catch(() => {});
+}
+
+// Empties the robot log and presses Run.
+export async function start(page) {
+    await clearLog(page);
     await page.locator("button.play-button").first().click();
 }
 
