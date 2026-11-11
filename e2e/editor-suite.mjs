@@ -6,11 +6,12 @@
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
-//   5. robot errors (issue #218): a refused command is caught in JavaScript, Python and run in parallel code, and
-//      nobody catching it, STOPPED and Stop end the program;
+//   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
+//      parallel code, and nobody catching it, STOPPED and Stop end the program; assert, raise and throw end it with
+//      their message;
 //   6. debug mode (issue #217): a breakpoint and a step stop before the next robot command, the variables show, the
 //      heartbeat goes on, continue runs to the end, Exit Debug Mode and /robot stop end a stopped program, breakpoints
-//      in Python and JavaScript, and slow motion gives the normal robot log;
+//      in Python and JavaScript, slow motion gives the normal robot log, and a failed assert marks its block;
 //   7. saved projects from before commit d506004 (fixtures/) load with their Block values intact;
 //   8. the Examples gallery (issue #216): a card per example program, in English and Norwegian, that opens its program,
 //      with no request to another host;
@@ -208,10 +209,12 @@ async function positionMathSection(page) {
         `said ${JSON.stringify(says)}, expected ${JSON.stringify(POSITION_MATH_SAYS)}`);
 }
 
-// Issue #218: the standalone relay refuses say "refuse <CODE>" with that code. A refused command throws into the
-// program, a catch takes it and the program goes on; nobody catching it, STOPPED and Stop end the program.
+// Issues #218 and #221: the standalone relay refuses say "refuse <CODE>" with that code. A refused command throws into
+// the program, a catch takes it and the program goes on; nobody catching it, STOPPED and Stop end the program. A failed
+// assert, Python's assert and raise and JavaScript's throw all end the program with their message in a dialog.
 const CONNECTED = ["connected as standalone", "run 0 started"];
 const REFUSED = code => `say refuse ${code}: ${code}: refused on purpose by the standalone relay`;
+const DEBUG_HINT = " (debug mode, the bug button, shows the block or line it came from)";
 const ERRORS = [
     {
         name: "caught in JavaScript", lang: "ts",
@@ -222,9 +225,14 @@ const ERRORS = [
     let error: string = e
     console.log("caught " + error.substr(0, error.indexOf(":")))
 }
+try {
+    control.assert(false, "check")
+} catch (e) {
+    console.log("caught " + e)
+}
 console.log("after")
 `,
-        log: [...CONNECTED, REFUSED("OUT_OF_RANGE"), "say: caught OUT_OF_RANGE", "say: after"],
+        log: [...CONNECTED, REFUSED("OUT_OF_RANGE"), "say: caught OUT_OF_RANGE", "say: caught check", "say: after"],
     },
     {
         name: "caught in Python", lang: "py",
@@ -233,9 +241,13 @@ console.log("after")
     print("not here")
 except:
     print("caught")
+try:
+    assert 1 == 2, "check"
+except:
+    print("caught assert")
 print("after")
 `,
-        log: [...CONNECTED, REFUSED("PROTECTED"), "say: caught", "say: after"],
+        log: [...CONNECTED, REFUSED("PROTECTED"), "say: caught", "say: caught assert", "say: after"],
     },
     {
         name: "caught in run in parallel", lang: "ts",
@@ -279,6 +291,39 @@ console.log("after")
 `,
         log: [...CONNECTED, "Program stopped: The robot was stopped in the game (refused on purpose by the standalone relay)."],
         dialog: "Program stopped The robot was stopped in the game (refused on purpose by the standalone relay).",
+    },
+    {
+        name: "failed assert", lang: "ts",
+        src: `control.assert(1 + 1 == 3, "one and one is not three")
+console.log("not here")
+`,
+        log: ["Program error: one and one is not three" + DEBUG_HINT],
+        dialog: "Program error one and one is not three" + DEBUG_HINT,
+    },
+    {
+        name: "Python assert", lang: "py",
+        src: `x = 2
+assert x == 3, "x is not 3"
+print("not here")
+`,
+        log: ["Program error: x is not 3" + DEBUG_HINT],
+        dialog: "Program error x is not 3" + DEBUG_HINT,
+    },
+    {
+        name: "Python raise", lang: "py",
+        src: `raise ValueError("gave up")
+print("not here")
+`,
+        log: ["Program error: gave up" + DEBUG_HINT],
+        dialog: "Program error gave up" + DEBUG_HINT,
+    },
+    {
+        name: "JavaScript throw", lang: "ts",
+        src: `throw "gave up"
+console.log("not here")
+`,
+        log: ["Program error: gave up" + DEBUG_HINT],
+        dialog: "Program error gave up" + DEBUG_HINT,
     },
 ];
 
@@ -505,6 +550,29 @@ async function debugSection(page) {
     // Slow motion off again restarts the program in debug mode, where it stops before its first statement.
     await page.locator(".debugtoolbar .dbg-trace").click();
     await until(page, stopped, s => s);
+    await exit();
+
+    // Issue #221: in debug mode pxt marks the block a failed assert came from, next to the dialog with its message.
+    step("debug mode: a failed assert marks its block");
+    await editor.toJavaScript(page);
+    await editor.setSource(page, "ts", `agent.move(SixDirection.Forward, 1)
+control.assert(1 + 1 == 3, "one and one is not three")
+agent.turn(TurnDirection.Left)
+`);
+    await editor.toBlocks(page);
+    await enter();
+    // Continue clicked at once after the stop on start left the program waiting after its first command here.
+    await page.waitForTimeout(2000);
+    await resume();
+    const failed = page.locator(".ui.modal:visible, .common-modal:visible").first();
+    await failed.waitFor();
+    check(/Program error\s+one and one is not three/.test(await failed.innerText()), "debug assert", `dialog: ${(await failed.innerText()).replace(/\s+/g, " ")}`);
+    await failed.locator("button:has-text('Close'), .closeIcon").first().click();
+    const marked = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
+        .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]));
+    check(same(marked, ["control_assert"]), "debug assert", `highlighted blocks ${JSON.stringify(marked)}, expected the check block`);
+    check(same(await log(), [...DEBUG_START, "move 0 1: done", `Program error: one and one is not three${DEBUG_HINT}`]), "debug assert",
+        `logged ${JSON.stringify(await log())}`);
     await exit();
 }
 

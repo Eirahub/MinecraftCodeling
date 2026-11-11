@@ -100,6 +100,8 @@ export const BLOCK_PROGRAMS = {
     builder_place: "builder.place(Block.Sandstone)",
     builder_line: "builder.line(Block.OakPlanks)",
     builder_fill: "builder.fill(Block.Cobblestone, FillOperation.Outline)",
+    control_assert: "control.check(false, \"Not built\")",
+    control_fail: "control.fail(\"Gave up\")",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
     loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",
