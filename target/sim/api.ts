@@ -63,6 +63,44 @@ namespace pxsim {
             const p = this.kind === RELATIVE ? "~" : this.kind === LOCAL ? "^" : "";
             return `${p}${this.x} ${p}${this.y} ${p}${this.z}`;
         }
+
+        /**
+         * How far it is to another position in a straight line, in blocks, with decimals: from world 0 64 0 to world
+         * 3 68 0 is 5. Two positions of different kinds are first turned into world positions, as to world does.
+         * @param other the position to measure to
+         */
+        //% blockId=position_distance_to block="%position=positions_pos|distance to %other=positions_pos"
+        //% blockNamespace=positions weight=75
+        async distanceToAsync(other: Position): Promise<number> {
+            // Same kind: the difference does not depend on where you stand or face, so no need to ask the game.
+            const a = this.kind === other.kind ? this : await this.toWorldAsync();
+            const b = this.kind === other.kind ? other : await other.toWorldAsync();
+            const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+            return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        /**
+         * Subtract the coordinates of another position: how far you go from the other one to this one. The result is
+         * the same kind as this one, and like + it does not turn other kinds into world positions.
+         * @param other what to subtract
+         */
+        //% blockId=position_subtract block="%position=positions_pos|- %other=positions_pos"
+        //% blockNamespace=positions weight=74
+        subtract(other: Position): Position {
+            return new Position(this.x - other.x, this.y - other.y, this.z - other.z, this.kind);
+        }
+
+        /**
+         * Multiply every coordinate by a number, rounded to whole blocks (half away from zero). The same kind as this one.
+         * @param factor how many times, eg: 2
+         */
+        //% blockId=position_scale block="%position=positions_pos|times %factor"
+        //% blockNamespace=positions weight=73
+        scale(factor: number): Position {
+            // The game takes whole block coordinates only; rounding the size keeps -p.scale(f) equal to p.scale(-f).
+            const r = (v: number) => v * factor < 0 ? -Math.round(-v * factor) : Math.round(v * factor);
+            return new Position(r(this.x), r(this.y), r(this.z), this.kind);
+        }
     }
 }
 
@@ -101,6 +139,45 @@ namespace pxsim.positions {
     export function random(from: Position, to: Position): Position {
         const r = (a: number, b: number) => Math.min(a, b) + Math.floor(Math.random() * (Math.abs(a - b) + 1));
         return new Position(r(from.x, to.x), r(from.y, to.y), r(from.z, to.z), from.kind);
+    }
+
+    // The distance of each position in the list from `from`, measured as distanceTo does. A list from the program is a
+    // RefCollection in the simulator; no list (findBounds answers null) counts as empty.
+    async function distances(list: Position[], from: Position): Promise<{ p: Position, d: number }[]> {
+        const all: Position[] = list ? (list as any as RefCollection).toArray() : [];
+        // Mixed kinds: turn `from` into a world position once instead of once for every position in the list.
+        const f = all.some(p => p.kind !== from.kind) ? await from.toWorldAsync() : from;
+        const res: { p: Position, d: number }[] = [];
+        for (let i = 0; i < all.length; i++) res.push({ p: all[i], d: await f.distanceToAsync(all[i]) });
+        return res;
+    }
+
+    /**
+     * A new list with the same positions, nearest to a position first (straight line, as distance to measures it).
+     * Positions just as far away keep their order. The list itself does not change; no list gives an empty list.
+     * @param list the positions to sort
+     * @param from where to measure from
+     */
+    //% blockId=positions_sort_by_distance block="sort %list=variables_get(list)|by distance from %from=positions_pos"
+    //% weight=59
+    export async function sortByDistanceAsync(list: Position[], from: Position): Promise<Position[]> {
+        const sorted = (await distances(list, from)).sort((a, b) => a.d - b.d).map(e => e.p);
+        return RefCollection.fromAny(sorted) as any;
+    }
+
+    /**
+     * The position in the list nearest to a position (straight line, as distance to measures it), the first one if
+     * two are just as near, or null when the list is empty.
+     * @param list the positions to look through
+     * @param from where to measure from
+     */
+    //% blockId=positions_nearest block="nearest in %list=variables_get(list)|to %from=positions_pos"
+    //% weight=58
+    export async function nearestAsync(list: Position[], from: Position): Promise<Position> {
+        const all = await distances(list, from);
+        let best = all[0];
+        for (let i = 1; i < all.length; i++) if (all[i].d < best.d) best = all[i];
+        return best ? best.p : null;
     }
 }
 
