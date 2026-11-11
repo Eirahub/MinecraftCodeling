@@ -1,0 +1,98 @@
+name: release
+
+# Pushing a tag vX.Y.Z (made on main, see CONTRIBUTING.md "Releases") builds the editor and the four jars and publishes
+# them as a GitHub release with their SHA-256 sums and the matching CHANGELOG.md section as notes.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Fail before the long build when the tag and gradle.properties disagree.
+      - name: Tag matches mod_version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mod_version=$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')
+          if [ "$version" != "$mod_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match mod_version=$mod_version in gradle.properties" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "## [" v "]") == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "CHANGELOG.md has no section '## [$VERSION]' with content" >&2
+            exit 1
+          fi
+
+      # Same build steps as the build job in ci.yml.
+      - name: Text checks (em dash, CRLF in pxt API files)
+        run: bash scripts/check-text.sh
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            target/package-lock.json
+            e2e/package-lock.json
+
+      # buildtarget runs twice: the first run regenerates sims.d.ts but bundles the old API info.
+      - name: Build pxt target (static editor)
+        working-directory: target
+        run: |
+          npm ci
+          npm run build
+          npm run build
+          npm run staticpkg
+
+      # The Gradle daemon provisions Java 25 itself (gradle/gradle-daemon-jvm.properties), but the wrapper needs a JDK to start.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      # Stays on v5: v6 bundles a proprietary caching component under Gradle's Terms of Use; upgrade only after the owner accepts them.
+      - uses: gradle/actions/setup-gradle@v5
+
+      # build also runs the JUnit tests and the server GameTests of each jar (through check).
+      - name: Build the four jars
+        run: ./gradlew :fabric:26.3:build :neoforge:26.3:build :fabric:1.21.1:build :neoforge:1.21.1:build
+
+      - name: Collect the jars and their SHA-256 sums
+        run: |
+          mkdir dist
+          for loader in fabric neoforge; do
+            for mc in 26.3 1.21.1; do
+              cp "$loader/versions/$mc/build/libs/codeling-$loader-$mc-$VERSION.jar" dist/
+            done
+          done
+          cd dist
+          sha256sum *.jar > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          prerelease=""
+          case "$VERSION" in 0.*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag $prerelease \
+            --title "Codeling $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
+            dist/*.jar dist/SHA256SUMS

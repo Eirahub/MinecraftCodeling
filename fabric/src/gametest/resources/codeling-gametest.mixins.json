@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "codeling.gametest.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "SpawnProtectionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

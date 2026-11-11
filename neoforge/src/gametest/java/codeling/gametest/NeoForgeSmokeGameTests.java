@@ -51,6 +51,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 //? if >=1.21.11 {
 import net.minecraft.world.level.gamerules.GameRule;
@@ -91,6 +92,7 @@ public final class NeoForgeSmokeGameTests {
         TESTS.put("game_rules_registered", NeoForgeSmokeGameTests::gameRulesRegistered);
         TESTS.put("payload_types_registered", NeoForgeSmokeGameTests::payloadTypesRegistered);
         TESTS.put("fake_player_respects_claims", NeoForgeSmokeGameTests::fakePlayerRespectsClaims);
+        TESTS.put("adventure_owner_cannot_build", NeoForgeSmokeGameTests::adventureOwnerCannotBuild);
     }
 
     private NeoForgeSmokeGameTests() {
@@ -273,6 +275,26 @@ public final class NeoForgeSmokeGameTests {
             helper.assertBlockPresent(Blocks.AIR, START.south());
             helper.assertValueEqual(RobotManager.robot(owner).inventory().getItem(0).getCount(), 5, "stone kept");
             helper.assertTrue(CLICKERS.contains(owner), "the claim mod saw the owner's UUID");
+        });
+    }
+
+    // Issue #53: the FakePlayer from FakePlayerFactory follows the owner's adventure rule: no placing, no breaking.
+    private static void adventureOwnerCannotBuild(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.snapTo(Vec3.atCenterOf(helper.absolutePos(START).above(100)));
+        player.setGameMode(GameType.ADVENTURE);
+        helper.setBlock(START.west(), Blocks.STONE);
+        UUID owner = player.getUUID();
+        RobotManager.spawn(helper.getLevel(), owner, Vec3.atBottomCenterOf(helper.absolutePos(START)), Direction.SOUTH);
+        RobotManager.robot(owner).inventory().setItem(0, new ItemStack(Items.STONE, 5));
+        List<Result> place = send(helper, owner, "agent.place", RobotCommand.FORWARD);
+        List<Result> destroy = send(helper, owner, "agent.destroy", RobotCommand.RIGHT);
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(place, List.of(Result.ok(false)), "place");
+            helper.assertValueEqual(destroy, List.of(Result.ok(false)), "destroy");
+            helper.assertBlockPresent(Blocks.AIR, START.south());
+            helper.assertBlockPresent(Blocks.STONE, START.west());
+            helper.getLevel().getServer().getPlayerList().remove(player);
         });
     }
 }

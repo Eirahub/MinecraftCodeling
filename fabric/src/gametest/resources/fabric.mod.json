@@ -12,6 +12,7 @@
     "fabric-client-gametest": ["codeling.gametest.RobotClientGameTest", "codeling.gametest.EditorEndToEndClientGameTest"],
     "client": ["codeling.gametest.FabricClientSmoke"]
   },
+  "mixins": ["codeling-gametest.mixins.json"],
   "depends": {
     "codeling": "*",
     "fabric-gametest-api-v1": "*"
