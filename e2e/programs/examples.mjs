@@ -53,6 +53,14 @@ export const EXAMPLES = [
         page: "guard-patrol",
         log: [...START, "move 0 3: done", "turn 2: done", "turn 2: done", "move 0 3: done", "turn 2: done", "turn 2: done"],
     },
+    {
+        // Issue #87: the fake relay answers light level 0, a dark cave, so every round places a torch behind the robot.
+        page: "dark-torches",
+        log: [...START, "setItem 50 16 1: true", "setSlot 1: true",
+            "move 0 2: done", "lightLevel : 0", "place 1: true",
+            "move 0 2: done", "lightLevel : 0", "place 1: true",
+            "move 0 2: done", "lightLevel : 0", "place 1: true", "say Lit up: true"],
+    },
 ].map(example => ({ ...example, name: example.page, js: program(example.page) }));
 
 /** The program in docs/examples/<page>.md: its one blocks code block, as the gallery opens it. */
