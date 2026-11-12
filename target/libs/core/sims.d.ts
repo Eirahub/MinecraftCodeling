@@ -1018,6 +1018,51 @@ declare namespace agent {
         public camera(mode: CameraMode): void;
 
     }
+declare namespace player {
+    /**
+     * Show a message in your chat. Only you see it. Longer than 256 characters is cut, and it is plain text (no colours).
+     * @param message what to show, eg: "Hi!"
+     */
+    //% blockId=player_say block="say %message"
+    //% weight=100
+    //% shim=player::sayAsync promise
+    function say(message: string): void;
+
+    /**
+     * Where you are: the block your feet are in, as a world position.
+     */
+    //% blockId=player_position block="player world position"
+    //% weight=90
+    //% shim=player::positionAsync promise
+    function position(): Position;
+
+    /**
+     * Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90.
+     */
+    //% blockId=player_get_orientation block="player orientation"
+    //% weight=89
+    //% shim=player::getOrientationAsync promise
+    function getOrientation(): number;
+
+    /**
+     * Your player name.
+     */
+    //% blockId=player_name block="player name"
+    //% weight=88
+    //% shim=player::nameAsync promise
+    function name(): string;
+
+    /**
+     * Teleport yourself to a position in the same dimension. Only in singleplayer or for an operator; otherwise the
+     * game refuses it with a NO_PERMISSION error. Relative positions are worked out from where you stand now.
+     * @param to where to go, eg: pos(0, 10, 0)
+     */
+    //% blockId=player_teleport block="teleport to %to=positions_pos"
+    //% weight=80
+    //% shim=player::teleportAsync promise
+    function teleport(to: Position): void;
+
+}
 declare namespace robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its

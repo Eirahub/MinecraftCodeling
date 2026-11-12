@@ -1254,6 +1254,61 @@ namespace pxsim {
     }
 }
 
+// The player API (issue #26): names as in MakeCode for Minecraft. Every call is about you, the program's owner, and
+// is checked by the game. Unlike MakeCode, say shows the message to you only, not to everyone in the chat.
+namespace pxsim.player {
+    /**
+     * Show a message in your chat. Only you see it. Longer than 256 characters is cut, and it is plain text (no colours).
+     * @param message what to show, eg: "Hi!"
+     */
+    //% blockId=player_say block="say %message"
+    //% weight=100
+    export function sayAsync(message: string): Promise<void> {
+        return agent.call("player.say", ["" + message], "");
+    }
+
+    /**
+     * Where you are: the block your feet are in, as a world position.
+     */
+    //% blockId=player_position block="player world position"
+    //% weight=90
+    export async function positionAsync(): Promise<Position> {
+        const [x, y, z] = await agent.call("player.position", [], "");
+        return new Position(x, y, z);
+    }
+
+    /**
+     * Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90.
+     */
+    //% blockId=player_get_orientation block="player orientation"
+    //% weight=89
+    export function getOrientationAsync(): Promise<number> {
+        return agent.call("player.getOrientation", [], "");
+    }
+
+    /**
+     * Your player name.
+     */
+    //% blockId=player_name block="player name"
+    //% weight=88
+    export function nameAsync(): Promise<string> {
+        return agent.call("player.name", [], "");
+    }
+
+    /**
+     * Teleport yourself to a position in the same dimension. Only in singleplayer or for an operator; otherwise the
+     * game refuses it with a NO_PERMISSION error. Relative positions are worked out from where you stand now.
+     * @param to where to go, eg: pos(0, 10, 0)
+     */
+    //% blockId=player_teleport block="teleport to %to=positions_pos"
+    //% weight=80
+    export async function teleportAsync(to: Position): Promise<void> {
+        if (!to) return;
+        const p = await to.toWorldAsync();
+        await agent.call("player.teleport", [p.x, p.y, p.z], "");
+    }
+}
+
 namespace pxsim.robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its

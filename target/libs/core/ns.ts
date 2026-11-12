@@ -26,6 +26,13 @@ namespace agent {
 }
 
 /**
+ * You, the player who runs the program (issue #26)
+ */
+//% color=#1565C0 weight=97 icon=""
+namespace player {
+}
+
+/**
  * Your other robots, by name (issue #141). agent is your default robot.
  */
 //% color=#558B2F weight=95 icon="\uf0c0"
