@@ -6,7 +6,7 @@
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers,
-//      and the player calls (issue #26) send their ops and use the relay's answers; chat and death events (issue #27)
+//      the player calls (issue #26) and go to robot (issue #243) send their ops and use the relay's answers; chat and death events (issue #27)
 //      run their handlers with the numbers, keep the program running until Stop, and runChatCommand sends nothing;
 //      block broken, redstone and day start events (issue #89) run their handlers;
 //   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
@@ -230,6 +230,24 @@ async function playerSection(page) {
     const log = await editor.run(page, PLAYER_LOG.length);
     await editor.stop(page);
     check(JSON.stringify(log) === JSON.stringify(PLAYER_LOG), "player calls", `robot log ${JSON.stringify(log)}, expected ${JSON.stringify(PLAYER_LOG)}`);
+}
+
+// Issue #243: go to robot sends the target's name ("" for agent) on the moving robot's command; a named robot's position.
+const GO_TO_ROBOT = `let miner = robots.get("Miner")
+let met = agent.goToRobot(miner)
+let back = miner.goToRobot(robots.get(""))
+let minerAt = miner.getPosition()
+console.log("met " + met + " " + back + " at " + minerAt)
+`;
+const GO_TO_ROBOT_LOG = ["connected as standalone", "run 0 started", "goToRobot Miner: true", "Miner: goToRobot : true",
+    "Miner: getPosition : 0,0,0", "say: met true true at 0 0 0"];
+
+async function goToRobotSection(page) {
+    step("go to robot and a named robot's position");
+    await setProgram(page, "ts", GO_TO_ROBOT);
+    const log = await editor.run(page, GO_TO_ROBOT_LOG.length);
+    await editor.stop(page);
+    check(JSON.stringify(log) === JSON.stringify(GO_TO_ROBOT_LOG), "go to robot", `robot log ${JSON.stringify(log)}, expected ${JSON.stringify(GO_TO_ROBOT_LOG)}`);
 }
 
 // Issue #27: the standalone relay turns player.say "chat <line>" into that chat line and "die" into a death, for a
@@ -860,6 +878,7 @@ async function main() {
         await timingSection(page);
         await positionMathSection(page);
         await playerSection(page);
+        await goToRobotSection(page);
         await eventsSection(page, relay);
         await errorsSection(page);
         await debugSection(page);

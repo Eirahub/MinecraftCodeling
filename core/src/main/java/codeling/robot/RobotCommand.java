@@ -55,6 +55,11 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         INTERACT, IS_OPEN, REDSTONE_POWER,
         /** agent.moveTo (issue #44): {@code a, b, c} = world x, y, z; the editor resolves ~ and ^ positions first. */
         MOVE_TO,
+        /**
+         * agent.goToRobot (issue #243): {@code text} = the name of another of the owner's robots, "" for the default
+         * robot. Walks like MOVE_TO to a free block next to that robot; the server looks the robot up when it starts.
+         */
+        GO_TO_ROBOT,
         /** agent.followPath (issue #179): {@code a} = the path block ({@link BlockIds} code), 0 (air) for the block under the robot; {@code b} = the side to keep to (#180), 0 or LEFT_TURN / RIGHT_TURN. */
         FOLLOW_PATH,
         /** Measuring (issues #127 to #132): reads only, the robot does not move. */
@@ -292,6 +297,13 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
             case "agent.moveTo" -> {
                 arity(op, args, 3);
                 return new RobotCommand(Op.MOVE_TO, coordinate(args.get(0), "x"), coordinate(args.get(1), "y"), coordinate(args.get(2), "z"));
+            }
+            case "agent.goToRobot" -> {
+                arity(op, args, 1);
+                if (!(args.get(0) instanceof String name)) throw new RobotException(Result.Code.BAD_ARGS, "robot must be a robot's name");
+                String problem = name.isEmpty() ? null : nameProblem(name);
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                return new RobotCommand(Op.GO_TO_ROBOT, 0, 0, 0, name);
             }
             case "agent.followPath" -> {
                 // The side is optional (issue #180), so a client that sends only the block still works.

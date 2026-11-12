@@ -179,6 +179,8 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.IS_OPEN, 3, 0), sim("agent.isOpen", "[3]"));
         assertEquals(new RobotCommand(RobotCommand.Op.REDSTONE_POWER, 5, 0), sim("agent.redstonePower", "[5]"));
         assertEquals(new RobotCommand(RobotCommand.Op.MOVE_TO, 10, -64, 3), sim("agent.moveTo", "[10,-64,3]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.GO_TO_ROBOT, 0, 0, 0, "Miner"), sim("agent.goToRobot", "[\"Miner\"]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.GO_TO_ROBOT, 0, 0, 0, ""), sim("agent.goToRobot", "[\"\"]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FOLLOW_PATH, 0, 0), sim("agent.followPath", "[0]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FOLLOW_PATH, 0, RobotCommand.LEFT_TURN), sim("agent.followPath", "[0,2]"));
         assertEquals(new RobotCommand(RobotCommand.Op.MEASURE, 0, 32), sim("agent.measure", "[0,32]"));
