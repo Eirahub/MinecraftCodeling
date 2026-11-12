@@ -40,11 +40,13 @@ public final class ServerRelay {
     public static void playerLeft(ServerPlayer player) {
         UUID owner = player.getUUID();
         SESSIONS.remove(owner);
+        PlayerApi.playerLeft(owner);
         RobotManager.stop(owner, "the player left the game");
     }
 
     public static void serverStopped() {
         SESSIONS.clear();
+        PlayerApi.serverStopped();
     }
 
     // Looks the player up by UUID on every send, so a respawned player (new ServerPlayer object) still gets replies.
@@ -67,7 +69,7 @@ public final class ServerRelay {
                     Protocol.Cmd cmd = Protocol.cmd(msg);
                     SESSIONS.touch(owner, cmd.run(), now);
                     RobotLinks.Key key = new RobotLinks.Key(owner, cmd.robot());
-                    if (toWorld(player, cmd, out) || camera(player, key, cmd, out)) return;
+                    if (toWorld(player, cmd, out) || camera(player, key, cmd, out) || PlayerApi.submit(player, cmd, out)) return;
                     RobotManager.submit(key, cmd.run(), cmd.command(), result -> out.accept(Protocol.reply(cmd.id(), result)));
                 }
                 default -> throw new RobotException(Result.Code.BAD_ARGS, "unknown message type " + Protocol.type(msg));
@@ -150,6 +152,7 @@ public final class ServerRelay {
     }
 
     public static void tick(MinecraftServer server) {
+        PlayerApi.tick();
         for (Map.Entry<UUID, Sessions.Session> e : SESSIONS.expire(server.getTickCount())) {
             if (RobotManager.queue(e.getKey()).run() == e.getValue().run) RobotManager.stop(e.getKey(), "no heartbeat from the editor (it was closed or lost contact)");
             e.getValue().out.accept(Protocol.control("stop", e.getValue().run,
