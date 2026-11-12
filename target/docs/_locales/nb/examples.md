@@ -62,6 +62,14 @@ beskrivelse er oversatt. Programmene finnes bare i docs/examples/<side>.md. -->
         "imageUrl": "/static/examples/guard-patrol.svg",
         "cardType": "example",
         "otherActions": []
+    },
+    {
+        "name": "Fakler i mørket",
+        "description": "Går videre og setter en fakkel bak seg der lysnivået er under 8.",
+        "url": "/examples/dark-torches",
+        "imageUrl": "/static/examples/dark-torches.svg",
+        "cardType": "example",
+        "otherActions": []
     }
 ]
 ```

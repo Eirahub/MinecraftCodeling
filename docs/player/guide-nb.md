@@ -87,8 +87,8 @@ For å stoppe et program trykker du på stoppknappen i editoren, eller skriver `
 
 ## Eksempler
 
-Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": sju små programmer,
-for eksempel en trapp, en tunnel, et rom med gjerde og en vaktpatrulje. Klikk på ett for å lese hva det lærer deg,
+Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": åtte små programmer,
+for eksempel en trapp, en tunnel, et rom med gjerde, en vaktpatrulje og fakler i mørket. Klikk på ett for å lese hva det lærer deg,
 og trykk så på "Åpne eksempel" under Blokker, Python eller JavaScript. Da får du et nytt prosjekt med programmet i:
 trykk på Kjør-knappen for å prøve det, og endre det som du vil. Selve eksempelet blir som det var.
 
@@ -235,6 +235,9 @@ Radaren ser høyst 16 blokker rundt roboten. Usynlige spillere og spillere i til
 | robot nærmeste (type) innen (radius) | `agent.nearestEntity(EntityKind.Player, 8)` | Hvor den nærmeste er, eller ingenting. |
 | robot oppdag væske (retning) | `agent.detectLiquid(SixDirection.Down)` | Vann, lava eller ingen (`Liquid.Lava`). |
 | robot er trygt (retning) | `agent.isSafe(SixDirection.Forward)` | Usann hvis blokken har lava i seg eller under seg, et fall på mer enn 3 blokker under seg, eller en fiendtlig skapning i seg eller rett ved siden av. En vegg er trygg, for roboten kan ikke gå dit. |
+| robot lysnivå | `agent.lightLevel()` | Hvor lyst det er der roboten står: 0 (mørkt) til 15 (dagslys, eller en fakkel rett der). Lyset fra himmelen er svakere om natten og når det regner. Fiendtlige skapninger kan dukke opp der det er 0. |
+| robot biom | `agent.biome()` | Biomet der roboten står, som en kort tekst: `"plains"`, `"desert"`. Biomer fra modder har med navnet på modden: `"mymod:crystal_cave"`. |
+| robot temperatur | `agent.temperature()` | Hvor varmt biomet er: snøslette 0, slette 0,8, ørken 2. Under 0,15 snør det i stedet for å regne. |
 
 ### Måling
 
@@ -336,6 +339,23 @@ player.onChat("jump", function (num1, num2, num3) {
   reagere. Trykk på stoppknappen i editoren, eller skriv `/robot stop`, for å avslutte det. Da vises chattelinjene
   dine som vanlig igjen.
 - Høyst 16 chatkommandoer venter på programmet ditt; flere på en gang blir forkastet.
+
+### Tid og vær (kategorien Vær og tid)
+
+Disse blokkene leser verdenen du er i. De virker uten robot.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| tid på døgnet | `gameplay.timeOfDay()` | Tiden i spill-tikk, 0 til 23999: 0 er soloppgang, 6000 middag, 12000 solnedgang, 18000 midnatt. Nether og End har tiden i Oververdenen. |
+| regner det | `gameplay.isRaining()` | Sann når det regner eller tordner i dimensjonen din (snø teller også). Aldri i Nether eller End. Den sier ikke om regnet når ett bestemt sted: under et tak svarer den fortsatt sann. |
+
+Dette programmet jobber bare om dagen og stopper når natten kommer:
+
+```
+while (gameplay.timeOfDay() < 12000) {
+    agent.move(SixDirection.Forward, 1)
+}
+```
 
 ### Posisjoner (kategorien Posisjoner)
 

@@ -385,6 +385,34 @@ declare namespace agent {
     //% shim=agent::isSafeAsync promise
     function isSafe(direction: SixDirection): boolean;
 
+    // World queries (issue #87): the robot's own block, nothing further away.
+    /**
+     * How light it is where the robot stands, 0 (dark) to 15 (full daylight or right next to a torch). Sky light is
+     * lower at night and in rain. Hostile mobs can spawn on blocks with light 0.
+     */
+    //% blockId=agent_light_level block="agent light level"
+    //% group="Sensors" weight=57
+    //% shim=agent::lightLevelAsync promise
+    function lightLevel(): number;
+
+    /**
+     * The biome where the robot stands, as its short id: "plains", "desert", "dark_forest". Biomes from other mods
+     * keep their mod name: "mymod:crystal_cave".
+     */
+    //% blockId=agent_biome block="agent biome"
+    //% group="Sensors" weight=56
+    //% shim=agent::biomeAsync promise
+    function biome(): string;
+
+    /**
+     * The temperature of the biome where the robot stands. Biomes below 0.15 get snow instead of rain (snowy plains 0),
+     * plains 0.8, desert 2.
+     */
+    //% blockId=agent_temperature block="agent temperature"
+    //% group="Sensors" weight=55
+    //% shim=agent::temperatureAsync promise
+    function temperature(): number;
+
     // Measuring (issues #126 to #132): the robot reads blocks in loaded chunks and does not move.
     /**
      * How many free blocks there are in a direction before the first block that would stop a move. Answers max when
@@ -877,6 +905,21 @@ declare namespace agent {
         //% shim=.isSafeAsync promise
         public isSafe(direction: SixDirection): boolean;
 
+        /** Like agent.lightLevel. */
+        //%
+        //% shim=.lightLevelAsync promise
+        public lightLevel(): number;
+
+        /** Like agent.biome. */
+        //%
+        //% shim=.biomeAsync promise
+        public biome(): string;
+
+        /** Like agent.temperature. */
+        //%
+        //% shim=.temperatureAsync promise
+        public temperature(): number;
+
         /** Like agent.measure. */
         //%
         //% shim=.measureAsync promise
@@ -1095,6 +1138,25 @@ declare namespace player {
     //% weight=68
     //% shim=player::runChatCommandAsync promise
     function runChatCommand(command: string): void;
+
+}
+declare namespace gameplay {
+    /**
+     * The time of day in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. Every
+     * dimension has the Overworld's time.
+     */
+    //% blockId=gameplay_time_of_day block="time of day"
+    //% weight=100
+    //% shim=gameplay::timeOfDayAsync promise
+    function timeOfDay(): number;
+
+    /**
+     * True when it rains or thunders where you are (snow in cold biomes counts too). Never in the Nether or the End.
+     */
+    //% blockId=gameplay_is_raining block="is raining"
+    //% weight=90
+    //% shim=gameplay::isRainingAsync promise
+    function isRaining(): boolean;
 
 }
 declare namespace robots {
