@@ -29,6 +29,7 @@ Player guide (install, first program, every command): [English](docs/player/guid
 | `fabric/src/gametest/` | Server and client GameTests (own mod id `codeling-gametest`, not in the jar). Screenshot templates in `resources/templates/`. |
 | `gradle/loader.gradle.kts` | Build logic both loader modules apply: version, jar name rule (`checkJarNames`) and the editor copy with the branding patch. |
 | `docs/` | Architecture and research notes. |
+| `art/robot/` | Blockbench projects, textures, masks and generator script for the robot model (issue #242). Not in the jars. |
 
 ## Build
 
