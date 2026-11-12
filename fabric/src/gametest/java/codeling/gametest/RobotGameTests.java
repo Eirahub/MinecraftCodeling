@@ -1771,6 +1771,40 @@ public class RobotGameTests {
                 List.of(Result.ok(true), Result.ok(false), Result.ok(false), Result.ok(false), Result.ok(true)), "forward, back, left, right, down"));
     }
 
+    /**
+     * Issue #87: light, biome and temperature at the robot's own block. Two robots in closed stone boxes: one in the
+     * dark (0 at any time of day), one next to glowstone (15 in the glowstone, one less next to it).
+     */
+    @GameTest(maxTicks = 100)
+    public void lightBiomeAndTemperature(GameTestHelper helper) {
+        BlockPos dark = new BlockPos(2, 2, 2), lit = new BlockPos(5, 2, 5);
+        for (BlockPos cell : List.of(dark, lit)) {
+            for (Direction side : Direction.values()) helper.setBlock(cell.relative(side), Blocks.STONE);
+        }
+        helper.setBlock(lit.east(), Blocks.GLOWSTONE);
+        // The test world has several biomes, so the lit robot's block is made snowy plains (temperature 0). Biomes are
+        // stored per 4x4x4 cell and a block reads a jittered neighbour cell, so the cells around it change too.
+        BlockPos from = helper.absolutePos(lit).offset(-4, -4, -4), to = helper.absolutePos(lit).offset(4, 4, 4);
+        var server = helper.getLevel().getServer();
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "fillbiome " + from.getX() + " " + from.getY()
+                + " " + from.getZ() + " " + to.getX() + " " + to.getY() + " " + to.getZ() + " minecraft:snowy_plains");
+        UUID inDark = UUID.randomUUID(), inLight = UUID.randomUUID();
+        RobotManager.spawn(helper.getLevel(), inDark, Vec3.atBottomCenterOf(helper.absolutePos(dark)), Direction.SOUTH);
+        RobotManager.spawn(helper.getLevel(), inLight, Vec3.atBottomCenterOf(helper.absolutePos(lit)), Direction.SOUTH);
+        List<Result> darkResults = new ArrayList<>(), litResults = new ArrayList<>();
+        // Light is worked out at the end of a tick, so read it a few ticks after the blocks changed.
+        helper.runAfterDelay(5, () -> {
+            send(darkResults, helper, inDark, "agent.lightLevel");
+            send(litResults, helper, inLight, "agent.lightLevel");
+            send(litResults, helper, inLight, "agent.biome");
+            send(litResults, helper, inLight, "agent.temperature");
+        });
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(darkResults, List.of(Result.ok(0)), "light in the dark");
+            helper.assertValueEqual(litResults, List.of(Result.ok(14), Result.ok("snowy_plains"), Result.ok(0.0)), "light, biome and temperature by glowstone");
+        });
+    }
+
     // Issue #162: full means no empty slot, even when a stack could take more.
     @GameTest(maxTicks = 100)
     public void inventoryFullAndFreeSlots(GameTestHelper helper) {

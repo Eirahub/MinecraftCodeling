@@ -62,6 +62,14 @@ editor suite tests (e2e/programs/examples.mjs). The Norwegian cards are in _loca
         "imageUrl": "/static/examples/guard-patrol.svg",
         "cardType": "example",
         "otherActions": []
+    },
+    {
+        "name": "Torches in the dark",
+        "description": "Walks on and puts a torch behind it wherever the light level is below 8.",
+        "url": "/examples/dark-torches",
+        "imageUrl": "/static/examples/dark-torches.svg",
+        "cardType": "example",
+        "otherActions": []
     }
 ]
 ```

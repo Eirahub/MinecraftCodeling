@@ -22,8 +22,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 
 /**
- * The player API (issue #26): calls about the program's owner, never about another player. They need no robot, so
- * they skip the robot queues, but they get the same pace and cap: one call per owner per tick, at most
+ * The player API (issue #26): calls about the program's owner, never about another player, and the time and weather of
+ * the owner's dimension (issue #87). They need no robot, so they skip the robot queues, but they get the same pace and
+ * cap: one call per owner per tick, at most
  * {@link RobotQueue#MAX_LENGTH} waiting, else {@code RATE_LIMITED}. Game mode does not matter: the calls only read
  * the owner, tell the owner something, or move the owner as /tp would, so spectator and adventure owners may use them
  * all (teleport still needs the rights below). Server thread only.
@@ -37,7 +38,7 @@ final class PlayerApi {
     /** Queues a player call from {@code player}'s browser; false when {@code cmd} is not one. */
     static boolean submit(ServerPlayer player, Protocol.Cmd cmd, Consumer<String> out) throws RobotException {
         RobotCommand c = cmd.command();
-        if (c.op().compareTo(RobotCommand.Op.PLAYER_SAY) < 0 || c.op().compareTo(RobotCommand.Op.PLAYER_TELEPORT) > 0) return false;
+        if (c.op().compareTo(RobotCommand.Op.PLAYER_SAY) < 0 || c.op().compareTo(RobotCommand.Op.IS_RAINING) > 0) return false;
         UUID owner = player.getUUID();
         MinecraftServer server = player.level().getServer();
         if (cmd.run() != RobotManager.queue(owner).run()) throw new RobotException(Result.Code.STOPPED, "run " + cmd.run() + " is no longer active");
@@ -84,6 +85,10 @@ final class PlayerApi {
             case PLAYER_ORIENTATION -> Result.ok(Math.round(Mth.wrapDegrees(player.getYRot()) * 10) / 10.0);
             case PLAYER_NAME -> Result.ok(player.getGameProfile().name());
             case PLAYER_TELEPORT -> teleport(player, new BlockPos(c.a(), c.b(), c.c()));
+            // Issue #87: what the owner sees anyway. The time is the Overworld's clock in every dimension (as /time query daytime).
+            case TIME_OF_DAY -> Result.ok(Math.floorMod(McCompat.dayTime(player.level()), 24000L));
+            // Rain or thunder in the owner's dimension (snow counts), not whether it falls on one block; never in the Nether or the End.
+            case IS_RAINING -> Result.ok(player.level().isRaining());
             default -> throw new IllegalStateException("not a player call: " + c.op());
         };
     }

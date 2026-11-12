@@ -1110,6 +1110,19 @@ public final class RobotManager {
             case IS_INVENTORY_FULL -> {
                 return Result.ok(freeSlots(inv) == 0);
             }
+            // Issue #87: the robot's own block only, which is loaded while the robot is. Light as F3 and mob spawning see
+            // it: the brighter of block light and sky light, the sky darkened at night and in rain.
+            case LIGHT_LEVEL -> {
+                return Result.ok(level.getMaxLocalRawBrightness(robot.blockPosition()));
+            }
+            case BIOME -> {
+                String id = level.getBiome(robot.blockPosition()).getRegisteredName();
+                return Result.ok(id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id);
+            }
+            // shortcut: the biome's base temperature (plains 0.8), not lowered with height; use Biome.getTemperature if players need that.
+            case TEMPERATURE -> {
+                return Result.ok(Math.round(level.getBiome(robot.blockPosition()).value().getBaseTemperature() * 100) / 100.0);
+            }
             default -> {
             }
         }

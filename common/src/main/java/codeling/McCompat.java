@@ -88,6 +88,14 @@ public final class McCompat {
         /*return player.canInteractWithEntity(entity, buffer);*/
     }
 
+    /** The time of day in ticks, not wrapped: 26.1 moved it to world clocks, and every dimension reads the Overworld's. */
+    public static long dayTime(Level level) {
+        //? if >=26.1 {
+        return level.getOverworldClockTime();
+        //?} else
+        /*return level.getDayTime();*/
+    }
+
     public static int chunkX(ChunkPos chunk) {
         //? if >=26.1 {
         return chunk.x();

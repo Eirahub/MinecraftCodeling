@@ -478,14 +478,16 @@ const DEBUG_START = ["connected as standalone", "run 0 started"];
 const DEBUG_MOVES = [...DEBUG_START, "move 0 1: done", "move 0 1: done", "move 0 1: done"];
 const DEBUG_LOG = [...DEBUG_MOVES, "say done 3: true", "turn 2: done"];
 
-// Polls until ok(value) or the time is up; returns the last value.
-async function until(page, poll, ok, ms = 10000) {
+// Polls until ok(value) and returns the last value. A slow runner gets a generous limit (issue #235); when it runs
+// out, the failure names the condition that was not met.
+async function until(page, poll, ok, condition, ms = 60000) {
     const deadline = Date.now() + ms;
     let value = await poll();
     while (!ok(value) && Date.now() < deadline) {
         await page.waitForTimeout(100);
         value = await poll();
     }
+    if (!ok(value)) fail("debug wait", `${condition}: not within ${ms / 1000} s, last ${JSON.stringify(value)}`);
     return value;
 }
 
@@ -498,19 +500,36 @@ async function debugSection(page) {
     }));
     const log = () => editor.robotLog(page);
     const variables = () => page.evaluate(() => document.querySelector(".debugvariables")?.innerText.replace(/\s+/g, " ").trim() ?? "");
-    const stopped = () => page.locator(".debugtoolbar .dbg-pause-resume.play").count().then(n => n > 0);
+    // The toolbar shows Continue as soon as debug mode opens, before the program has run (issue #235), and not every
+    // stop highlights a block. pxt's runtime in the simulator knows when the program stands at a breakpoint.
+    const stopped = async () => await page.locator(".debugtoolbar .dbg-pause-resume.play").count() > 0
+        && await (page.frames().find(f => f.url().includes("simulator"))
+            ?.evaluate(() => !!window.pxsim?.runtime?.pausedOnBreakpoint).catch(() => false) ?? false);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const enter = async () => {
         // pxt restarts the program in debug mode without a new robot log, so the old lines go first.
         await editor.clearLog(page);
         await page.locator("button.debug-button").click();
-        await until(page, stopped, s => s);
+        await until(page, stopped, s => s, "debug mode stops the program before its first statement");
     };
     const exit = async () => {
         await page.locator(".exit-debugmode-btn").first().click();
         await page.locator(".debugtoolbar").first().waitFor({ state: "detached" });
     };
     const resume = () => page.locator(".debugtoolbar .dbg-pause-resume").click();
+    // Some time after the Blocks editor loads a program, pxt saves and type-checks it (debounced), and that save clears
+    // the block the debugger marked (issue #235). pxt's tick events show when the type check is done.
+    await page.evaluate(() => {
+        const tick = pxt.tickEvent;
+        window.codelingTicks = [];
+        pxt.tickEvent = (id, ...rest) => { window.codelingTicks.push(id); return tick(id, ...rest); };
+    });
+    const toBlocks = async () => {
+        await page.evaluate(() => { window.codelingTicks.length = 0; });
+        await editor.toBlocks(page);
+        await until(page, () => page.evaluate(() => window.codelingTicks.includes("typecheck.complete")), t => t,
+            "the editor saves and type-checks the new blocks");
+    };
     const sayBreakpoint = () => page.locator(".blocklyWorkspace g.blocklyBlock[data-id][class^=agent_say] > .blocklyIconGroup").first().click();
     // A breakpoint in the Monaco margin, on the line that starts with `text`.
     const lineBreakpoint = async text => {
@@ -529,9 +548,9 @@ async function debugSection(page) {
     step("debug mode in Blocks: breakpoint, variables, step, continue");
     await editor.toJavaScript(page, true);
     await editor.setSource(page, "ts", DEBUG);
-    await editor.toBlocks(page);
+    await toBlocks();
     await editor.start(page);
-    const normal = await until(page, log, l => l.length >= DEBUG_LOG.length);
+    const normal = await until(page, log, l => l.length >= DEBUG_LOG.length, "the normal run logs every line");
     await editor.stop(page);
     check(same(normal, DEBUG_LOG), "debug", `normal run logged ${JSON.stringify(normal)}, expected ${JSON.stringify(DEBUG_LOG)}`);
     await enter();
@@ -539,9 +558,8 @@ async function debugSection(page) {
     check((await log()).length === 0, "debug mode", `the program did not stop before its first command: ${(await log()).join(" | ")}`);
     await sayBreakpoint();
     await resume();
-    const atBreakpoint = await until(page, log, l => l.length >= DEBUG_MOVES.length);
-    await until(page, stopped, s => s);
-    await page.waitForTimeout(1500);
+    const atBreakpoint = await until(page, log, l => l.length >= DEBUG_MOVES.length, "the moves before the breakpoint");
+    await until(page, stopped, s => s, "the program stops at the say breakpoint");
     check(same(await log(), DEBUG_MOVES), "breakpoint", `stopped before say with ${JSON.stringify(await log())}, expected ${JSON.stringify(DEBUG_MOVES)}`);
     check(/\bcount: 3\b/.test(await variables()), "variables", `the Variables panel shows "${await variables()}", expected count: 3`);
     const highlighted = await page.evaluate(() => [...document.querySelectorAll(".blocklyPath.pxtRendererHighlight")]
@@ -549,17 +567,18 @@ async function debugSection(page) {
     check(same(highlighted, ["agent_say"]), "breakpoint", `highlighted blocks ${JSON.stringify(highlighted)}, expected the say block`);
     // The heartbeat keeps the run alive while the program stands still (the game ends a run after 10 s without one).
     sent.length = 0;
+    // On purpose: 3.5 s in which no command may be sent, then a heartbeat (every 3 s) is waited for if none came yet.
     await page.waitForTimeout(3500);
+    await until(page, () => sent.some(m => m.op === "heartbeat"), h => h, "a heartbeat while stopped at the breakpoint");
     check(sent.some(m => m.op === "heartbeat") && !sent.some(m => m.t === "cmd"), "breakpoint",
         `sent while stopped: ${JSON.stringify(sent.map(m => m.op ?? m.t))}, expected a heartbeat and no command`);
     await page.locator(".debugtoolbar .dbg-step").click();
-    await until(page, log, l => l.length > atBreakpoint.length);
-    await until(page, stopped, s => s);
-    await page.waitForTimeout(1500);
+    await until(page, log, l => l.length > atBreakpoint.length, "the step logs the say");
+    await until(page, stopped, s => s, "the program stops after one step");
     check(same(await log(), [...DEBUG_MOVES, "say done 3: true"]), "step",
         `one step logged ${JSON.stringify((await log()).slice(atBreakpoint.length))}, expected the say only`);
     await resume();
-    const end = await until(page, log, l => l.length >= DEBUG_LOG.length);
+    const end = await until(page, log, l => l.length >= DEBUG_LOG.length, "continue runs to the end");
     check(same(end, DEBUG_LOG), "continue", `continue logged ${JSON.stringify(end)}, expected ${JSON.stringify(DEBUG_LOG)}`);
 
     step("debug mode: Exit Debug Mode and /robot stop at a breakpoint");
@@ -568,10 +587,12 @@ async function debugSection(page) {
     await enter();
     await sayBreakpoint();
     await resume();
-    await until(page, log, l => l.length >= DEBUG_MOVES.length);
-    await until(page, stopped, s => s);
+    await until(page, log, l => l.length >= DEBUG_MOVES.length, "the moves before the breakpoint");
+    await until(page, stopped, s => s, "the program stops at the say breakpoint");
     sent.length = 0;
     await exit();
+    await until(page, () => sent.some(m => m.t === "control" && m.op === "stop"), s => s, "Exit Debug Mode sends stop");
+    // On purpose: 1.5 s in which pxt's restart (a start and the commands) would show.
     await page.waitForTimeout(1500);
     check(sent.some(m => m.t === "control" && m.op === "stop") && !sent.some(m => m.t === "cmd" || m.op === "start"), "stop",
         `Exit Debug Mode at a breakpoint sent ${JSON.stringify(sent.map(m => m.op ?? m.t))}, expected stop and nothing else`);
@@ -581,8 +602,8 @@ async function debugSection(page) {
     await enter();
     await sayBreakpoint();
     await resume();
-    await until(page, log, l => l.length >= DEBUG_MOVES.length);
-    await until(page, stopped, s => s);
+    await until(page, log, l => l.length >= DEBUG_MOVES.length, "the moves before the breakpoint");
+    await until(page, stopped, s => s, "the program stops at the say breakpoint");
     await page.evaluate(() => new Promise(done => {
         const ws = new WebSocket(`ws://${location.host}/relay`);
         ws.onopen = () => ws.send(JSON.stringify({ t: "hello", token: localStorage.getItem("codeling/local_token"), client: "suite", v: 2 }));
@@ -593,6 +614,7 @@ async function debugSection(page) {
     check(/Program stopped/.test(await dialog.innerText()), "robot stop", `dialog at a breakpoint: ${(await dialog.innerText()).replace(/\s+/g, " ")}`);
     await dialog.locator("button:has-text('Close'), .closeIcon").first().click();
     await resume();
+    // On purpose: 1.5 s in which a program that went on after the stop would log its say.
     await page.waitForTimeout(1500);
     check(same(await log(), [...DEBUG_MOVES, "Program stopped: Another editor session took over the robot."]), "robot stop",
         `after the stop and Continue: ${JSON.stringify((await log()).slice(DEBUG_MOVES.length))}`);
@@ -605,9 +627,8 @@ async function debugSection(page) {
         await enter();
         await lineBreakpoint("agent.say");
         await resume();
-        await until(page, log, l => l.length >= DEBUG_MOVES.length);
-        await until(page, stopped, s => s);
-        await page.waitForTimeout(1500);
+        await until(page, log, l => l.length >= DEBUG_MOVES.length, `the moves before the ${lang} breakpoint`);
+        await until(page, stopped, s => s, `the program stops at the ${lang} breakpoint`);
         check(same(await log(), DEBUG_MOVES), `breakpoint ${lang}`, `stopped before say with ${JSON.stringify(await log())}`);
         check(/\bcount: 3\b/.test(await variables()), `variables ${lang}`, `the Variables panel shows "${await variables()}"`);
         check(await page.locator(".monaco-editor:visible .highlight-statement").count() > 0, `breakpoint ${lang}`, "no highlighted statement");
@@ -619,7 +640,7 @@ async function debugSection(page) {
     // New blocks from the source, so no breakpoint is left on them.
     await editor.toJavaScript(page);
     await editor.setSource(page, "ts", DEBUG);
-    await editor.toBlocks(page);
+    await toBlocks();
     await enter();
     await page.locator(".debugtoolbar .dbg-trace").click();
     const seen = [];
@@ -628,13 +649,15 @@ async function debugSection(page) {
             .map(p => p.closest("g.blocklyBlock").getAttribute("class").split(" ")[0]).join());
         if (now && seen[seen.length - 1] !== now) seen.push(now);
         return log();
-    }, l => l.length >= DEBUG_LOG.length, 30000);
+    }, l => l.length >= DEBUG_LOG.length, "the slow motion run logs every line");
     check(same(slow, DEBUG_LOG), "slow motion", `logged ${JSON.stringify(slow)}, expected ${JSON.stringify(DEBUG_LOG)}`);
     check(["variables_change", "agent_move", "agent_say", "agent_turn"].every(t => seen.includes(t)), "slow motion",
         `highlighted ${seen.join(" > ")}`);
-    // Slow motion off again restarts the program in debug mode, where it stops before its first statement.
+    // Slow motion off runs the program again from the start at normal speed (pxt does not stop it on start here), so
+    // its new log is waited for before Exit Debug Mode.
+    await editor.clearLog(page);
     await page.locator(".debugtoolbar .dbg-trace").click();
-    await until(page, stopped, s => s);
+    await until(page, log, l => l.length >= DEBUG_LOG.length, "slow motion off runs the program again to the end");
     await exit();
 
     // Issues #218 and #221: in debug mode pxt marks the block an uncaught robot error or a failed assert came from,
@@ -653,10 +676,8 @@ async function debugSection(page) {
 ${test.line}
 agent.turn(TurnDirection.Left)
 `);
-        await editor.toBlocks(page);
+        await toBlocks();
         await enter();
-        // Continue clicked at once after the stop on start left the program waiting after its first command here.
-        await page.waitForTimeout(2000);
         await resume();
         const failed = page.locator(".ui.modal:visible, .common-modal:visible").first();
         await failed.waitFor();

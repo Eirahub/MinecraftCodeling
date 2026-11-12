@@ -142,6 +142,12 @@ class RobotCommandTest {
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.isSafe", -1));
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.freeSlots", 1));
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.isInventoryFull", 1));
+        // World queries (issue #87): no arguments.
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.lightLevel", 1));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.biome", 0));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.temperature", 1));
+        assertEquals(Result.Code.BAD_ARGS, rejected("gameplay.timeOfDay", 1));
+        assertEquals(Result.Code.BAD_ARGS, rejected("gameplay.isRaining", true));
         assertEquals(Result.Code.BAD_ARGS, rejected("come"));
     }
 

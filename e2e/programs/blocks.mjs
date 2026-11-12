@@ -29,6 +29,9 @@ export const BLOCK_PROGRAMS = {
     agent_detect_liquid: "let liquidAhead = agent.detectLiquid(SixDirection.Left)",
     agent_liquid: "let wantedLiquid = Liquid.Water",
     agent_is_safe: "let safeBelow = agent.isSafe(SixDirection.Down)",
+    agent_light_level: "let light = agent.lightLevel()",
+    agent_biome: "let biomeHere = agent.biome()",
+    agent_temperature: "let warmth = agent.temperature()",
     agent_is_open: "let doorOpen = agent.isOpen(SixDirection.Up)",
     agent_redstone_power: "let power = agent.redstonePower(SixDirection.Back)",
     agent_get_position: "let here = agent.getPosition()",
@@ -110,6 +113,8 @@ export const BLOCK_PROGRAMS = {
     player_get_orientation: "let myHeading = player.getOrientation()",
     player_name: "let myName = player.name()",
     player_teleport: "player.teleport(pos(0, 4, 0))",
+    gameplay_time_of_day: "let ticks = gameplay.timeOfDay()",
+    gameplay_is_raining: "let raining = gameplay.isRaining()",
     player_run_chat_command: "player.runChatCommand(\"jump 3\")",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.

@@ -806,6 +806,12 @@ public final class RelayServer implements AutoCloseable {
                 // an empty robot
                 case "agent.freeSlots" -> RobotCommand.SLOTS;
                 case "agent.isInventoryFull" -> false;
+                // world queries (issue #87): noon on a dry day in the plains, the robot in a dark cave (light 0)
+                case "gameplay.timeOfDay" -> 6000;
+                case "gameplay.isRaining" -> false;
+                case "agent.lightLevel" -> 0;
+                case "agent.biome" -> "plains";
+                case "agent.temperature" -> 0.8;
                 // followPath: no world, so the path ends at once (PathStop.End)
                 case "agent.followPath" -> 0;
                 // building: no world, so no block changed

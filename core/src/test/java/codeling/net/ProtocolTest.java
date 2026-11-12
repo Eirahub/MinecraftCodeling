@@ -198,6 +198,11 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.IS_SAFE, 0, 0), sim("agent.isSafe", "[0]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FREE_SLOTS, 0, 0), sim("agent.freeSlots", "[]"));
         assertEquals(new RobotCommand(RobotCommand.Op.IS_INVENTORY_FULL, 0, 0), sim("agent.isInventoryFull", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.LIGHT_LEVEL, 0, 0), sim("agent.lightLevel", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.BIOME, 0, 0), sim("agent.biome", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.TEMPERATURE, 0, 0), sim("agent.temperature", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.TIME_OF_DAY, 0, 0), sim("gameplay.timeOfDay", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.IS_RAINING, 0, 0), sim("gameplay.isRaining", "[]"));
         int stone = codeling.robot.BlockIds.byName("stone");
         assertEquals(new RobotCommand(RobotCommand.Op.FILL, 0, 64, 0, 4, 60, 4, stone, 3, null), sim("blocks.fill", "[" + stone + ",0,64,0,4,60,4,3]"));
         assertEquals(new RobotCommand(RobotCommand.Op.LINE, 1, 2, 3, 4, 5, 6, 0, 0, null), sim("shapes.line", "[0,1,2,3,4,5,6]"));
