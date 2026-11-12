@@ -54,6 +54,7 @@
         "scriptManager": true,
         "python": true,
         "highContrast": true,
+        "debugger": true,
         "feedbackEnabled": false,
         "githubEditor": false,
         "showOpenInVscode": false,

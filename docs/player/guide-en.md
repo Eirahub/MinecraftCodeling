@@ -83,6 +83,104 @@ In Python, names use underscores: `agent.move_to(...)`, `agent.find_nearest(...)
 Each command waits until the robot is done. Then the next one starts.
 To stop a program, press the stop button in the editor, or type `/robot stop` in the game.
 
+## Examples
+
+The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": seven small
+programs, such as a staircase, a tunnel, a room with a fence and a guard patrol. Click one to read what it teaches,
+then press "Open Example" under Blocks, Python or JavaScript. You get a new project of your own with the program in
+it: press Run to try it, and change it as you like. The example itself stays as it was.
+
+## Wait and repeat
+
+"pause (ms)" in the Loops category waits before the next command: 1000 ms is one second. "forever" runs the code
+inside it over and over, for as long as the program runs. This robot stands guard and walks 3 blocks forward and back
+every two seconds:
+
+```
+loops.forever(function () {
+    agent.move(SixDirection.Forward, 3)
+    agent.turn(TurnDirection.Left)
+    agent.turn(TurnDirection.Left)
+    loops.pause(2000)
+})
+```
+
+A pause only holds the code it is in. Code in "run in parallel" and in other "forever" blocks keeps going. A program
+with "forever" never ends by itself: press the stop button in the editor, or type `/robot stop` in the game. Both
+stop it at once, also in the middle of a pause.
+
+## Step through a program
+
+The bug button under the simulator turns on debug mode. The program starts and stops before its first command.
+
+- Click the circle on a block (or the space left of a line number in JavaScript and Python) to set a breakpoint. The
+  program stops there each time it gets to it.
+- In Blocks, "Step" runs one block and stops again. In JavaScript and Python, "Step over" runs one line (a function
+  call in one step), and "Step into" goes into the function.
+- The arrow (Continue) runs on to the next breakpoint, or to the end.
+- While the program is stopped, the block or line that comes next is highlighted, and "Variables" shows the value of
+  each variable.
+- The turtle button (Slow-Mo) runs the program slowly and highlights each block as it runs, without stopping.
+
+A robot command always finishes before the program stops. The robot stands still while the program is stopped, and
+so do "forever" and "run in parallel". To stop the program, press "Exit Debug Mode", or type `/robot stop` in the
+game. Turning debug mode or Slow-Mo on starts the program from the beginning, so the robot does its commands again
+from where it stands.
+
+## Errors, and checking your own program
+
+When the game refuses a robot command (for example a move of more than 64 blocks), the command throws an error into
+your program. If nothing catches it, the program stops, the robot log shows the command and the error, and a "Robot
+error" box says what went wrong. In debug mode the editor also marks the block or line it came from.
+
+In JavaScript and Python your program can catch the error and go on, for example to go home instead:
+
+```
+try {
+    agent.move(SixDirection.Forward, 100)
+} catch (e) {
+    let error: string = e
+    console.log("could not: " + error)
+    agent.goHome()
+}
+```
+
+```python
+try:
+    agent.move(SixDirection.FORWARD, 100)
+except:
+    print("could not move")
+    agent.go_home()
+```
+
+In JavaScript the error is a text: the code, a colon and the message, such as
+`OUT_OF_RANGE: blocks must be 1 to 64`. Put it in a `string` variable first, as above, to use it as text (for
+example `error.indexOf("OUT_OF_RANGE") == 0`). In Python write a plain `except:`; Python in the editor cannot name the
+error (`except Exception as e` does not compile), but the robot log shows it. Blocks have no "try" block, so catching
+errors is for JavaScript and Python.
+
+The error codes a program can catch:
+
+| Code | Why |
+|---|---|
+| `BAD_ARGS` | The command or a value is not valid, for example an item that is not in this Minecraft version. |
+| `NO_PERMISSION` | You may not do this here, for example "agent give" without creative mode, or the robot camera when the server turned it off. |
+| `RATE_LIMITED` | The robot has too many commands waiting. |
+| `PROTECTED` | Kept for protected areas. Today the game answers false instead (the action did nothing). |
+| `UNLOADED` | The robot or the block is in a part of the world that is not loaded, or the robot is not spawned. |
+| `OUT_OF_RANGE` | A number is too big or too small, for example a move of more than 64 blocks or a slot above 27. |
+
+These end the program and cannot be caught: the stop button, `/robot stop`, "Exit Debug Mode", a lost connection to
+the game, `STOPPED` (the game stopped the robot) and `VERSION` (the editor is older than the game; reload it).
+
+Your program can also check its own work. "check ... or stop with" in the Logic category stops the program with your
+message when the condition is false, and "stop with error" stops it at once. In JavaScript they are
+`control.assert(condition, message)` (the block writes it as `control.check`) and `control.fail(message)`, and
+`throw "message"` does the same. In Python, `assert condition, "message"` and `raise ValueError("message")` work. The
+program stops and a "Program error" box shows the message; debug mode marks the block or line it came from. A
+`try`/`catch` (or `try`/`except`) around them catches them like a robot error. The "Room and fence" example checks
+where its line of glass ends.
+
 ## All robot commands
 
 Directions are relative to the robot: forward, back, left, right, up, down.
@@ -194,6 +292,48 @@ Chests, barrels, hoppers, furnaces and similar blocks.
 | agent say (text) | `agent.say("Hello")` | Shows text over the robot for 5 seconds. At most 80 characters. |
 | agent camera (mode) | `agent.camera(CameraMode.Follow)` | Turns the robot camera to eyes, follow or off (see Robot camera below). If the server does not allow it, the program stops with an error. |
 
+### Player (category Player)
+
+These blocks are about you, the player who runs the program. They work without a robot. Nobody else's name or
+position can be read, and nobody else can be moved.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| say (message) | `player.say("Hi!")` | Shows the message in your chat. Only you see it (in MakeCode everyone does). Plain text, at most 256 characters. |
+| player world position | `player.position()` | Where you stand: the block your feet are in, as a world position. |
+| player orientation | `player.getOrientation()` | Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90. |
+| player name | `player.name()` | Your player name. |
+| teleport to (position) | `player.teleport(pos(0, 10, 0))` | Moves you there, in the dimension you are in. Only in a singleplayer world (as its host) or for a server op; for anyone else the game refuses with `NO_PERMISSION`. Outside the world border or the build height it refuses with `OUT_OF_RANGE`. |
+| on chat command (keyword) | `player.onChat("jump", function (num1, num2, num3) { })` | Runs its code when you type a chat line that starts with the keyword, for example `jump 10`. See "React to chat and death" below. |
+| on player died | `player.onDied(function () { })` | Runs its code when you die. |
+| run chat command (text) | `player.runChatCommand("jump 10")` | Runs your own "on chat command" code for that keyword, as if you had typed it. It sends nothing to the chat or the game. |
+
+Game mode does not matter for these blocks: in spectator or adventure mode you can still use all of them (teleport
+still needs singleplayer or op).
+
+#### React to chat and death
+
+"on chat command" and "on player died" let your program wait for you. This program teleports you up when you type
+`jump 10` in the chat:
+
+```
+player.onChat("jump", function (num1, num2, num3) {
+    player.teleport(pos(0, num1, 0))
+})
+```
+
+- The keyword is one word: letters, digits, `-` and `_`, at most 32 characters, and capital letters count (`Jump`
+  is not `jump`). The keyword `*` gets every chat line you type. A program can listen for at most 16 keywords.
+- The words after the keyword become num1, num2 and num3: whole numbers. A word that is not a number, or a missing
+  one, is 0. `jump 10 abc` gives 10, 0 and 0.
+- A line that starts with your keyword is not shown in the chat; it goes to your program only. Every other line is
+  sent as usual. Lines from other players never reach your program, and your program never sees the words of a line,
+  only the keyword and the numbers.
+- If the server has a chat plugin that takes chat lines first, type `/codeling chat jump 10` instead.
+- A program with "on chat command" or "on player died" keeps running after its last line, so it can react. Press the
+  stop button in the editor, or type `/robot stop`, to end it. From then on your chat lines are shown as usual again.
+- At most 16 chat commands wait for your program; more at once are dropped.
+
 ### Positions (category Positions)
 
 | Block | JavaScript | What it does |
@@ -207,6 +347,11 @@ Chests, barrels, hoppers, furnaces and similar blocks.
 | (position) + (other) | `p.add(other)` | Adds two positions. |
 | (position) = (other) | `p.equals(other)` | True if they are the same. |
 | (position) as text | `p.toString()` | The position as text. |
+| (position) distance to (other) | `p.distanceTo(other)` | How many blocks apart they are in a straight line, with decimals. A `~` or `^` position against another kind is first turned into an exact place. |
+| (position) - (other) | `p.subtract(other)` | How far it is from the other one to this one, as a position of the same kind. |
+| (position) times (number) | `p.scale(2)` | Every number multiplied, rounded to whole blocks. |
+| sort (list) by distance from (position) | `positions.sortByDistance(list, p)` | A new list of the same positions, nearest first. |
+| nearest in (list) to (position) | `positions.nearest(list, p)` | The nearest position in the list, or `null` when the list is empty. |
 
 ### Building big (categories Blocks, Shapes and Builder)
 
@@ -301,6 +446,7 @@ your default robot.
 | Command | What it does |
 |---|---|
 | `/codeling` | Opens the editor in your browser. |
+| `/codeling chat <text>` | Sends a chat line to your own running program's "on chat command" code, as typing it in the chat would. Works on servers whose chat plugins take chat lines first. Says so when no program of yours is listening. |
 | `/robot spawn [name]` | Spawns your robot, or moves it to you. Stops a running program. A new robot with a name needs room under `codeling:max_robots`. |
 | `/robot list` | Your robots and where they are. |
 | `/robot remove <name>` | Removes a robot with a name. Its items go to you. |
@@ -348,7 +494,9 @@ These keep the game fast for everyone.
 - `move to` gives up when the path is very long or there is none, and answers false.
 - The robot only works in loaded parts of the world (near players).
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
-- `say` shows at most 80 characters.
+- `say` shows at most 80 characters, and the player's `say` at most 256.
+- The game runs at most one player block per tick (20 a second) for you; more than 16 waiting is refused with `RATE_LIMITED`.
+- A program listens for at most 16 chat command keywords of at most 32 characters. At most 16 chat and death events wait for it.
 - Gravity is off at the start, so the robot floats. Turn it on with "agent gravity" or `/robot gravity true`.
 - The program runs in your browser. If you close the tab or leave the world, the program stops. After 10 seconds without contact the game stops the robot.
 
@@ -362,6 +510,9 @@ These keep the game fast for everyone.
 - Only you and server ops can open your robot's inventory. Others see "This is not your robot."
 - In survival the robot gathers its own resources. "agent give" and `/robot give` only work in creative mode, or when the world has `/gamerule codeling:free_items true`. Otherwise put items in the robot through its inventory screen.
 - Ops can stop all robots with `/robot stop all`.
+- A program's `player.say` goes to its own player only, and `player.teleport` works on a server only for ops.
+- A program hears only its own player's chat commands and death, never another player's. A chat line is held back
+  from the chat only while your program runs and listens for its first word.
 - The gamerule `codeling:robot_camera` decides who may use the robot camera: `owner` (the default: every player through their own robot), `ops` (only ops) or `off` (nobody). For example `/gamerule codeling:robot_camera off`. On NeoForge 26.3 the Edit Game Rules screen shows this rule as a text field: type `off`, `owner` or `ops` (on NeoForge 1.21.1 the screen leaves it out; use the command). The server checks this, and the camera ends at once when the rule takes it away.
 - The robot breaks and uses things as if it were you. If the server protects an area, the robot cannot change it either.
 

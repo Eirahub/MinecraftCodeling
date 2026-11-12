@@ -17,7 +17,13 @@ export async function startRelay(port) {
         { stdio: ["ignore", "pipe", "pipe"] });
     // The relay logs every message it relays (never the token); keep the tail for a failure report only.
     const tail = [];
-    createInterface({ input: child.stderr }).on("line", line => { tail.push(line); if (tail.length > 40) tail.shift(); });
+    // How many cmd messages the relay got from the browser, so a check can tell that a program sent none (issue #27).
+    let cmds = 0;
+    createInterface({ input: child.stderr }).on("line", line => {
+        tail.push(line);
+        if (tail.length > 40) tail.shift();
+        if (/browser -> .*"t":"cmd"/.test(line)) cmds++;
+    });
     let url;
     const launcher = await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`relay did not start on port ${port} within 60 s`)), 60000);
@@ -29,5 +35,5 @@ export async function startRelay(port) {
         });
     });
     // kill() skips the relay's shutdown hook on Windows, so the launcher directory is removed here too.
-    return { url, launcher, stop: () => { child.kill(); rmSync(dirname(launcher), { recursive: true, force: true }); } };
+    return { url, launcher, cmds: () => cmds, stop: () => { child.kill(); rmSync(dirname(launcher), { recursive: true, force: true }); } };
 }

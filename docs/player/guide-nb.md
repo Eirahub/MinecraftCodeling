@@ -85,6 +85,104 @@ I Python har navnene understrek: `agent.move_to(...)`, `agent.find_nearest(...)`
 Hver kommando venter til roboten er ferdig. Så starter den neste.
 For å stoppe et program trykker du på stoppknappen i editoren, eller skriver `/robot stop` i spillet.
 
+## Eksempler
+
+Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": sju små programmer,
+for eksempel en trapp, en tunnel, et rom med gjerde og en vaktpatrulje. Klikk på ett for å lese hva det lærer deg,
+og trykk så på "Åpne eksempel" under Blokker, Python eller JavaScript. Da får du et nytt prosjekt med programmet i:
+trykk på Kjør-knappen for å prøve det, og endre det som du vil. Selve eksempelet blir som det var.
+
+## Vent og gjenta
+
+"pause (ms)" i kategorien Løkker venter før neste kommando: 1000 ms er ett sekund. "gjenta for alltid" kjører koden
+inni seg om og om igjen, så lenge programmet kjører. Denne roboten holder vakt og går 3 blokker fram og tilbake
+hvert andre sekund:
+
+```
+loops.forever(function () {
+    agent.move(SixDirection.Forward, 3)
+    agent.turn(TurnDirection.Left)
+    agent.turn(TurnDirection.Left)
+    loops.pause(2000)
+})
+```
+
+En pause holder bare igjen koden den står i. Kode i "kjør samtidig" og i andre "gjenta for alltid"-blokker fortsetter.
+Et program med "gjenta for alltid" slutter aldri av seg selv: trykk på stoppknappen i editoren, eller skriv
+`/robot stop` i spillet. Begge stopper det med en gang, også midt i en pause.
+
+## Gå gjennom et program steg for steg
+
+Knappen med insektet under simulatoren slår på feilsøkingsmodus. Programmet starter og stopper før sin første
+kommando.
+
+- Klikk på rundingen på en blokk (eller i feltet til venstre for et linjenummer i JavaScript og Python) for å sette et
+  stoppunkt. Programmet stopper der hver gang det kommer dit.
+- I Blokker kjører "Step" én blokk og stopper igjen (knappen har ikke norsk tekst). I JavaScript og Python kjører
+  "Hopp over" én linje (et funksjonskall i ett steg), og "Gå inn i" går inn i funksjonen.
+- Pilen (Fortsett kjøring) kjører videre til neste stoppunkt, eller til slutten.
+- Mens programmet står stille, er blokken eller linjen som kommer etterpå markert, og "Variabler" viser verdien til
+  hver variabel.
+- Skilpaddeknappen (Langsom tilstand) kjører programmet sakte og markerer hver blokk mens den kjører, uten å stoppe.
+
+En robotkommando blir alltid ferdig før programmet stopper. Roboten står stille mens programmet står stille, og det
+gjør også "gjenta for alltid" og "kjør samtidig". For å stoppe programmet trykker du på "Avslutt feilsøkingsmodus",
+eller skriver `/robot stop` i spillet. Når du slår på feilsøkingsmodus eller Langsom tilstand, starter programmet fra
+begynnelsen, så roboten gjør kommandoene sine på nytt fra der den står.
+
+## Feil, og å sjekke sitt eget program
+
+Når spillet avviser en robotkommando (for eksempel en flytting på mer enn 64 blokker), kaster kommandoen en feil inn i
+programmet ditt. Hvis ingenting fanger den, stopper programmet, robotloggen viser kommandoen og feilen, og en
+"Robot error"-boks sier hva som gikk galt. I feilsøkingsmodus markerer editoren også blokken eller linjen den kom fra.
+
+I JavaScript og Python kan programmet fange feilen og fortsette, for eksempel ved å gå hjem i stedet:
+
+```
+try {
+    agent.move(SixDirection.Forward, 100)
+} catch (e) {
+    let error: string = e
+    console.log("klarte ikke: " + error)
+    agent.goHome()
+}
+```
+
+```python
+try:
+    agent.move(SixDirection.FORWARD, 100)
+except:
+    print("klarte ikke å flytte")
+    agent.go_home()
+```
+
+I JavaScript er feilen en tekst: koden, et kolon og meldingen, som `OUT_OF_RANGE: blocks must be 1 to 64`. Legg den
+først i en `string`-variabel, som over, for å bruke den som tekst (for eksempel `error.indexOf("OUT_OF_RANGE") == 0`).
+I Python skriver du bare `except:`. Python i editoren kan ikke gi feilen et navn (`except Exception as e` kompilerer
+ikke), men robotloggen viser den. Blokker har ingen "prøv"-blokk, så å fange feil er for JavaScript og Python.
+
+Feilkodene et program kan fange:
+
+| Kode | Hvorfor |
+|---|---|
+| `BAD_ARGS` | Kommandoen eller en verdi er ugyldig, for eksempel en ting som ikke finnes i denne Minecraft-versjonen. |
+| `NO_PERMISSION` | Du har ikke lov her, for eksempel "robot gi" uten kreativ modus, eller robotkameraet når serveren har slått det av. |
+| `RATE_LIMITED` | Roboten har for mange kommandoer som venter. |
+| `PROTECTED` | Satt av til beskyttede områder. I dag svarer spillet false i stedet (handlingen gjorde ingenting). |
+| `UNLOADED` | Roboten eller blokken er i en del av verden som ikke er lastet, eller roboten er ikke laget. |
+| `OUT_OF_RANGE` | Et tall er for stort eller for lite, for eksempel en flytting på mer enn 64 blokker eller en plass over 27. |
+
+Disse avslutter programmet og kan ikke fanges: stoppknappen, `/robot stop`, "Avslutt feilsøkingsmodus", tapt kontakt
+med spillet, `STOPPED` (spillet stoppet roboten) og `VERSION` (editoren er eldre enn spillet; last den inn på nytt).
+
+Programmet kan også sjekke sitt eget arbeid. "sjekk ... ellers stopp med" i kategorien Logikk stopper programmet med
+meldingen din når betingelsen er usann, og "stopp med feil" stopper det med en gang. I JavaScript er de
+`control.assert(betingelse, melding)` (blokken skriver den som `control.check`) og `control.fail(melding)`, og
+`throw "melding"` gjør det samme. I Python virker `assert betingelse, "melding"` og `raise ValueError("melding")`.
+Programmet stopper, og en "Program error"-boks viser meldingen. Feilsøkingsmodus markerer blokken eller linjen den kom
+fra. En `try`/`catch` (eller `try`/`except`) rundt dem fanger dem som en robotfeil. Eksempelet "Rom og gjerde" sjekker
+hvor glasslinjen ender.
+
 ## Alle robotkommandoene
 
 Retningene gjelder fra robotens side: fremover, bakover, venstre, høyre, opp, ned.
@@ -196,6 +294,49 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | robot si (tekst) | `agent.say("Hei")` | Viser tekst over roboten i 5 sekunder. Høyst 80 tegn. |
 | robot kamera (modus) | `agent.camera(CameraMode.Follow)` | Setter robotkameraet til øyne, følg eller av (se Robotkamera under). Hvis serveren ikke tillater det, stopper programmet med en feil. |
 
+### Spiller (kategorien Spiller)
+
+Disse blokkene handler om deg, spilleren som kjører programmet. De virker uten robot. Ingen andres navn eller
+posisjon kan leses, og ingen andre kan flyttes.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| si i chatten (melding) | `player.say("Hei!")` | Viser meldingen i chatten din. Bare du ser den (i MakeCode ser alle den). Ren tekst, høyst 256 tegn. |
+| spiller posisjon i verden | `player.position()` | Der du står: blokken føttene dine er i, som en posisjon i verden. |
+| spiller retning | `player.getOrientation()` | Hvilken vei du ser, i grader: sør 0, vest 90, nord 180 (eller -180), øst -90. |
+| spiller navn | `player.name()` | Spillernavnet ditt. |
+| teleporter til (posisjon) | `player.teleport(pos(0, 10, 0))` | Flytter deg dit, i dimensjonen du er i. Bare i en enspillerverden (som verten) eller for en operatør på serveren; for alle andre nekter spillet med `NO_PERMISSION`. Utenfor verdensgrensen eller byggehøyden nekter det med `OUT_OF_RANGE`. |
+| når chatkommando (nøkkelord) | `player.onChat("jump", function (num1, num2, num3) { })` | Kjører koden sin når du skriver en chattelinje som begynner med nøkkelordet, for eksempel `jump 10`. Se "Reager på chat og død" under. |
+| når spilleren dør | `player.onDied(function () { })` | Kjører koden sin når du dør. |
+| kjør chatkommando (tekst) | `player.runChatCommand("jump 10")` | Kjører din egen "når chatkommando"-kode for det nøkkelordet, som om du hadde skrevet det. Den sender ingenting til chatten eller spillet. |
+
+Spillmodus betyr ikke noe for disse blokkene: i tilskuer- eller eventyrmodus kan du fortsatt bruke alle (teleporter
+krever fortsatt enspiller eller operatør).
+
+#### Reager på chat og død
+
+"når chatkommando" og "når spilleren dør" lar programmet ditt vente på deg. Dette programmet teleporterer deg opp når
+du skriver `jump 10` i chatten:
+
+```
+player.onChat("jump", function (num1, num2, num3) {
+    player.teleport(pos(0, num1, 0))
+})
+```
+
+- Nøkkelordet er ett ord: bokstaver, sifre, `-` og `_`, høyst 32 tegn, og store bokstaver teller (`Jump` er ikke
+  `jump`). Nøkkelordet `*` får hver chattelinje du skriver. Et program kan lytte etter høyst 16 nøkkelord.
+- Ordene etter nøkkelordet blir num1, num2 og num3: hele tall. Et ord som ikke er et tall, eller et som mangler,
+  blir 0. `jump 10 abc` gir 10, 0 og 0.
+- En linje som begynner med nøkkelordet ditt, vises ikke i chatten; den går bare til programmet ditt. Alle andre
+  linjer sendes som vanlig. Linjer fra andre spillere når aldri programmet ditt, og programmet ditt ser aldri ordene
+  i en linje, bare nøkkelordet og tallene.
+- Har serveren en chatteutvidelse som tar chattelinjene først, skriver du `/codeling chat jump 10` i stedet.
+- Et program med "når chatkommando" eller "når spilleren dør" fortsetter å kjøre etter siste linje, så det kan
+  reagere. Trykk på stoppknappen i editoren, eller skriv `/robot stop`, for å avslutte det. Da vises chattelinjene
+  dine som vanlig igjen.
+- Høyst 16 chatkommandoer venter på programmet ditt; flere på en gang blir forkastet.
+
 ### Posisjoner (kategorien Posisjoner)
 
 | Blokk | JavaScript | Hva den gjør |
@@ -209,6 +350,11 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | (posisjon) + (annen) | `p.add(other)` | Legger sammen to posisjoner. |
 | (posisjon) = (annen) | `p.equals(other)` | Sann hvis de er like. |
 | (posisjon) som tekst | `p.toString()` | Posisjonen som tekst. |
+| (posisjon) avstand til (annen) | `p.distanceTo(other)` | Hvor mange blokker det er mellom dem i rett linje, med desimaler. En `~`- eller `^`-posisjon mot en annen type gjøres først om til et nøyaktig sted. |
+| (posisjon) - (annen) | `p.subtract(other)` | Hvor langt det er fra den andre til denne, som en posisjon av samme type. |
+| (posisjon) ganger (tall) | `p.scale(2)` | Hvert tall ganget opp, rundet av til hele blokker. |
+| sorter (liste) etter avstand fra (posisjon) | `positions.sortByDistance(list, p)` | En ny liste med de samme posisjonene, nærmeste først. |
+| nærmeste i (liste) til (posisjon) | `positions.nearest(list, p)` | Den nærmeste posisjonen i lista, eller `null` når lista er tom. |
 
 ### Bygge stort (kategoriene Blokker, Former og Bygger)
 
@@ -306,6 +452,7 @@ standardroboten din.
 | Kommando | Hva den gjør |
 |---|---|
 | `/codeling` | Åpner editoren i nettleseren. |
+| `/codeling chat <tekst>` | Sender en chattelinje til "når chatkommando"-koden i ditt eget program, slik det å skrive den i chatten ville gjort. Virker på servere der chatteutvidelser tar chattelinjene først. Sier fra når ingen av programmene dine lytter. |
 | `/robot spawn [navn]` | Lager roboten din, eller flytter den til deg. Stopper et program som kjører. En ny robot med navn trenger plass under `codeling:max_robots`. |
 | `/robot list` | Robotene dine og hvor de er. |
 | `/robot remove <navn>` | Fjerner en robot med navn. Tingene den har, får du. |
@@ -354,7 +501,9 @@ Grensene holder spillet raskt for alle.
 - `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann.
 - Roboten virker bare i deler av verdenen som er lastet inn (nær spillere).
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
-- `si` viser høyst 80 tegn.
+- `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
+- Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
+- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn. Høyst 16 chatte- og dødshendelser venter på det.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -368,6 +517,9 @@ Grensene holder spillet raskt for alle.
 - Bare du og operatører på serveren kan åpne inventaret til roboten din. Andre får beskjeden "This is not your robot."
 - I overlevelse samler roboten sine egne ressurser. "robot gi" og `/robot give` virker bare i kreativ modus, eller når verdenen har `/gamerule codeling:free_items true`. Ellers legger du ting i roboten gjennom inventarskjermen dens.
 - Operatører kan stoppe alle roboter med `/robot stop all`.
+- `player.say` i et program går bare til spilleren som kjører det, og `player.teleport` virker på en server bare for operatører.
+- Et program hører bare chatkommandoene og døden til sin egen spiller, aldri en annen spillers. En chattelinje holdes
+  bare tilbake fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 

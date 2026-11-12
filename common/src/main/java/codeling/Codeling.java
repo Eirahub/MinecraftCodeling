@@ -1,5 +1,6 @@
 package codeling;
 
+import codeling.net.PlayerEvents;
 import codeling.net.ServerRelay;
 import codeling.platform.Platform;
 import codeling.robot.ItemIds;
@@ -132,6 +133,20 @@ public final class Codeling {
     public static void playerLeft(ServerPlayer player) {
         ServerRelay.playerLeft(player);
         RobotCamera.playerLeft(player);
+    }
+
+    /**
+     * A chat line {@code player} typed (issue #27). True when their running program takes it as a chat command: the
+     * loader must then not broadcast it. Never changes the line. Both loaders call this on the server thread (vanilla
+     * runs the chat handler through server.execute); anything else is broadcast untouched.
+     */
+    public static boolean chat(ServerPlayer player, String text) {
+        return player.level().getServer().isSameThread() && PlayerEvents.chat(player, text);
+    }
+
+    /** An entity died; a player's running program may listen for it. */
+    public static void died(Entity entity) {
+        if (entity instanceof ServerPlayer player) PlayerEvents.died(player);
     }
 
     public static void entityLoaded(Entity entity, ServerLevel level) {

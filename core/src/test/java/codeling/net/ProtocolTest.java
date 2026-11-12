@@ -161,6 +161,11 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.FIND_BLOCK, 17, 16), sim("agent.findNearest", "[17,16]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FIND_CATEGORY, 2, 32), sim("agent.findNearestCategory", "[2,32]"));
         assertEquals(new RobotCommand(RobotCommand.Op.SAY, 0, 0, 0, "Hello!"), sim("agent.say", "[\"Hello!\"]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_SAY, 0, 0, 0, "Hi!"), sim("player.say", "[\"Hi!\"]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_POSITION, 0, 0), sim("player.position", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_ORIENTATION, 0, 0), sim("player.getOrientation", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_NAME, 0, 0), sim("player.name", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_TELEPORT, 1, 100, -2), sim("player.teleport", "[1,100,-2]"));
         assertEquals(new RobotCommand(RobotCommand.Op.STORE_ITEMS, 0, 0), sim("agent.storeItems", "[0,0]"));
         assertEquals(new RobotCommand(RobotCommand.Op.TAKE_ITEMS, 4, 54, 64), sim("agent.takeItems", "[4,54,64]"));
         assertEquals(new RobotCommand(RobotCommand.Op.TAKE_ITEM, 1, 4, 10), sim("agent.takeItem", "[1,4,10]"));
