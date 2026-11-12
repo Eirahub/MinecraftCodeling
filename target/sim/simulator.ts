@@ -32,6 +32,40 @@ namespace pxsim {
         public robot = "";
         /** A robot error nobody catches (issue #218), for its dialog. */
         public robotError = "";
+        /** player.onChat handlers by keyword and player.onDied handlers (issue #27). */
+        // No prototype, so a keyword such as "constructor" finds no inherited member.
+        private chat: { [command: string]: RefAction[] } = Object.create(null);
+        private died: RefAction[] = [];
+
+        onChat(command: string, handler: RefAction) {
+            (this.chat[command] = this.chat[command] || []).push(handler);
+            this.relay.subscribe(Object.keys(this.chat), this.died.length > 0);
+        }
+
+        onDied(handler: RefAction) {
+            this.died.push(handler);
+            this.relay.subscribe(Object.keys(this.chat), true);
+        }
+
+        /** An event from the game: only for what this program subscribed to. */
+        event(name: string, args: any[]) {
+            if (name === "chat") this.runChat(args[0], args.slice(1, 4));
+            else if (name === "playerDied") this.died.forEach(h => runtime.runFiberAsync(h));
+        }
+
+        /** player.runChatCommand: the handlers for the line's first word and for "*", as the game would match it, and nothing sent. */
+        runChatCommand(line: string): Promise<void> {
+            const words = line.trim().split(/\s+/);
+            const command = this.chat[words[0]] ? words[0] : "*";
+            // parseInt as MakeCode does; NaN (and -0) become 0.
+            return this.runChat(command, [1, 2, 3].map(i => parseInt(words[i]) || 0));
+        }
+
+        // The keyword's handlers, and the "*" handlers too unless the keyword is "*", each in its own fiber.
+        private runChat(command: string, nums: number[]): Promise<void> {
+            const handlers = (this.chat[command] || []).concat(command === "*" ? [] : this.chat["*"] || []);
+            return Promise.all(handlers.map(h => runtime.runFiberAsync(h, nums[0], nums[1], nums[2]))).then(() => { });
+        }
 
         initAsync(msg: pxsim.SimulatorRunMessage): Promise<void> {
             document.getElementById("robotlog").innerHTML = "";
@@ -142,6 +176,8 @@ namespace pxsim {
                         // Before a run exists the relay could not reach the game: its first sentence is the header ("Not in a world").
                         else if (this.run < 0) this.fail(msg.message.split(".")[0], msg.message);
                         else this.fail("Robot error", `${msg.code}: ${msg.message}`);
+                    } else if (msg.t === "event") {
+                        board().event(msg.name, msg.args || []);
                     } else if (msg.t === "result" && this.pending[msg.id]) {
                         this.answer(msg.id).ok(msg);
                     }
@@ -161,6 +197,12 @@ namespace pxsim {
                 this.pending[id] = { ok, no };
                 this.send(robot ? { t: "cmd", id, run: this.run, op, args, robot } : { t: "cmd", id, run: this.run, op, args });
             });
+        }
+
+        /** Tells the game what the program listens for (issue #27); each call replaces the one before. */
+        async subscribe(chat: string[], died: boolean) {
+            await this.connect();
+            this.send({ t: "control", op: "subscribe", run: this.run, chat, died });
         }
 
         private answer(id: number) {

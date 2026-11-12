@@ -1062,6 +1062,40 @@ declare namespace player {
     //% shim=player::teleportAsync promise
     function teleport(to: Position): void;
 
+    // Issue #27: chat commands and death. The game sends only your own chat lines and deaths, and only the keyword and
+    // the numbers, never the line itself. A program with handlers keeps running after its last line until you press Stop.
+    /**
+     * Run code when you type a chat command: a chat line that starts with the keyword, for example "jump 10". The
+     * line is then not shown in the chat. The words after the keyword are num1, num2 and num3: whole numbers, or 0
+     * when missing or not a number. Use * as the keyword to get every chat line. /codeling chat jump 10 does the same.
+     * @param command the keyword, one word, eg: "jump"
+     * @param handler the code to run
+     */
+    //% blockId=player_on_chat block="on chat command %command"
+    //% draggableParameters=reporter optionalVariableArgs=1
+    //% weight=70
+    //% shim=player::onChat
+    function onChat(command: string, handler: (num1: number, num2: number, num3: number) => void): void;
+
+    /**
+     * Run code when you die.
+     * @param handler the code to run
+     */
+    //% blockId=player_on_died block="on player died"
+    //% weight=69
+    //% shim=player::onDied
+    function onDied(handler: () => void): void;
+
+    /**
+     * Run your program's own on chat command code for a keyword, as if you had typed it, for example "jump 10". It
+     * never sends anything to the chat or to the game, and it waits until that code has finished.
+     * @param command the keyword and up to three numbers, eg: "jump"
+     */
+    //% blockId=player_run_chat_command block="run chat command %command"
+    //% weight=68
+    //% shim=player::runChatCommandAsync promise
+    function runChatCommand(command: string): void;
+
 }
 declare namespace robots {
     /**
