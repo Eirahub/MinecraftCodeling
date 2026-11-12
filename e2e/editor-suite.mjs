@@ -517,6 +517,19 @@ async function debugSection(page) {
         await page.locator(".debugtoolbar").first().waitFor({ state: "detached" });
     };
     const resume = () => page.locator(".debugtoolbar .dbg-pause-resume").click();
+    // Some time after the Blocks editor loads a program, pxt saves and type-checks it (debounced), and that save clears
+    // the block the debugger marked (issue #235). pxt's tick events show when the type check is done.
+    await page.evaluate(() => {
+        const tick = pxt.tickEvent;
+        window.codelingTicks = [];
+        pxt.tickEvent = (id, ...rest) => { window.codelingTicks.push(id); return tick(id, ...rest); };
+    });
+    const toBlocks = async () => {
+        await page.evaluate(() => { window.codelingTicks.length = 0; });
+        await editor.toBlocks(page);
+        await until(page, () => page.evaluate(() => window.codelingTicks.includes("typecheck.complete")), t => t,
+            "the editor saves and type-checks the new blocks");
+    };
     const sayBreakpoint = () => page.locator(".blocklyWorkspace g.blocklyBlock[data-id][class^=agent_say] > .blocklyIconGroup").first().click();
     // A breakpoint in the Monaco margin, on the line that starts with `text`.
     const lineBreakpoint = async text => {
@@ -535,7 +548,7 @@ async function debugSection(page) {
     step("debug mode in Blocks: breakpoint, variables, step, continue");
     await editor.toJavaScript(page, true);
     await editor.setSource(page, "ts", DEBUG);
-    await editor.toBlocks(page);
+    await toBlocks();
     await editor.start(page);
     const normal = await until(page, log, l => l.length >= DEBUG_LOG.length, "the normal run logs every line");
     await editor.stop(page);
@@ -627,7 +640,7 @@ async function debugSection(page) {
     // New blocks from the source, so no breakpoint is left on them.
     await editor.toJavaScript(page);
     await editor.setSource(page, "ts", DEBUG);
-    await editor.toBlocks(page);
+    await toBlocks();
     await enter();
     await page.locator(".debugtoolbar .dbg-trace").click();
     const seen = [];
@@ -663,7 +676,7 @@ async function debugSection(page) {
 ${test.line}
 agent.turn(TurnDirection.Left)
 `);
-        await editor.toBlocks(page);
+        await toBlocks();
         await enter();
         await resume();
         const failed = page.locator(".ui.modal:visible, .common-modal:visible").first();
