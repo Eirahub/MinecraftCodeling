@@ -2,6 +2,7 @@ package codeling.gametest;
 
 import codeling.Codeling;
 import codeling.net.RelayPayloads;
+import codeling.net.ServerRelay;
 import codeling.platform.Platform;
 import codeling.robot.Result;
 import codeling.robot.RobotCamera;
@@ -22,7 +23,7 @@ import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
-//? if >=26.1 {
+//? if >=1.21.5 {
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -40,11 +41,12 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 *///?}
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
-//? if >=26.1
+//? if >=1.21.5
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,12 +64,14 @@ import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
-//? if >=26.1
+import net.neoforged.neoforge.event.ServerChatEvent;
+//? if >=1.21.5
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
-//? if >=26.1
+//? if >=1.21.5
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -77,7 +81,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
  * codeling:gametest_empty is 8x8x8 air, like Fabric's fabric-gametest-api-v1:empty. Before 1.21.5 (issue #189) the
  * tests come from a @GameTestGenerator in a @GameTestHolder instead of the test registries.
  */
-//? if <26.1
+//? if <1.21.5
 /*@GameTestHolder(Codeling.MOD_ID)*/
 @EventBusSubscriber(modid = Codeling.MOD_ID)
 public final class NeoForgeSmokeGameTests {
@@ -93,6 +97,7 @@ public final class NeoForgeSmokeGameTests {
         TESTS.put("payload_types_registered", NeoForgeSmokeGameTests::payloadTypesRegistered);
         TESTS.put("fake_player_respects_claims", NeoForgeSmokeGameTests::fakePlayerRespectsClaims);
         TESTS.put("adventure_owner_cannot_build", NeoForgeSmokeGameTests::adventureOwnerCannotBuild);
+        TESTS.put("chat_line_for_the_program", NeoForgeSmokeGameTests::chatLineForTheProgram);
     }
 
     private NeoForgeSmokeGameTests() {
@@ -102,7 +107,7 @@ public final class NeoForgeSmokeGameTests {
         return Identifier.fromNamespaceAndPath(Codeling.MOD_ID, path);
     }
 
-    //? if >=26.1 {
+    //? if >=1.21.5 {
     @SubscribeEvent
     public static void registerFunctions(RegisterEvent event) {
         TESTS.forEach((name, test) -> event.register(Registries.TEST_FUNCTION, id(name), () -> test));
@@ -110,7 +115,7 @@ public final class NeoForgeSmokeGameTests {
 
     @SubscribeEvent
     public static void registerTests(RegisterGameTestsEvent event) {
-        Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(id("smoke"));
+        var environment = event.registerEnvironment(id("smoke"));
         TESTS.keySet().forEach(name -> event.registerTest(id(name), new FunctionGameTestInstance(
                 ResourceKey.create(Registries.TEST_FUNCTION, id(name)), new TestData<>(environment, STRUCTURE, 100, 0, true))));
     }
@@ -294,6 +299,24 @@ public final class NeoForgeSmokeGameTests {
             helper.assertValueEqual(destroy, List.of(Result.ok(false)), "destroy");
             helper.assertBlockPresent(Blocks.AIR, START.south());
             helper.assertBlockPresent(Blocks.STONE, START.west());
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        });
+    }
+
+    // Issue #27: ServerChatEvent reaches the common hook; a line the running program listens for is cancelled (not
+    // broadcast) and becomes an event, any other line is left alone.
+    private static void chatLineForTheProgram(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        List<String> inbox = new ArrayList<>();
+        ServerRelay.handle(player, "{\"v\":2,\"t\":\"control\",\"op\":\"start\"}", inbox::add);
+        long run = RobotManager.queue(player.getUUID()).run();
+        ServerRelay.handle(player, "{\"v\":2,\"t\":\"control\",\"op\":\"subscribe\",\"run\":" + run + ",\"chat\":[\"jump\"]}", inbox::add);
+        ServerChatEvent jump = NeoForge.EVENT_BUS.post(new ServerChatEvent(player, "jump 3", Component.literal("jump 3")));
+        ServerChatEvent hello = NeoForge.EVENT_BUS.post(new ServerChatEvent(player, "hello 3", Component.literal("hello 3")));
+        helper.assertTrue(jump.isCanceled(), "jump held back");
+        helper.assertTrue(!hello.isCanceled(), "hello broadcast");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(inbox.contains("{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,0.0]}"), "event: " + inbox);
             helper.getLevel().getServer().getPlayerList().remove(player);
         });
     }

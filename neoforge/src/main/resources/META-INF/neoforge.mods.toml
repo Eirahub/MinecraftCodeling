@@ -26,7 +26,7 @@ ${extra_access_transformers}
 [[dependencies.codeling]]
 modId = "neoforge"
 type = "required"
-versionRange = "[${neoforge_version},)"
+versionRange = "${neoforge_range}"
 ordering = "NONE"
 side = "BOTH"
 

@@ -1,6 +1,6 @@
 name: release
 
-# Pushing a tag vX.Y.Z (made on main, see CONTRIBUTING.md "Releases") builds the editor and the four jars and publishes
+# Pushing a tag vX.Y.Z (made on main, see CONTRIBUTING.md "Releases") builds the editor and the jars and publishes
 # them as a GitHub release with their SHA-256 sums and the matching CHANGELOG.md section as notes.
 on:
   push:
@@ -9,6 +9,10 @@ on:
 
 permissions:
   contents: read
+
+# Every Minecraft version Codeling builds for (settings.gradle.kts); one Fabric and one NeoForge jar each.
+env:
+  MC_VERSIONS: "26.3 26.2 26.1.2 1.21.11 1.21.10 1.21.8 1.21.5 1.21.4 1.21.3 1.21.1"
 
 jobs:
   release:
@@ -72,14 +76,17 @@ jobs:
 
       # build also runs the JUnit tests and the server GameTests of each jar (through check).
       # --no-parallel: the performance GameTest measures tick time, so the GameTest servers must not run at the same time.
-      - name: Build the four jars
-        run: ./gradlew --no-parallel :fabric:26.3:build :neoforge:26.3:build :fabric:1.21.1:build :neoforge:1.21.1:build
+      - name: Build the jars
+        run: |
+          tasks=""
+          for mc in $MC_VERSIONS; do tasks="$tasks :fabric:$mc:build :neoforge:$mc:build"; done
+          ./gradlew --no-parallel $tasks
 
       - name: Collect the jars and their SHA-256 sums
         run: |
           mkdir dist
           for loader in fabric neoforge; do
-            for mc in 26.3 1.21.1; do
+            for mc in $MC_VERSIONS; do
               cp "$loader/versions/$mc/build/libs/codeling-$loader-$mc-$VERSION.jar" dist/
             done
           done

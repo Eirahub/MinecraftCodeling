@@ -192,7 +192,30 @@ public class RobotEntity extends Entity {
         output.storeNullable("Home", GlobalPos.CODEC, home);
         output.putString("OwnerName", ownerName());
     }
-    //?} else {
+    //?} else if >=1.21.5 {
+    /*// 1.21.5's CompoundTag has the ValueInput style getters and codec reads, and no UUID methods any more.
+    @Override
+    protected void readAdditionalSaveData(CompoundTag input) {
+        owner = input.read("Owner", UUIDUtil.CODEC).orElse(null);
+        ContainerHelper.loadAllItems(input, inventory.getItems(), registryAccess());
+        selectedSlot = Math.clamp(input.getIntOr("SelectedSlot", 1), 1, RobotCommand.SLOTS);
+        placeOnMove = input.getBooleanOr("PlaceOnMove", false);
+        gravityMode = input.getBooleanOr("GravityMode", false);
+        home = input.read("Home", GlobalPos.CODEC).orElse(null);
+        setOwnerName(input.getStringOr("OwnerName", ""));
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag output) {
+        output.storeNullable("Owner", UUIDUtil.CODEC, owner);
+        ContainerHelper.saveAllItems(output, inventory.getItems(), registryAccess());
+        output.putInt("SelectedSlot", selectedSlot);
+        output.putBoolean("PlaceOnMove", placeOnMove);
+        output.putBoolean("GravityMode", gravityMode);
+        output.storeNullable("Home", GlobalPos.CODEC, home);
+        output.putString("OwnerName", ownerName());
+    }
+    *///?} else {
     /*@Override
     protected void readAdditionalSaveData(CompoundTag input) {
         owner = input.hasUUID("Owner") ? input.getUUID("Owner") : null;

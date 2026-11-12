@@ -12,11 +12,11 @@ val mc = stonecutter.current.version
 // The version whose full test set runs (client GameTests, editor suite, standalone relay); see README "Build".
 val isMain = mc == "26.3"
 val javaRelease = property("java_version").toString().toInt()
-// codeling.mixins.json: Mixin's compatibility level follows the Java version, and 1.21.1 needs one mixin more
-// (GameRendererMixin hides the hand while the robot camera is on; 26.x does that from the render state).
+// codeling.mixins.json: Mixin's compatibility level follows the Java version, and before 26.3 one mixin more
+// (GameRendererMixin hides the hand while the robot camera is on; 26.3 does that from the level render state).
 val mixinProps = mapOf(
     "mixin_java" to "JAVA_$javaRelease",
-    "extra_client_mixins" to if (stonecutter.current.parsed < "1.21.2") ", \"GameRendererMixin\"" else "",
+    "extra_client_mixins" to if (stonecutter.current.parsed < "26.3") ", \"GameRendererMixin\"" else "",
 )
 
 java {
@@ -94,6 +94,34 @@ tasks.named<ProcessResources>("processResources") {
     )
     inputs.properties(props)
     filesMatching("fabric.mod.json") { expand(props) }
+}
+
+// The GameTest environments in src/gametest are written in the game rule format of 1.21.11 and later ("rules": {id:
+// value}). 1.21.5 to 1.21.10 read lists of {rule, value} in bool_rules and int_rules, so those versions get converted
+// copies. (1.21.1 has no test environments.)
+if (stonecutter.current.parsed >= "1.21.5" && stonecutter.current.parsed < "1.21.11") {
+    val envDir = "data/codeling-gametest/test_environment"
+    val envSource = rootProject.file("fabric/src/gametest/resources/$envDir")
+    val converted = layout.buildDirectory.dir("generated/testEnvironments")
+    val convertTestEnvironments = tasks.register("convertTestEnvironments") {
+        inputs.dir(envSource)
+        outputs.dir(converted)
+        doLast {
+            val out = converted.get().dir(envDir).asFile.apply { deleteRecursively(); mkdirs() }
+            envSource.listFiles { f -> f.extension == "json" }!!.forEach { f ->
+                @Suppress("UNCHECKED_CAST")
+                val json = groovy.json.JsonSlurper().parse(f) as Map<String, Any>
+                @Suppress("UNCHECKED_CAST")
+                val rules = json["rules"] as Map<String, Any>
+                fun entries(kind: (Any) -> Boolean) =
+                    rules.filterValues(kind).map { (rule, value) -> mapOf("rule" to rule, "value" to value) }
+                val old = mapOf("type" to json["type"], "bool_rules" to entries { it is Boolean }, "int_rules" to entries { it is Number })
+                File(out, f.name).writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(old)))
+            }
+        }
+    }
+    sourceSets["gametest"].resources.exclude("$envDir/*.json")
+    tasks.named<ProcessResources>("processGametestResources") { from(convertTestEnvironments) }
 }
 
 tasks.withType<JavaCompile>().configureEach { options.release = javaRelease }

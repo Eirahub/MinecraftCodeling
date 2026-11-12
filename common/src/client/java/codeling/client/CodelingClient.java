@@ -9,9 +9,11 @@ import codeling.platform.ClientPlatform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-//? if >=26.1 {
+//? if >=26.3 {
 import com.mojang.blaze3d.Blaze3D;
-//?} else
+//?} else if >=1.21.11 {
+/*import net.minecraft.util.Util;
+*///?} else
 /*import net.minecraft.Util;*/
 import java.io.IOException;
 
@@ -87,7 +89,7 @@ public final class CodelingClient {
     public static int openEditor() {
         if (relay == null) return 0;
         try {
-            //? if >=26.1 {
+            //? if >=26.3 {
             EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Blaze3D::openPath);
             //?} else
             /*EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Util.getPlatform()::openPath);*/
@@ -96,16 +98,21 @@ public final class CodelingClient {
         }
         Minecraft client = Minecraft.getInstance();
         // The click copies the link; the chat log gets only the visible text.
-        //? if >=26.1 {
+        //? if >=1.21.5 {
         Component copy = Component.literal("[copy the editor link]")
                 .withStyle(s -> s.withClickEvent(new ClickEvent.CopyToClipboard(relay.editorUrl())).withUnderlined(true));
-        client.gui.hud.getChat().addClientSystemMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
-                .append(copy).append(" and paste it into the address bar."));
         //?} else {
         /*Component copy = Component.literal("[copy the editor link]")
                 .withStyle(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, relay.editorUrl())).withUnderlined(true));
-        client.gui.getChat().addMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
-                .append(copy).append(" and paste it into the address bar."));
+        *///?}
+        Component message = Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
+                .append(copy).append(" and paste it into the address bar.");
+        //? if >=26.2 {
+        client.gui.hud.getChat().addClientSystemMessage(message);
+        //?} else if >=26.1 {
+        /*client.gui.getChat().addClientSystemMessage(message);
+        *///?} else {
+        /*client.gui.getChat().addMessage(message);
         *///?}
         return 1;
     }

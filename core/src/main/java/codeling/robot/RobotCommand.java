@@ -39,6 +39,11 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         FIND_BLOCK, FIND_CATEGORY,
         /** agent.say: {@code text}, capped at {@link #MAX_SAY} characters, shown over the robot. */
         SAY,
+        /**
+         * The player API (issue #26), for the program's owner only and never another player: say {@code text}, capped at
+         * {@link #MAX_PLAYER_SAY}; teleport {@code a, b, c} = world x, y, z. Answered by PlayerApi, never queued on a robot.
+         */
+        PLAYER_SAY, PLAYER_POSITION, PLAYER_ORIENTATION, PLAYER_NAME, PLAYER_TELEPORT,
         /** Chests, furnaces and other containers next to the robot (issue #71). */
         STORE_ITEMS, TAKE_ITEMS, TAKE_ITEM, CONTAINER_COUNT, CONTAINER_SIZE, SORT_CONTAINER,
         /** agent.craft / canCraft (issue #93) and agent.stonecut (issue #115): {@code a} = item, {@code b} = count. */
@@ -86,6 +91,8 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
     public static final int CATEGORIES = 6;
     // shortcut: proposal (issue #80), long enough for a sentence, short enough to stay readable over the robot.
     public static final int MAX_SAY = 80;
+    /** player.say: vanilla's own limit for a chat line. */
+    public static final int MAX_PLAYER_SAY = 256;
     /** A double chest; modded containers with more slots are reached with slot 0 (the first stack). */
     public static final int MAX_CONTAINER_SLOT = 54;
     // shortcut: proposals from issues #127 to #132, move to server config with the other limits in step 4.
@@ -232,7 +239,20 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
             case "agent.say" -> {
                 arity(op, args, 1);
                 if (!(args.get(0) instanceof String text)) throw new RobotException(Result.Code.BAD_ARGS, "text must be a string");
-                return new RobotCommand(Op.SAY, 0, 0, 0, sayText(text));
+                return new RobotCommand(Op.SAY, 0, 0, 0, sayText(text, MAX_SAY));
+            }
+            case "player.say" -> {
+                arity(op, args, 1);
+                if (!(args.get(0) instanceof String text)) throw new RobotException(Result.Code.BAD_ARGS, "message must be a string");
+                return new RobotCommand(Op.PLAYER_SAY, 0, 0, 0, sayText(text, MAX_PLAYER_SAY));
+            }
+            case "player.position", "player.getOrientation", "player.name" -> {
+                arity(op, args, 0);
+                return new RobotCommand(op.equals("player.position") ? Op.PLAYER_POSITION : op.equals("player.name") ? Op.PLAYER_NAME : Op.PLAYER_ORIENTATION, 0, 0);
+            }
+            case "player.teleport" -> {
+                arity(op, args, 3);
+                return new RobotCommand(Op.PLAYER_TELEPORT, coordinate(args.get(0), "x"), coordinate(args.get(1), "y"), coordinate(args.get(2), "z"));
             }
             case "agent.storeItems" -> {
                 arity(op, args, 2);
@@ -409,11 +429,14 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         return operation;
     }
 
-    /** One line of at most {@link #MAX_SAY} characters: control characters become spaces, longer text ends in "...". */
-    static String sayText(String text) {
-        String line = text.replaceAll("\\p{Cntrl}", " ");
-        if (line.codePointCount(0, line.length()) <= MAX_SAY) return line;
-        return line.substring(0, line.offsetByCodePoints(0, MAX_SAY - 3)) + "...";
+    /**
+     * One line of plain text of at most {@code max} characters: control characters and the section sign (which the
+     * client reads as a colour or format code even in literal text) become spaces, longer text ends in "...".
+     */
+    static String sayText(String text, int max) {
+        String line = text.replaceAll("[\\p{Cntrl}§]", " ");
+        if (line.codePointCount(0, line.length()) <= max) return line;
+        return line.substring(0, line.offsetByCodePoints(0, max - 3)) + "...";
     }
 
     private static void arity(String op, List<?> args, int n) throws RobotException {

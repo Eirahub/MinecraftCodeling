@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.Block;
 //? if >=1.21.11 {
 import net.minecraft.server.permissions.Permissions;
 //?}
-//? if >=26.1
+//? if >=26.3
 import net.minecraft.util.Prediction;
 
 /**
@@ -33,9 +33,17 @@ public final class McCompat {
         /*return player.hasPermissions(2);*/
     }
 
-    /** The player's level as a ServerLevel (26.x types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
+    /** The host of a singleplayer world (also once it is opened to LAN); false on a dedicated server. */
+    public static boolean isSingleplayerOwner(ServerPlayer player) {
+        //? if >=1.21.9 {
+        return player.level().getServer().isSingleplayerOwner(player.nameAndId());
+        //?} else
+        /*return player.level().getServer().isSingleplayerOwner(player.getGameProfile());*/
+    }
+
+    /** The player's level as a ServerLevel (1.21.6 on types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
     public static ServerLevel level(ServerPlayer player) {
-        //? if >=26.1 {
+        //? if >=1.21.6 {
         return player.level();
         //?} else
         /*return player.serverLevel();*/
@@ -74,7 +82,7 @@ public final class McCompat {
 
     /** Whether the player can reach the entity, with {@code buffer} blocks of slack. */
     public static boolean inReach(Player player, Entity entity, double buffer) {
-        //? if >=26.1 {
+        //? if >=1.21.11 {
         return player.isWithinEntityInteractionRange(entity, buffer);
         //?} else
         /*return player.canInteractWithEntity(entity, buffer);*/
@@ -96,7 +104,7 @@ public final class McCompat {
 
     /** Gives the stack back to the player (the server decides, the client is told), dropping what does not fit. */
     public static void giveBack(Player player, ItemStack stack) {
-        //? if >=26.1 {
+        //? if >=26.3 {
         player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
         //?} else
         /*player.getInventory().placeItemBackInInventory(stack);*/

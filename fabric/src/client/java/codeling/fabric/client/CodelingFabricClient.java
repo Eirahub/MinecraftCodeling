@@ -6,6 +6,7 @@ import codeling.client.RobotCameraClient;
 import codeling.client.RobotRenderer;
 import codeling.client.RobotScreen;
 import codeling.net.RelayPayloads;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 //? if >=26.1 {
@@ -22,9 +23,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 //? if >=26.1 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionEvents;
 //?} else
 /*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;*/
+//? if >=26.3
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionEvents;
 import net.minecraft.client.gui.screens.MenuScreens;
 //? if >=26.1 {
 import net.minecraft.client.renderer.entity.EntityRenderers;
@@ -50,9 +52,10 @@ public final class CodelingFabricClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(RelayPayloads.Camera.TYPE, (payload, context) -> RobotCameraClient.receive(context.client(), payload));
         ClientTickEvents.START_CLIENT_TICK.register(RobotCameraClient::tick);
         ClientTickEvents.END_CLIENT_TICK.register(CodelingClient::tick);
-        // 1.21.1 has no level extraction; GameRendererMixin hides the hand there.
-        //? if >=26.1 {
+        // Before 26.3 GameRendererMixin hides the hand (Fabric API for 26.1 has no level extraction events).
+        //? if >=26.3
         LevelExtractionEvents.END_EXTRACTION.register(context -> RobotCameraClient.extracted(context.levelState()));
+        //? if >=26.1 {
         HudElementRegistry.addLast(RobotCameraClient.HUD, RobotCameraClient::hud);
         //?} else
         /*HudRenderCallback.EVENT.register(RobotCameraClient::hud);*/
@@ -61,10 +64,14 @@ public final class CodelingFabricClient implements ClientModInitializer {
         // Runs on the render thread.
         ClientPlayNetworking.registerGlobalReceiver(RelayPayloads.ToClient.TYPE, (payload, context) -> CodelingClient.receive(payload.json()));
         ClientPlayConnectionEvents.DISCONNECT.register((listener, client) -> CodelingClient.disconnected());
+        // "/codeling chat <text>" is the server's command (issue #27). Fabric sends a line to the server only when the
+        // client tree says "unknown or incomplete command", so the client knows "chat <text>" without running it.
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
                 //? if >=26.1 {
-                dispatcher.register(ClientCommands.literal("codeling").executes(ctx -> CodelingClient.openEditor())));
+                dispatcher.register(ClientCommands.literal("codeling").executes(ctx -> CodelingClient.openEditor())
+                        .then(ClientCommands.literal("chat").then(ClientCommands.argument("text", StringArgumentType.greedyString())))));
                 //?} else
-                /*dispatcher.register(ClientCommandManager.literal("codeling").executes(ctx -> CodelingClient.openEditor())));*/
+                /*dispatcher.register(ClientCommandManager.literal("codeling").executes(ctx -> CodelingClient.openEditor())
+                        .then(ClientCommandManager.literal("chat").then(ClientCommandManager.argument("text", StringArgumentType.greedyString())))));*/
     }
 }

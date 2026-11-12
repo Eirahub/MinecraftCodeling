@@ -35,7 +35,7 @@ public final class FabricClientSmoke implements ClientModInitializer {
         // during it trips vanilla's TextureManager.close.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (done) return;
-            //? if >=26.1 {
+            //? if >=26.2 {
             if (client.gui.overlay() != null) return;
             //?} else
             /*if (client.getOverlay() != null) return;*/

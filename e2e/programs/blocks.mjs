@@ -5,6 +5,9 @@
 // Calls with more than three arguments come back one argument per line, so they are written that way.
 // Reporters are put in a variable: a bare call of a value block is grey in Blocks. Names are unique per program.
 export const BLOCK_PROGRAMS = {
+    // First: Blocks writes event blocks before the code on start, in this order.
+    player_on_chat: "player.onChat(\"jump\", function (num1, num2) {\n    agent.move(SixDirection.Up, num2)\n})",
+    player_on_died: "player.onDied(function () {\n    agent.say(\"Oops\")\n})",
     agent_move: "agent.move(SixDirection.Back, 2)",
     agent_turn: "agent.turn(TurnDirection.Right)",
     agent_move_to: "let movedTo = agent.moveTo(pos(0, 0, 5))",
@@ -80,6 +83,11 @@ export const BLOCK_PROGRAMS = {
     position_add: "let added = relative.add(fixed)",
     position_equals: "let same = relative.equals(fixed)",
     position_to_string: "let asText = relative.toString()",
+    position_distance_to: "let howFar = relative.distanceTo(fixed)",
+    position_subtract: "let between = fixed.subtract(relative)",
+    position_scale: "let tripled = relative.scale(3)",
+    positions_sort_by_distance: "let closestFirst = positions.sortByDistance(animalsAround, here)",
+    positions_nearest: "let closestAnimal = positions.nearest(animalsAround, here)",
     blocks_fill: "blocks.fill(\nBlock.Glass,\npos(1, 0, 1),\npos(3, 2, 3),\nFillOperation.Hollow\n)",
     blocks_place: "blocks.place(Block.OakPlanks, pos(0, 1, 2))",
     shapes_line: "shapes.line(Block.Cobblestone, pos(0, 0, 1), pos(4, 3, 1))",
@@ -95,4 +103,15 @@ export const BLOCK_PROGRAMS = {
     builder_place: "builder.place(Block.Sandstone)",
     builder_line: "builder.line(Block.OakPlanks)",
     builder_fill: "builder.fill(Block.Cobblestone, FillOperation.Outline)",
+    control_assert: "control.check(false, \"Not built\")",
+    control_fail: "control.fail(\"Gave up\")",
+    player_say: "player.say(\"Hi from my program\")",
+    player_position: "let myPlace = player.position()",
+    player_get_orientation: "let myHeading = player.getOrientation()",
+    player_name: "let myName = player.name()",
+    player_teleport: "player.teleport(pos(0, 4, 0))",
+    player_run_chat_command: "player.runChatCommand(\"jump 3\")",
+    loops_pause: "loops.pause(500)",
+    // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
+    loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",
 };

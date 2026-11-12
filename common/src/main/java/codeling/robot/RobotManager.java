@@ -617,7 +617,7 @@ public final class RobotManager {
     private static void find(RobotEntity robot, RobotQueue queue, RobotQueue.Entry entry) {
         RobotCommand command = entry.command;
         int r = command.b();
-        //? if >=26.1 {
+        //? if >=26.3 {
         if (entry.scan == null) entry.scan = BlockPos.withinBoxByManhattanDistance(robot.blockPosition(), r, r, r).iterator();
         //?} else
         /*if (entry.scan == null) entry.scan = BlockPos.withinManhattan(robot.blockPosition(), r, r, r).iterator();*/
@@ -1143,11 +1143,11 @@ public final class RobotManager {
             case DETECT_LIQUID -> Result.ok(liquid(level, target));
             case IS_SAFE -> Result.ok(safe(level, target));
             // F3's value: what a source gives out (redstone dust its power, a lever 15), otherwise what the block receives.
-            //? if >=26.1 {
+            //? if >=26.2 {
             case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? state.getOwnSignal(level, target) : level.getBestNeighborSignal(target));
             //?} else {
-            /*// shortcut: 1.21.1 has no getOwnSignal, so a source's power is its strongest side; matches F3 for dust,
-            // levers, buttons and torches, may differ for a block that powers one side only. Keep while 1.21.1 is built.
+            /*// shortcut: before 26.2 there is no getOwnSignal, so a source's power is its strongest side; matches F3 for
+            // dust, levers, buttons and torches, may differ for a block that powers one side only.
             case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? ownSignal(level, target, state) : level.getBestNeighborSignal(target));
             *///?}
             case DROP -> Result.ok(drop(level, target, inv.removeItem(command.b() - 1, command.c())));
@@ -1394,7 +1394,7 @@ public final class RobotManager {
         return entities(level, new AABB(pos).inflate(1), MOB).isEmpty();
     }
 
-    //? if <26.1 {
+    //? if <26.2 {
     /*private static int ownSignal(Level level, BlockPos pos, BlockState state) {
         int power = 0;
         for (Direction d : Direction.values()) power = Math.max(power, state.getSignal(level, pos, d));

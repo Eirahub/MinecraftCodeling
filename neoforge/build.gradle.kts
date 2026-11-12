@@ -9,16 +9,16 @@ plugins {
 }
 
 val javaRelease = property("java_version").toString().toInt()
-// Game rules before 1.21.11's rewrite need a few members opened (NeoForgePlatform); this AT ships on 1.21.1 only.
+// Game rules before 1.21.11's rewrite need a few members opened (NeoForgePlatform); this AT ships before 1.21.11 only.
 val oldGameRules = stonecutter.current.parsed < "1.21.11"
-val oldRulesAt = "META-INF/accesstransformer-1.21.1.cfg"
+val oldRulesAt = "META-INF/accesstransformer-gamerules.cfg"
 // Vanilla's GameTest rewrite (test registries, --tests and --report) came with 1.21.5.
 val oldGameTests = stonecutter.current.parsed < "1.21.5"
-// codeling.mixins.json: Mixin's compatibility level follows the Java version, and 1.21.1 needs one mixin more
-// (GameRendererMixin hides the hand while the robot camera is on; 26.x does that from the render state).
+// codeling.mixins.json: Mixin's compatibility level follows the Java version, and before 26.3 one mixin more
+// (GameRendererMixin hides the hand while the robot camera is on; 26.3 does that from the level render state).
 val mixinProps = mapOf(
     "mixin_java" to "JAVA_$javaRelease",
-    "extra_client_mixins" to if (stonecutter.current.parsed < "1.21.2") ", \"GameRendererMixin\"" else "",
+    "extra_client_mixins" to if (stonecutter.current.parsed < "26.3") ", \"GameRendererMixin\"" else "",
 )
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(javaRelease) }
@@ -99,7 +99,10 @@ tasks.named<ProcessResources>("processResources") {
     from(commonSrc("main", "resources"), commonSrc("client", "resources"))
     val props = mapOf(
         "version" to project.version,
-        "neoforge_version" to project.property("neoforge_version").toString(),
+        // A target that covers several Minecraft versions (26.1 to 26.1.2) accepts each one's NeoForge line through
+        // neoforge_range; otherwise the NeoForge it was built against or newer.
+        "neoforge_range" to (project.findProperty("neoforge_range")?.toString()
+            ?: "[${project.property("neoforge_version")},)"),
         "minecraft_range" to project.property("minecraft_range").toString(),
         // GameRuleType, which enumextensions.json extends, came with 1.21.11's game rule rewrite; before it, the
         // second access transformer stands in.
