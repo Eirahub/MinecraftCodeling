@@ -234,16 +234,18 @@ Enums (values verified, V-TYP; we declare our own copies):
 
 ### player
 
+The built calls (issue #26) need no robot: `PlayerApi` answers them on the server tick about the sender only, one per owner per tick with at most `RobotQueue.MAX_LENGTH` (16) waiting, else `RATE_LIMITED`. An older server answers their ops with `BAD_ARGS` "unknown op", so no protocol version change.
+
 | Signature | Evidence | Notes |
 |---|---|---|
 | `player.onChat(command: string, handler: (num1: number, num2: number, num3: number) => void)` | V-EX, V-TYP | Up to 3 numeric args: the words after the keyword, split on whitespace, each parsed with `parseInt`; non-numeric or missing become 0. Command `"*"` matches every message. Delivery: section 3. |
-| `player.say(message: any)` | V-TYP | **Deliberate deviation:** MakeCode's `say` is a public chat line; ours is shown to the owner only by default (proposal). |
-| `player.position(): Position` | V-EX | |
-| `player.getOrientation(): number` | V-EX | Same yaw convention question as `agent.getOrientation`. |
-| `player.name(): string` | V-TYP | |
-| `player.runChatCommand(command: string)` | V-EX | Triggers the program's own `onChat` handlers only; never vanilla commands. |
+| `player.say(message: string)` | V-TYP | **Built (issue #26).** **Deliberate deviation:** MakeCode's `say` is a public chat line; ours is a system message to the owner only, a literal component (no formatting, click or hover), control characters and the section sign turned into spaces, at most 256 characters. |
+| `player.position(): Position` | V-EX | **Built (issue #26).** The owner's feet block, world coordinates. |
+| `player.getOrientation(): number` | V-EX | **Built (issue #26).** The owner's yaw wrapped to -180 to 180, one decimal; the same convention as `agent.getOrientation`. |
+| `player.name(): string` | V-TYP | **Built (issue #26).** |
+| `player.runChatCommand(command: string)` | V-EX | Triggers the program's own `onChat` handlers only; never vanilla commands. Comes with `onChat` (issue #27). |
 | `player.onDied(handler: () => void)` | V-TYP | No arguments. Server side: `ServerLivingEntityEvents.AFTER_DEATH` filtered on the owner. |
-| `player.teleport(pos)` | V-EX | Singleplayer or op only (proposal). |
+| `player.teleport(pos)` | V-EX | **Built (issue #26).** Only for the host of a singleplayer world or an op at game master level (`McCompat.isGamemaster`), else `NO_PERMISSION`. Whole coordinates (the validator refuses NaN, infinity and fractions), resolved against the owner in the editor, in the owner's current dimension; outside the world border, the build height or vanilla's spawnable bounds is `OUT_OF_RANGE`. An offline owner gets `UNLOADED`. Game mode does not matter (as for `/tp`). |
 | `player.execute(command)` | V-EX | **Not in v1** (section 7). |
 
 ### blocks
@@ -293,6 +295,7 @@ Enums (values verified, V-TYP; we declare our own copies):
 | File API for `?ws=fs` (if adopted) | Token-gated, loopback only, paths confined to the projects dir. |
 | Other local processes on the same PC | Token. Beyond that out of scope (they already own the machine). |
 | Other players controlling your robot | Payloads are bound to the sender's connection; one owner per robot. |
+| Programs reading, messaging or moving players (player API, issue #26) | Each call is about the sender only: their position, facing and name, a message to their own chat, a teleport of themselves. `say` is a literal component with no formatting, click or hover events and at most 256 characters, so a program cannot fake a clickable or coloured server message, and it reaches no one else. `teleport` needs the singleplayer host or an op, as `/tp` does, and stays in the owner's dimension inside the world border and the build height. One call per tick per owner, 16 waiting at most. |
 | Griefing with robots | Every place, break, block use and container access goes through a `FakePlayer` with the owner's UUID, so claim mods apply. The robot follows the owner's rules (issue #53): spawn protection and the world border (`Level.mayInteract`, ops pass), adventure mode (no placing or breaking; doors, buttons, levers and containers still work), spectator mode (nothing). An offline owner counts as survival; leaving stops the owner's programs. `/robot stop all` for ops. Not built yet: permission nodes, rate limits, a range limit near the owner, an undo log. |
 | Raw command escape hatches (`mobs.execute`, `player.execute`) | Not shipped in v1. If added: op-only, run at the owner's permission level (never server level), logged. |
 | Resource exhaustion | Queue length cap per robot, global actions-per-tick budget, volume cap for `fill`/`replace`, one outstanding command per robot. User code runs on the player's machine. |
@@ -317,7 +320,7 @@ Enums (values verified, V-TYP; we declare our own copies):
 2. **Fabric GameTest** (`fabric-gametest-api-v1`): robot move/turn/place/destroy/inspect in test structures; blocked movement; protection via FakePlayer; stop/pause; persistence across save and load. Headless in CI.
 3. **Client GameTest** (`fabric-client-gametest-api-v1`, issues #134 and #135, 26.3 only): a real client in a flat singleplayer world with real command packets and payloads, screenshot templates for the speech bubble and the selected slot, the robot screen, save and reload; and an end-to-end test that drives the editor in headless Chromium against the running relay (not in a world, stale token, `agent.move`, `/robot stop`). Origin, Host and token checks are JUnit tests (`RelayHardeningTest`). Not part of `build`; CI runs them in the `client-gametest` job on `main` and on demand, under Loom's own `xvfb-run` with Mesa's software Vulkan driver.
 3a. **NeoForge** (issue #187): seven smoke GameTests with NeoForge's `RegisterGameTestsEvent` (spawn, move, place, game rules incl. the enum rule, payload registration, FakePlayer in a claim, an adventure owner), headless in CI in their own job. NeoForge has no client GameTest API, so `:neoforge:<version>:runClientSmoke` starts the client once and checks the mixins and that the relay serves the editor; the owner checks the rest in game.
-3b. **Minecraft 1.21.1** (issue #189): the same 121 Fabric server GameTests and the seven NeoForge smoke GameTests run on 1.21.1, headless in CI. Fabric API for 1.21.1 has no client GameTest API, so `:fabric:1.21.1:runClientSmoke` does what the NeoForge smoke does. The editor suite and the client GameTests run on 26.3 only (the editor is the same for every version).
+3b. **Minecraft 1.21.1** (issue #189): the same 125 Fabric server GameTests and the seven NeoForge smoke GameTests run on 1.21.1, headless in CI. Fabric API for 1.21.1 has no client GameTest API, so `:fabric:1.21.1:runClientSmoke` does what the NeoForge smoke does. The editor suite and the client GameTests run on 26.3 only (the editor is the same for every version).
 4. **Target tests:** pxt compile tests for the API libs, plus blocks/JS/Python round trip of every v1 block.
 5. **Acceptance programs** (Microsoft, MIT): the "Agent Pyramid" example; [castle-builder](https://github.com/microsoft/makecode-minecraft-castle-builder) (agent move/place/teleport/setItem; its `builder`/`shapes` parts cut); [roller-coaster](https://github.com/microsoft/makecode-minecraft-roller-coaster) (`blocks.place/replace/testForBlock`); [pixel-art](https://github.com/microsoft/makecode-minecraft-pixel-art) (`blocks.fill`); the HOC2019 lessons. [mob-events](https://github.com/microsoft/makecode-minecraft-mob-events), [music](https://github.com/microsoft/makecode-minecraft-music) and [space](https://github.com/microsoft/makecode-minecraft-space) rely on `player.execute`, `builder` or `shapes`, so they are v2 tests. A scripted harness drives the WebSocket directly against a GameTest server.
 

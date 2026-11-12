@@ -292,6 +292,22 @@ Chests, barrels, hoppers, furnaces and similar blocks.
 | agent say (text) | `agent.say("Hello")` | Shows text over the robot for 5 seconds. At most 80 characters. |
 | agent camera (mode) | `agent.camera(CameraMode.Follow)` | Turns the robot camera to eyes, follow or off (see Robot camera below). If the server does not allow it, the program stops with an error. |
 
+### Player (category Player)
+
+These blocks are about you, the player who runs the program. They work without a robot. Nobody else's name or
+position can be read, and nobody else can be moved.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| say (message) | `player.say("Hi!")` | Shows the message in your chat. Only you see it (in MakeCode everyone does). Plain text, at most 256 characters. |
+| player world position | `player.position()` | Where you stand: the block your feet are in, as a world position. |
+| player orientation | `player.getOrientation()` | Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90. |
+| player name | `player.name()` | Your player name. |
+| teleport to (position) | `player.teleport(pos(0, 10, 0))` | Moves you there, in the dimension you are in. Only in a singleplayer world (as its host) or for a server op; for anyone else the game refuses with `NO_PERMISSION`. Outside the world border or the build height it refuses with `OUT_OF_RANGE`. |
+
+Game mode does not matter for these blocks: in spectator or adventure mode you can still use all of them (teleport
+still needs singleplayer or op).
+
 ### Positions (category Positions)
 
 | Block | JavaScript | What it does |
@@ -451,7 +467,8 @@ These keep the game fast for everyone.
 - `move to` gives up when the path is very long or there is none, and answers false.
 - The robot only works in loaded parts of the world (near players).
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
-- `say` shows at most 80 characters.
+- `say` shows at most 80 characters, and the player's `say` at most 256.
+- The game runs at most one player block per tick (20 a second) for you; more than 16 waiting is refused with `RATE_LIMITED`.
 - Gravity is off at the start, so the robot floats. Turn it on with "agent gravity" or `/robot gravity true`.
 - The program runs in your browser. If you close the tab or leave the world, the program stops. After 10 seconds without contact the game stops the robot.
 
@@ -465,6 +482,7 @@ These keep the game fast for everyone.
 - Only you and server ops can open your robot's inventory. Others see "This is not your robot."
 - In survival the robot gathers its own resources. "agent give" and `/robot give` only work in creative mode, or when the world has `/gamerule codeling:free_items true`. Otherwise put items in the robot through its inventory screen.
 - Ops can stop all robots with `/robot stop all`.
+- A program's `player.say` goes to its own player only, and `player.teleport` works on a server only for ops.
 - The gamerule `codeling:robot_camera` decides who may use the robot camera: `owner` (the default: every player through their own robot), `ops` (only ops) or `off` (nobody). For example `/gamerule codeling:robot_camera off`. On NeoForge 26.3 the Edit Game Rules screen shows this rule as a text field: type `off`, `owner` or `ops` (on NeoForge 1.21.1 the screen leaves it out; use the command). The server checks this, and the camera ends at once when the rule takes it away.
 - The robot breaks and uses things as if it were you. If the server protects an area, the robot cannot change it either.
 

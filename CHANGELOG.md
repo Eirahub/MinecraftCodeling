@@ -28,6 +28,15 @@ Every user-visible change to Codeling is listed here. The format follows
   "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
   the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
   it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
+- A Player category with MakeCode's `player.say`, `player.position`, `player.getOrientation`, `player.name` and
+  `player.teleport` (issue #26). They are about the program's own player only and need no robot. Unlike MakeCode,
+  `say` shows the message to that player only, as plain text of at most 256 characters. `teleport` works for the host
+  of a singleplayer world or an op, in the player's own dimension, inside the world border and the build height;
+  anyone else gets `NO_PERMISSION`. One player call per tick, at most 16 waiting (`RATE_LIMITED`).
+
+### Changed
+
+- `agent.say` turns the section sign (the colour code character) into a space, as `player.say` does.
 
 ### Fixed
 

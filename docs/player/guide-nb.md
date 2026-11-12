@@ -294,6 +294,22 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | robot si (tekst) | `agent.say("Hei")` | Viser tekst over roboten i 5 sekunder. Høyst 80 tegn. |
 | robot kamera (modus) | `agent.camera(CameraMode.Follow)` | Setter robotkameraet til øyne, følg eller av (se Robotkamera under). Hvis serveren ikke tillater det, stopper programmet med en feil. |
 
+### Spiller (kategorien Spiller)
+
+Disse blokkene handler om deg, spilleren som kjører programmet. De virker uten robot. Ingen andres navn eller
+posisjon kan leses, og ingen andre kan flyttes.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| si i chatten (melding) | `player.say("Hei!")` | Viser meldingen i chatten din. Bare du ser den (i MakeCode ser alle den). Ren tekst, høyst 256 tegn. |
+| spiller posisjon i verden | `player.position()` | Der du står: blokken føttene dine er i, som en posisjon i verden. |
+| spiller retning | `player.getOrientation()` | Hvilken vei du ser, i grader: sør 0, vest 90, nord 180 (eller -180), øst -90. |
+| spiller navn | `player.name()` | Spillernavnet ditt. |
+| teleporter til (posisjon) | `player.teleport(pos(0, 10, 0))` | Flytter deg dit, i dimensjonen du er i. Bare i en enspillerverden (som verten) eller for en operatør på serveren; for alle andre nekter spillet med `NO_PERMISSION`. Utenfor verdensgrensen eller byggehøyden nekter det med `OUT_OF_RANGE`. |
+
+Spillmodus betyr ikke noe for disse blokkene: i tilskuer- eller eventyrmodus kan du fortsatt bruke alle (teleporter
+krever fortsatt enspiller eller operatør).
+
 ### Posisjoner (kategorien Posisjoner)
 
 | Blokk | JavaScript | Hva den gjør |
@@ -457,7 +473,8 @@ Grensene holder spillet raskt for alle.
 - `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann.
 - Roboten virker bare i deler av verdenen som er lastet inn (nær spillere).
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
-- `si` viser høyst 80 tegn.
+- `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
+- Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -471,6 +488,7 @@ Grensene holder spillet raskt for alle.
 - Bare du og operatører på serveren kan åpne inventaret til roboten din. Andre får beskjeden "This is not your robot."
 - I overlevelse samler roboten sine egne ressurser. "robot gi" og `/robot give` virker bare i kreativ modus, eller når verdenen har `/gamerule codeling:free_items true`. Ellers legger du ting i roboten gjennom inventarskjermen dens.
 - Operatører kan stoppe alle roboter med `/robot stop all`.
+- `player.say` i et program går bare til spilleren som kjører det, og `player.teleport` virker på en server bare for operatører.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 
