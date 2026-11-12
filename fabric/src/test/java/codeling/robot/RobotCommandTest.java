@@ -55,6 +55,14 @@ class RobotCommandTest {
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.redstonePower"));
         assertEquals(Result.Code.OUT_OF_RANGE, rejected("agent.moveTo", 0, 64, -30_000_001));
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.moveTo", 0, 64));
+        // Issue #243: one robot name, checked like the robot field of a command; "" is the default robot.
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot"));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", 1));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", "Miner", "Builder"));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", "1Miner"));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", "Big Miner"));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", "all"));
+        assertEquals(Result.Code.BAD_ARGS, rejected("agent.goToRobot", "M".repeat(RobotCommand.MAX_NAME + 1)));
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.move", 0, 1e12));
         assertEquals(Result.Code.OUT_OF_RANGE, rejected("agent.findNearest", 17, 33));
         assertEquals(Result.Code.OUT_OF_RANGE, rejected("agent.findNearestCategory", 0, 0));

@@ -196,6 +196,7 @@ Slots are the robot's 27 inventory places, numbered 1 to 27.
 | agent move to (position) | `agent.moveTo(pos(0, 0, 5))` | Finds a path and walks there. Answers true or false. Opens wooden doors on the way. |
 | agent set home | `agent.setHome()` | Remembers where the robot stands as its home. Also `/robot sethome`. |
 | agent go home | `agent.goHome()` | Walks home like "move to". False if there is no home or no way. |
+| agent go to robot (name) | `agent.goToRobot(robots.get("Miner"))` | Walks like "move to" to a free block next to your robot Miner and turns to face it. Answers true or false. See "Several robots". |
 | agent follow path (of block) | `agent.followPath()` | Walks along the path it stands on, or a path of the block you pick (`agent.followPath(Block.Gravel)`), one step up or down too, until the path ends or splits. A robot right next to the path steps onto it; one further away answers end and says "I am not on the path". At most 256 blocks. Answers why it stopped: end, junction, blocked or limit (`PathStop.Junction`). At a junction it stops facing the way it came: turn and follow the path again. |
 | agent follow path of (block) keep (left/right) | `agent.followPath(Block.OakPlanks, TurnDirection.Left)` | Keeps one hand on the wall, as you can in a real maze. At every junction it takes the way furthest to the left (or right). At a dead end with a wall in front it turns round and walks back. It stops where the path ends with no wall in front (the way out: end), back where it started (end), or after 256 blocks (limit: follow the path again to go on). Press + twice on the block to choose the side. |
 
@@ -476,9 +477,35 @@ code inside it run at the same time as the rest, so Miner and your default robot
 program waits for each command before the next, as always.
 
 In Blocks, the Robots category has "robot (name)", "run in parallel" and the most used robot blocks: move, turn,
-move to, place, destroy, collect all and say. Put "robot (name)" in a variable and use the variable in those blocks.
+move to, go to robot, position, place, destroy, collect all and say. Put "robot (name)" in a variable and use the variable in those blocks.
 The other robot calls (for example `miner.findNearest(Block.CoalOre, 16)`) are in JavaScript and Python. The agent
 blocks stay as they are, for your default robot.
+
+### Go to another robot
+
+"go to robot" sends one of your robots to another one, the first step of any job they share:
+
+```
+let miner = robots.get("Miner")
+agent.goToRobot(miner)
+miner.goToRobot(robots.get(""))
+```
+
+The robot walks (or flies) the same way as "move to" and stops on a free block next to the other robot, turned to
+face it. If it ends right above or below it, it keeps the way it faced. It answers true when it got there, and false
+when there is no way, no free block next to the other robot, or the other robot moved away while it walked (then
+just ask again). A robot told to go to itself answers true at once; one that is already next to the other only turns.
+`robots.get("")` is your default robot, `agent`, so the last line walks Miner to `agent`.
+
+Only your own robots can be the target: another player's robot is never found, even with the same name. These
+stop the program with an error that you can catch (see "Errors, and checking your own program"):
+
+- `BAD_ARGS`: you have no robot with that name. The message lists the robots you have.
+- `UNLOADED`: the other robot is not loaded (far from every player).
+- `OUT_OF_RANGE`: the other robot is in another dimension, or so far away that the path search gives up.
+
+"robot (name) position" gives where a robot is, for the position blocks: the distance to it, `player.teleport` to it
+(singleplayer or op only), or building next to it.
 
 ### Name tags
 
@@ -543,7 +570,8 @@ These keep the game fast for everyone.
 - `move` goes at most 64 blocks per command. Each block takes 4 game ticks (0.2 seconds).
 - `find nearest` and the measuring blocks look at most 32 blocks away from the robot.
 - Fill and shapes build at most 32 blocks away from the robot, at most 32768 blocks in one go, 256 blocks per tick.
-- `move to` gives up when the path is very long or there is none, and answers false.
+- `move to` gives up when the path is very long or there is none, and answers false. `go to robot` answers
+  `OUT_OF_RANGE` when the path is that long.
 - The robot only works in loaded parts of the world (near players).
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
 - `say` shows at most 80 characters, and the player's `say` at most 256.

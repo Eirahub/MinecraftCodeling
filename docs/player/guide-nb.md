@@ -198,6 +198,7 @@ Plassene er robotens 27 inventarplasser, nummerert fra 1 til 27.
 | robot gå til (posisjon) | `agent.moveTo(pos(0, 0, 5))` | Finner en vei og går dit. Svarer sann eller usann. Åpner tredører underveis. |
 | robot sett hjem | `agent.setHome()` | Husker hvor roboten står, som hjemmet sitt. Også `/robot sethome`. |
 | robot gå hjem | `agent.goHome()` | Går hjem som "gå til". Usann hvis den ikke har noe hjem eller ingen vei. |
+| robot gå til robot (navn) | `agent.goToRobot(robots.get("Miner"))` | Går som "gå til" til en ledig blokk ved siden av roboten din Miner og snur seg mot den. Svarer sann eller usann. Se "Flere roboter". |
 | robot følg sti (av blokk) | `agent.followPath()` | Går langs stien den står på, eller en sti av blokken du velger (`agent.followPath(Block.Gravel)`), også ett trinn opp eller ned, til stien slutter eller deler seg. En robot rett ved siden av stien går opp på den; står den lenger unna, svarer den slutt og sier "I am not on the path". Høyst 256 blokker. Svarer hvorfor den stoppet: slutt, veikryss, sperret eller grense (`PathStop.Junction`). I et veikryss stopper den vendt samme vei som den kom: snu den og følg stien igjen. |
 | robot følg sti av (blokk) hold (venstre/høyre) | `agent.followPath(Block.OakPlanks, TurnDirection.Left)` | Holder én hånd på veggen, slik du kan gjøre i en ekte labyrint. I hvert veikryss tar den veien lengst til venstre (eller høyre). I en blindvei med vegg foran snur den og går tilbake. Den stopper der stien slutter uten vegg foran (veien ut: slutt), tilbake der den startet (slutt), eller etter 256 blokker (grense: følg stien igjen for å gå videre). Trykk + to ganger på blokken for å velge side. |
 
@@ -482,9 +483,36 @@ kjøre samtidig med resten, så Miner og standardroboten flytter seg sammen. Ute
 kommando før den neste, som alltid.
 
 I Blokker har kategorien Roboter "robot (navn)", "kjør samtidig" og de mest brukte robotblokkene: flytt, snu, gå til,
-plasser, ødelegg, samle alt og si. Legg "robot (navn)" i en variabel og bruk variabelen i de blokkene. De andre
+gå til robot, posisjon, plasser, ødelegg, samle alt og si. Legg "robot (navn)" i en variabel og bruk variabelen i de blokkene. De andre
 robotkallene (for eksempel `miner.findNearest(Block.CoalOre, 16)`) finnes i JavaScript og Python. Robotblokkene for
 `agent` er som før og gjelder standardroboten din.
+
+### Gå til en annen robot
+
+"gå til robot" sender en av robotene dine til en annen, det første steget i alt robotene gjør sammen:
+
+```
+let miner = robots.get("Miner")
+agent.goToRobot(miner)
+miner.goToRobot(robots.get(""))
+```
+
+Roboten går (eller flyr) på samme måte som "gå til" og stopper på en ledig blokk ved siden av den andre roboten,
+snudd mot den. Ender den rett over eller under, beholder den retningen den hadde. Den svarer sann når den kom fram,
+og usann når det ikke finnes noen vei, ingen ledig blokk ved siden av den andre roboten, eller den andre roboten
+flyttet seg mens den gikk (spør da bare på nytt). En robot som skal gå til seg selv, svarer sann med en gang; en som
+alt står ved siden av den andre, snur seg bare. `robots.get("")` er standardroboten din, `agent`, så den siste linjen
+sender Miner til `agent`.
+
+Bare dine egne roboter kan være målet: en annen spillers robot blir aldri funnet, selv med samme navn. Disse stopper
+programmet med en feil som du kan fange (se "Feil, og å sjekke sitt eget program"):
+
+- `BAD_ARGS`: du har ingen robot med det navnet. Meldingen viser robotene du har.
+- `UNLOADED`: den andre roboten er ikke lastet (langt unna alle spillere).
+- `OUT_OF_RANGE`: den andre roboten er i en annen dimensjon, eller så langt unna at veisøket gir opp.
+
+"robot (navn) posisjon" gir hvor en robot er, til posisjonsblokkene: avstanden til den, `player.teleport` dit
+(bare enspiller eller operatør), eller bygging ved siden av den.
 
 ### Navneskilt
 
@@ -550,7 +578,8 @@ Grensene holder spillet raskt for alle.
 - `flytt` går høyst 64 blokker per kommando. Hver blokk tar 4 spilltikk (0,2 sekunder).
 - `finn nærmeste` og måleblokkene ser høyst 32 blokker ut fra roboten.
 - Fyll og former bygger høyst 32 blokker ut fra roboten, høyst 32768 blokker om gangen, 256 blokker per tikk.
-- `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann.
+- `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann. `gå til robot` svarer
+  `OUT_OF_RANGE` når veien er så lang.
 - Roboten virker bare i deler av verdenen som er lastet inn (nær spillere).
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
 - `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.

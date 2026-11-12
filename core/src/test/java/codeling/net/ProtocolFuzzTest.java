@@ -30,7 +30,7 @@ class ProtocolFuzzTest {
             cmd("agent.containerCount", "[0,1]"), cmd("agent.containerSize", "[5]"), cmd("agent.sortContainer", "[0]"),
             cmd("agent.craft", "[5,4]"), cmd("agent.canCraft", "[5,1]"), cmd("agent.stonecut", "[1,64]"),
             cmd("agent.interact", "[0]"), cmd("agent.isOpen", "[3]"), cmd("agent.redstonePower", "[5]"),
-            cmd("agent.moveTo", "[10,-64,3]"), cmd("agent.measure", "[0,32]"), cmd("agent.measureRun", "[0,3,10]"),
+            cmd("agent.moveTo", "[10,-64,3]"), cmd("agent.goToRobot", "[\"Miner\"]"), cmd("agent.measure", "[0,32]"), cmd("agent.measureRun", "[0,3,10]"),
             cmd("agent.measureGap", "[2,32]"), cmd("agent.groundHeight", "[10,-3]"), cmd("agent.heightProfile", "[1,16]"),
             cmd("agent.isAreaFree", "[1,2,3,32,33,-28]"), cmd("agent.countSolid", "[0,64,0,4,60,4]"), cmd("agent.findBounds", "[32]"),
             cmd("agent.setHome", "[]"), cmd("agent.goHome", "[]"), cmd("agent.detectEntity", "[0,4]"), cmd("agent.countNearby", "[3,8]"),

@@ -16,6 +16,9 @@ Every user-visible change to Codeling is listed here. The format follows
   a new redstone signal, and `gameplay.onDayStart(handler)` ("on day start") when the time of day wraps round to the
   morning, in Blocks, JavaScript and Python. Never for other players' breaks or your robot's own. At most 16 blocks
   per run; the 16 waiting events per player are shared with chat and death.
+- Go to another robot (issue #243): `agent.goToRobot(robots.get("Miner"))` and `miner.goToRobot(other)` ("go to
+  robot") walk like "move to" to a free block next to another of your own robots and face it, and the "robot (name)
+  position" block gives a named robot's position, in Blocks, JavaScript and Python.
 
 ## [0.0.2] - 2026-11-12
 
