@@ -190,9 +190,12 @@ final class RobotCrafting {
     private static CraftingInput input(CraftingRecipe recipe, List<ItemStack> taken) {
         if (recipe instanceof ShapedRecipe shaped) {
             List<ItemStack> grid = new ArrayList<>();
-            //? if >=1.21.2 {
+            //? if >=1.21.4 {
             for (int index : recipe.placementInfo().slotsToIngredientIndex()) grid.add(index < 0 ? ItemStack.EMPTY : taken.get(index));
-            //?} else {
+            //?} else if >=1.21.2 {
+            /*// 1.21.2 and 1.21.3 give each grid slot an optional ingredient index instead.
+            for (var slot : recipe.placementInfo().slotInfo()) grid.add(slot.map(s -> taken.get(s.placerOutputPosition())).orElse(ItemStack.EMPTY));
+            *///?} else {
             /*// The pattern's ingredients, row by row; the picked items follow the non-empty ones in order.
             int next = 0;
             for (Ingredient ingredient : shaped.getIngredients()) grid.add(ingredient.isEmpty() ? ItemStack.EMPTY : taken.get(next++));

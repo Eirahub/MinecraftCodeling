@@ -30,8 +30,8 @@ tasks.register<Exec>("buildEditor") {
 // Version differences that are pure renames, applied to every versioned project's sources. Everything else is a
 // Stonecutter condition in the code (//? if >=1.21.6 ...), see docs/architecture.md "Several Minecraft versions".
 // The left side is the 26.x name in src/, the right side what Minecraft 1.21.1 calls it. A condition says from which
-// version the left side is right. Boundaries checked against a built version are exact; others follow the changelogs,
-// and the next older target's build checks them.
+// version the left side is right. Every version group from 1.21.1 to 26.3 is built, so a boundary sits between two
+// built versions; a change inside a group is named by the group's first version (see docs/architecture.md).
 stonecutter parameters {
     // Minecraft 1.21.11 renamed ResourceLocation to Identifier; the methods we use are the same.
     // ResourceKey.location() became identifier() with it.
