@@ -8,6 +8,7 @@
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers,
 //      and the player calls (issue #26) send their ops and use the relay's answers; chat and death events (issue #27)
 //      run their handlers with the numbers, keep the program running until Stop, and runChatCommand sends nothing;
+//      block broken, redstone and day start events (issue #89) run their handlers;
 //   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
 //      parallel code, and nobody catching it, STOPPED and Stop end the program; assert, raise and throw end it with
 //      their message;
@@ -261,6 +262,24 @@ player.runChatCommand("other 7")
 console.log("done")
 `;
 
+// Issue #89: the standalone relay turns player.say "break <block code>" into a broken block, "redstone" into a signal at
+// the robot and "day" into a new day. Stone (1) has no handler, so only the diamond ore (56) handler runs.
+const MORE_EVENTS = `blocks.onBlockBroken(Block.DiamondOre, function () {
+    console.log("diamond")
+})
+agent.onRedstonePowered(function () {
+    console.log("powered")
+})
+gameplay.onDayStart(function () {
+    console.log("morning")
+})
+player.say("break 1")
+player.say("break 56")
+player.say("redstone")
+player.say("day")
+console.log("top level done")
+`;
+
 async function eventsSection(page, relay) {
     step("events: on chat command and on player died keep the program running until Stop");
     await setProgram(page, "ts", EVENTS);
@@ -281,6 +300,21 @@ async function eventsSection(page, relay) {
     check(text.includes("died") && text.includes("top level done") && !text.some(l => l.includes("5"))
         && text.filter(l => l.startsWith("tick")).slice(0, 3).join() === "tick 1 0 -2,tick 2 0 0,tick 3 0 0", "events", `said ${JSON.stringify(text)}`);
     check(after.length === atStop.length, "events", `lines after Stop: ${after.slice(atStop.length).join(" | ") || "none"}`);
+
+    step("events: on block broken, on agent redstone powered and on day start run their handlers");
+    await setProgram(page, "ts", MORE_EVENTS);
+    await editor.start(page);
+    const begun = Date.now();
+    let heard = [];
+    while (Date.now() - begun < 30000 && heard.length < 4) {
+        await page.waitForTimeout(100);
+        heard = (await editor.robotLog(page)).filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    }
+    await page.waitForTimeout(500);
+    heard = (await editor.robotLog(page)).filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    await editor.stop(page);
+    // The handlers and the rest of the program run side by side, so only which lines came is checked.
+    check(JSON.stringify([...heard].sort()) === JSON.stringify(["diamond", "morning", "powered", "top level done"]), "more events", `said ${JSON.stringify(heard)}`);
 
     step("events: run chat command stays in the editor");
     const cmds = relay.cmds();

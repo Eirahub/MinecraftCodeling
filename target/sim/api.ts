@@ -399,6 +399,17 @@ namespace pxsim.agent {
     }
 
     /**
+     * Run code when your robot gets a redstone signal: when the block it stands in goes from no signal to a signal,
+     * for example from a lever, a button or a redstone block next to it. Only your default robot, while it is loaded.
+     * @param handler the code to run
+     */
+    //% blockId=agent_on_redstone_powered block="on agent redstone powered"
+    //% group="Inspecting" weight=78
+    export function onRedstonePowered(handler: () => void): void {
+        board().onRedstonePowered(handler as any as RefAction);
+    }
+
+    /**
      * Where the robot is: its block position in the world.
      */
     //% blockId=agent_get_position block="agent position"
@@ -1417,6 +1428,17 @@ namespace pxsim.gameplay {
     export function isRainingAsync(): Promise<boolean> {
         return agent.call("gameplay.isRaining", [], "");
     }
+
+    /**
+     * Run code when a new day starts where you are: when the time of day goes round from the night to the morning
+     * (time 0). Sleeping through the night counts, and so does /time set to an earlier time of day.
+     * @param handler the code to run
+     */
+    //% blockId=gameplay_on_day_start block="on day start"
+    //% weight=80
+    export function onDayStart(handler: () => void): void {
+        board().onDayStart(handler as any as RefAction);
+    }
 }
 
 namespace pxsim.robots {
@@ -1464,6 +1486,18 @@ namespace pxsim.blocks {
     export async function placeAsync(block: number, position: Position): Promise<void> {
         const p = await position.toWorldAsync();
         await agent.call("blocks.fill", [block, p.x, p.y, p.z, p.x, p.y, p.z, FillOperation.Replace]);
+    }
+
+    /**
+     * Run code when you break a block of this kind by hand, as MakeCode's on block broken. Blocks your robots break
+     * and blocks other players break do not count.
+     * @param block the kind of block, eg: Block.DiamondOre
+     * @param handler the code to run
+     */
+    //% blockId=blocks_on_block_broken block="on %block broken"
+    //% block.shadow=codeling_block weight=88
+    export function onBlockBroken(block: number, handler: () => void): void {
+        board().onBlockBroken(block, handler as any as RefAction);
     }
 }
 

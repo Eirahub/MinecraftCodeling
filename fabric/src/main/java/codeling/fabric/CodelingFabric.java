@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -41,6 +42,8 @@ public final class CodelingFabric implements ModInitializer {
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) ->
                 !(params.chatType().is(ChatType.CHAT) && Codeling.chat(sender, message.signedContent())));
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> Codeling.died(entity));
+        // Issue #89: server side, after the block is gone; a break another mod refused in BEFORE never gets here.
+        PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> Codeling.blockBroken(player, state));
         CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> RobotCommands.register(dispatcher));
     }
 }

@@ -11,6 +11,11 @@ Every user-visible change to Codeling is listed here. The format follows
 - World queries (issue #87): `gameplay.timeOfDay()` and `gameplay.isRaining()` read the time and weather of your
   dimension, and `agent.lightLevel()`, `agent.biome()` and `agent.temperature()` read the robot's own block, in
   Blocks, JavaScript and Python, with a new "Torches in the dark" example.
+- More events (issue #89): `blocks.onBlockBroken(block, handler)` ("on block broken") runs when you break that kind of
+  block by hand, `agent.onRedstonePowered(handler)` ("on agent redstone powered") when your default robot's block gets
+  a new redstone signal, and `gameplay.onDayStart(handler)` ("on day start") when the time of day wraps round to the
+  morning, in Blocks, JavaScript and Python. Never for other players' breaks or your robot's own. At most 16 blocks
+  per run; the 16 waiting events per player are shared with chat and death.
 
 ## [0.0.2] - 2026-11-12
 
