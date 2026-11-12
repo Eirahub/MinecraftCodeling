@@ -6,6 +6,10 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-11-12
+
+The second pre-release, for testing.
+
 ### Added
 
 - `loops.pause(ms)` and `loops.forever` with the blocks "pause (ms)" and "forever" in the Loops category: wait in
@@ -43,6 +47,7 @@ Every user-visible change to Codeling is listed here. The format follows
   handlers keeps running after its last line until Stop or `/robot stop`. At most 16 keywords of 32 characters per
   run, and 16 events waiting per player.
 - Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11, 1.21.9 to 1.21.10 and 1.21.6 to 1.21.8, 1.21.5, 1.21.4 and 1.21.2 to 1.21.3 (Java 21).
+- `scripts/setup-multimc.ps1` sets up a MultiMC instance for every loader and Minecraft version Codeling supports, to test the jars in a launcher.
 
 ### Changed
 
