@@ -1,8 +1,10 @@
 package codeling.relay;
 
+import codeling.net.ChatCommands;
 import codeling.net.Protocol;
 import codeling.robot.Result;
 import codeling.robot.RobotCommand;
+import codeling.robot.RobotException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -588,6 +590,8 @@ public final class RelayServer implements AutoCloseable {
         private final AtomicLong pending = new AtomicLong();
         private volatile boolean authed;
         volatile long run = -1;
+        // Standalone only: what the program listens for, for the chat and death events of player.say below.
+        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false);
 
         RelaySession(Socket socket, DataInputStream in, OutputStream out) {
             this.socket = socket;
@@ -750,7 +754,15 @@ public final class RelayServer implements AutoCloseable {
         // Standalone: run 0 for every start, and a delayed ok for every command (a fake value for the position and container queries).
         private void stub(String type, JsonObject msg, Long id) {
             if (type.equals("control")) {
-                if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("start")) write(Protocol.control("start", 0, null));
+                String op = msg.get("op") instanceof JsonPrimitive p ? p.getAsString() : "";
+                if (op.equals("start")) write(Protocol.control("start", 0, null));
+                if (op.equals("subscribe")) {
+                    try {
+                        subscribed = Protocol.subscription(msg);
+                    } catch (RobotException e) {
+                        write(Protocol.error(null, e.code, e.getMessage()));
+                    }
+                }
                 return;
             }
             if (id == null) {
@@ -763,6 +775,15 @@ public final class RelayServer implements AutoCloseable {
             if (refusal != null && msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("agent.say")) {
                 schedule(() -> write(Protocol.error(id, refusal, "refused on purpose by the standalone relay")), STUB_ACK_MS);
                 return;
+            }
+            // For the editor suite (issue #27): player.say "chat <line>" is that chat line and "die" a death, as the
+            // game would send them to a program that listens for them.
+            if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("player.say")) {
+                String command = said.startsWith("chat ") ? ChatCommands.match(subscribed.chat(), said.substring(5)) : null;
+                double[] n = command == null ? null : ChatCommands.numbers(said.substring(5));
+                String event = command != null ? Protocol.event("chat", java.util.List.of(command, n[0], n[1], n[2]))
+                        : said.equals("die") && subscribed.died() ? Protocol.event("playerDied", java.util.List.of()) : null;
+                if (event != null) schedule(() -> write(event), STUB_ACK_MS);
             }
             // The second argument (max or length) as a number from 0 to MAX_MEASURE, for the measuring answers.
             int second = msg.get("args") instanceof JsonArray a && a.size() > 1 && a.get(1) instanceof JsonPrimitive p && p.isNumber()

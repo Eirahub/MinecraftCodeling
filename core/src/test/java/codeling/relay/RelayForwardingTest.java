@@ -75,6 +75,20 @@ class RelayForwardingTest {
         assertTrue(result.contains("\"t\":\"result\""), result);
     }
 
+    // Issue #27: subscribe goes to the game as it is, and the game's events come back to the browser.
+    @Test
+    void forwardsSubscribeAndEvents() throws Exception {
+        var inbox = new LinkedBlockingQueue<String>();
+        WebSocket ws = hello(inbox);
+        inbox.poll(2, TimeUnit.SECONDS); // welcome
+        String subscribe = "{\"v\":2,\"t\":\"control\",\"op\":\"subscribe\",\"run\":4,\"chat\":[\"jump\"],\"died\":true}";
+        ws.sendText(subscribe, true).join();
+        assertEquals(subscribe, toServer.poll(2, TimeUnit.SECONDS));
+        String event = "{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,0.0]}";
+        server.deliver(event);
+        assertEquals(event, inbox.poll(2, TimeUnit.SECONDS));
+    }
+
     @Test
     void notInWorldAnswersError() throws Exception {
         problem = "Not in a world.";
