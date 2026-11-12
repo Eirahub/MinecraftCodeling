@@ -126,10 +126,13 @@ public final class NeoForgePlatform implements Platform {
     public <E extends Enum<E>> Supplier<? extends GameRules.Key<?>> enumRule(Identifier id, GameRules.Category category, E defaultValue) {
         Class<E> type = defaultValue.getDeclaringClass();
         GameRules.Type<EnumValue<E>> ruleType = new GameRules.Type<EnumValue<E>>(() -> EnumArgument.enumArgument(type),
-                //? if >=1.21.2 {
+                //? if >=1.21.5 {
                 t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { },
                 (Class<EnumValue<E>>) (Class<?>) EnumValue.class, net.minecraft.world.flag.FeatureFlagSet.of());
-                //?} else
+                //?} else if >=1.21.2 {
+                /^t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { },
+                net.minecraft.world.flag.FeatureFlagSet.of());
+                ^///?} else
                 /^t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { });^/
         GameRules.Key<EnumValue<E>> key = GameRules.register(id.toString(), category, ruleType);
         return () -> key;

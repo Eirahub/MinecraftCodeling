@@ -12,7 +12,7 @@ permissions:
 
 # Every Minecraft version Codeling builds for (settings.gradle.kts); one Fabric and one NeoForge jar each.
 env:
-  MC_VERSIONS: "26.3 26.2 26.1.2 1.21.11 1.21.10 1.21.8 1.21.5 1.21.1"
+  MC_VERSIONS: "26.3 26.2 26.1.2 1.21.11 1.21.10 1.21.8 1.21.5 1.21.4 1.21.1"
 
 jobs:
   release:
