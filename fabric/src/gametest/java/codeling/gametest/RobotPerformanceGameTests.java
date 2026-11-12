@@ -7,6 +7,10 @@ import codeling.robot.RobotCommand;
 import codeling.robot.RobotException;
 import codeling.robot.RobotLinks;
 import codeling.robot.RobotManager;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,8 +43,12 @@ public class RobotPerformanceGameTests {
      * allowed for garbage collection pauses and the JIT warming up, which the test cannot tell apart from robot work.
      * Measured on the owner's PC (2026-11-09): mean 1.8 ms, max 18 ms; before the crafting fix the mean was 6.5 ms.
      * The margin is for slower machines; shared GitHub runners measured 5.1 ms mean, so CI (env CI=true) gets 2.5 times.
+     * Even so a shared runner measured 2, 21 and 5 ms mean on the same tree (issue #229), so in CI the two time limits
+     * only warn (a note on the run's summary page); the budgets and the finished work still fail the test everywhere.
+     * A real slowdown is caught by running this test without CI=true before each release (CONTRIBUTING.md, "Releases").
      */
-    private static final double SLACK = "true".equals(System.getenv("CI")) ? 2.5 : 1;
+    private static final boolean CI = "true".equals(System.getenv("CI"));
+    private static final double SLACK = CI ? 2.5 : 1;
     private static final long MAX_MEAN_NANOS = (long) (4_000_000 * SLACK), MAX_TICK_NANOS = (long) (20_000_000 * SLACK);
     private static final int SLOW_TICKS_ALLOWED = 3;
 
@@ -136,9 +144,26 @@ public class RobotPerformanceGameTests {
             for (int i = 0; i < ROBOTS; i += 3) {
                 helper.assertTrue(robots.get(i).results().contains(Result.ok(64)), "robot " + i + " crafted 64 sticks: " + robots.get(i).results());
             }
-            helper.assertTrue(mean <= MAX_MEAN_NANOS, "mean robot tick cost " + mean / 1000 + " us is over " + MAX_MEAN_NANOS / 1000 + " us");
-            helper.assertTrue(slow <= SLOW_TICKS_ALLOWED, slow + " ticks took over " + MAX_TICK_NANOS / 1_000_000 + " ms (max " + max / 1000 + " us)");
+            timeLimit(helper, mean <= MAX_MEAN_NANOS, "mean robot tick cost " + mean / 1000 + " us is over " + MAX_MEAN_NANOS / 1000 + " us");
+            timeLimit(helper, slow <= SLOW_TICKS_ALLOWED, slow + " ticks took over " + MAX_TICK_NANOS / 1_000_000 + " ms (max " + max / 1000 + " us)");
             helper.succeed();
         });
+    }
+
+    /** Hard failure outside CI. In CI a slow shared runner is not a code change, so it only adds a line to the step summary. */
+    private static void timeLimit(GameTestHelper helper, boolean ok, String message) {
+        if (!CI) {
+            helper.assertTrue(ok, message);
+        } else if (!ok) {
+            LOG.warn("{} (slow shared runners cause this, see #229)", message);
+            String file = System.getenv("GITHUB_STEP_SUMMARY");
+            if (file == null) return;
+            try {
+                Files.writeString(Path.of(file), "> [!WARNING]\n> Performance GameTest: " + message + ". Slow shared runners cause this (see #229).\n\n",
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                LOG.warn("could not write the step summary", e);
+            }
+        }
     }
 }
