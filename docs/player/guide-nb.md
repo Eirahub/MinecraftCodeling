@@ -570,6 +570,14 @@ Mens du ser gjennom roboten, står kroppen din stille der den er. Øverst til ve
 
 `/robot camera follow` setter i stedet kameraet bak og over roboten, så du kan se på en lang byggejobb eller rute. Kameraet snur seg med roboten. Beveg musa for å se rundt roboten, og bruk musehjulet for å komme nærmere eller lenger unna (2 til 12 blokker). Står en vegg i veien, flytter kameraet seg foran den. "Robot camera: follow" i Tastebindinger gir det en egen tast. De samme reglene gjelder som for øyne-visningen.
 
+## Robotens utseende
+
+Roboten er én blokk høy og har tre egne skins. Bruk `/robot skin workshop`, `/robot skin industrial` eller `/robot skin mint`. Legg til et robotnavn etter skinet for å endre en robot med navn, for eksempel `/robot skin mint Miner`. Navn og skins består når du lagrer og når roboten bytter dimensjon.
+
+Gåing og svinger til venstre og høyre animeres av seg selv. Bruk `/robot animation look_left`, `look_right`, `look_up`, `look_down` eller `wave` for en kort bevegelse. Legg til et robotnavn til slutt når det trengs. `idle` avbryter en bevegelse. Lampen er bare en visuell detalj. Lys i en bestemt retning er eget arbeid.
+
+Bruk `/robot color 3366FF` for en egen hovedfarge på panelene, eller `/robot color reset` for å gå tilbake til fargene i det valgte skinet. Et robotnavn kan stå etter fargen. Metall, øyne, lampe og ledd beholder sine opprinnelige farger.
+
 ## Grenser
 
 Grensene holder spillet raskt for alle.
@@ -628,11 +636,3 @@ Codeling er et fanprosjekt. Det har ingen tilknytning til og er ikke godkjent av
 Minecraft er et varemerke som tilhører Mojang Synergies AB (Microsoft).
 Editoren er bygd med pxt, Microsofts verktøysett for MakeCode med åpen kildekode, som har MIT-lisens.
 Codeling har selv MIT-lisens. Detaljer og lisenstekster: [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md) og [LICENSE](../../LICENSE).
-
-## Robot appearance
-
-The robot is one block tall and has three original skins. Use `/robot skin workshop`, `/robot skin industrial` or `/robot skin mint`. Add a robot name after the skin to change a named robot, for example `/robot skin mint Miner`. Names and skins survive saving and moving between dimensions.
-
-Walking and left/right turns animate automatically. Use `/robot animation look_left`, `look_right`, `look_up`, `look_down` or `wave` for a short gesture; add a robot name at the end when needed. `idle` cancels a gesture. The lamp is a visual detail; directional illumination is separate work.
-
-Use `/robot color 3366FF` for a custom primary panel color, or `/robot color reset` to restore the selected skin's palette. An optional robot name follows the color. Metal, eyes, lamp and joints retain their original colors.
