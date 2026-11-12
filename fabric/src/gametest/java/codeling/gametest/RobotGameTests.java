@@ -41,7 +41,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-//? if >=26.1 {
+//? if >=26.2 {
 import net.minecraft.world.entity.EntityTypes;
 //?} else
 /*import net.minecraft.world.entity.EntityType;*/

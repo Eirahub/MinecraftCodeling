@@ -101,13 +101,18 @@ public final class CodelingClient {
         //? if >=26.1 {
         Component copy = Component.literal("[copy the editor link]")
                 .withStyle(s -> s.withClickEvent(new ClickEvent.CopyToClipboard(relay.editorUrl())).withUnderlined(true));
-        client.gui.hud.getChat().addClientSystemMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
-                .append(copy).append(" and paste it into the address bar."));
         //?} else {
         /*Component copy = Component.literal("[copy the editor link]")
                 .withStyle(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, relay.editorUrl())).withUnderlined(true));
-        client.gui.getChat().addMessage(Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
-                .append(copy).append(" and paste it into the address bar."));
+        *///?}
+        Component message = Component.literal("Opening the Codeling editor in your browser. If it does not open, ")
+                .append(copy).append(" and paste it into the address bar.");
+        //? if >=26.2 {
+        client.gui.hud.getChat().addClientSystemMessage(message);
+        //?} else if >=26.1 {
+        /*client.gui.getChat().addClientSystemMessage(message);
+        *///?} else {
+        /*client.gui.getChat().addMessage(message);
         *///?}
         return 1;
     }

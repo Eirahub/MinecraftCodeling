@@ -1,6 +1,6 @@
 # Codeling
 
-A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.3 and 26.2 on Java 25 and Minecraft 1.21.1 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
+A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
 The editor is a custom pxt target that runs in your browser and is served by the mod on `127.0.0.1`.
 Each robot command goes over a local WebSocket to the mod.
 
@@ -51,10 +51,12 @@ Build the target first; otherwise the jars have no editor. One build makes a Fab
 | 26.3 | NeoForge | `./gradlew :neoforge:26.3:build` | `neoforge/versions/26.3/build/libs/codeling-neoforge-26.3-<version>.jar` |
 | 26.2 | Fabric | `./gradlew :fabric:26.2:build` | `fabric/versions/26.2/build/libs/codeling-fabric-26.2-<version>.jar` |
 | 26.2 | NeoForge | `./gradlew :neoforge:26.2:build` | `neoforge/versions/26.2/build/libs/codeling-neoforge-26.2-<version>.jar` |
+| 26.1 to 26.1.2 | Fabric | `./gradlew :fabric:26.1.2:build` | `fabric/versions/26.1.2/build/libs/codeling-fabric-26.1.2-<version>.jar` |
+| 26.1 to 26.1.2 | NeoForge | `./gradlew :neoforge:26.1.2:build` | `neoforge/versions/26.1.2/build/libs/codeling-neoforge-26.1.2-<version>.jar` |
 | 1.21.1 | Fabric (Fabric API 0.116) | `./gradlew :fabric:1.21.1:build` | `fabric/versions/1.21.1/build/libs/codeling-fabric-1.21.1-<version>.jar` |
 | 1.21.1 | NeoForge 21.1 | `./gradlew :neoforge:1.21.1:build` | `neoforge/versions/1.21.1/build/libs/codeling-neoforge-1.21.1-<version>.jar` |
 
-Several Minecraft versions come from one source tree with [Stonecutter](https://stonecutter.kikugie.dev/) (issue #189): `src/` holds the 26.3 code, and lines that differ for an older version sit in `//? if` comments that Stonecutter swaps in for that version's build (`<module>/versions/<version>/build/generated/stonecutter/`). Keep 26.3 active in git; see [docs/architecture.md](docs/architecture.md) "Several Minecraft versions".
+Several Minecraft versions come from one source tree with [Stonecutter](https://stonecutter.kikugie.dev/) (issue #189): `src/` holds the 26.3 code, and lines that differ for an older version sit in `//? if` comments that Stonecutter swaps in for that version's build (`<module>/versions/<version>/build/generated/stonecutter/`). A jar named for the last patch version covers the patch versions before it that share its API (the 26.1.2 jar runs on 26.1, 26.1.1 and 26.1.2). Keep 26.3 active in git; see [docs/architecture.md](docs/architecture.md) "Several Minecraft versions".
 
 Jar names follow one rule for every loader and Minecraft version: `<modid>-<loader>-<minecraftversion>-<modversion>.jar`, all lowercase, loader `fabric`, `neoforge` or `forge` (for example `codeling-fabric-26.3-0.0.1.jar` or `codeling-neoforge-1.21.1-0.0.1.jar`; a sources jar adds `-sources`). The mod name comes first so the files sort together in a mods folder, then loader and Minecraft version so a player sees at a glance which file to pick, then the mod version. Gradle builds the name from `mod_id` and `mod_version` in `gradle.properties`, the loader (the module's name) and the Minecraft version (the Stonecutter project's name), in `gradle/loader.gradle.kts`, applied by every loader module. `checkJarNames` (part of `build`) fails when a jar in the module's `build/libs` breaks the rule. The version inside `fabric.mod.json` and `neoforge.mods.toml` stays the plain mod version.
 
