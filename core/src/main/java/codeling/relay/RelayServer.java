@@ -2,6 +2,7 @@ package codeling.relay;
 
 import codeling.net.ChatCommands;
 import codeling.net.Protocol;
+import codeling.net.SignalHub;
 import codeling.robot.Result;
 import codeling.robot.RobotCommand;
 import codeling.robot.RobotException;
@@ -591,7 +592,7 @@ public final class RelayServer implements AutoCloseable {
         private volatile boolean authed;
         volatile long run = -1;
         // Standalone only: what the program listens for, for the chat and death events of player.say below.
-        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false, Set.of(), false, false);
+        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false, Set.of(), false, false, Set.of());
 
         RelaySession(Socket socket, DataInputStream in, OutputStream out) {
             this.socket = socket;
@@ -778,8 +779,10 @@ public final class RelayServer implements AutoCloseable {
             }
             // For the editor suite (issue #27): player.say "chat <line>" is that chat line and "die" a death, as the
             // game would send them to a program that listens for them. Issue #89: "break <block code>" is a block the
-            // player broke, "redstone" a signal reaching the robot and "day" the start of a new day.
+            // player broke, "redstone" a signal reaching the robot and "day" the start of a new day. Issue #249:
+            // "signal <name> [number]" is a signal another mod or /codeling signal sent the player.
             if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("player.say")) {
+                java.util.regex.Matcher signal = java.util.regex.Pattern.compile("signal (\\S+)(?: (-?[0-9]{1,9}(?:\\.[0-9]{1,9})?))?").matcher(said);
                 String command = said.startsWith("chat ") ? ChatCommands.match(subscribed.chat(), said.substring(5)) : null;
                 double[] n = command == null ? null : ChatCommands.numbers(said.substring(5));
                 Integer block = said.matches("break [0-9]{1,9}") ? Integer.valueOf(said.substring(6)) : null;
@@ -787,8 +790,17 @@ public final class RelayServer implements AutoCloseable {
                         : said.equals("die") && subscribed.died() ? Protocol.event("playerDied", java.util.List.of())
                         : block != null && subscribed.broken().contains(block) ? Protocol.event("blockBroken", java.util.List.of(block))
                         : said.equals("redstone") && subscribed.redstone() ? Protocol.event("redstonePowered", java.util.List.of())
-                        : said.equals("day") && subscribed.dayStart() ? Protocol.event("dayStart", java.util.List.of()) : null;
+                        : said.equals("day") && subscribed.dayStart() ? Protocol.event("dayStart", java.util.List.of())
+                        : signal.matches() && subscribed.signals().contains(signal.group(1))
+                        ? Protocol.event("signal", java.util.List.of(signal.group(1), signal.group(2) == null ? 0.0 : Double.parseDouble(signal.group(2)))) : null;
                 if (event != null) schedule(() -> write(event), STUB_ACK_MS);
+            }
+            // Issue #249: no other mod here, so a sent signal reaches no listener, as on a server without a bridge.
+            if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("signals.send")) {
+                String problem = codeling.api.Signals.nameProblem(said);
+                String reply = problem != null ? Protocol.error(id, Result.Code.BAD_ARGS, problem) : Protocol.reply(id, Result.ok(false, SignalHub.nobodyListens(said)));
+                schedule(() -> write(reply), STUB_ACK_MS);
+                return;
             }
             // The second argument (max or length) as a number from 0 to MAX_MEASURE, for the measuring answers.
             int second = msg.get("args") instanceof JsonArray a && a.size() > 1 && a.get(1) instanceof JsonPrimitive p && p.isNumber()

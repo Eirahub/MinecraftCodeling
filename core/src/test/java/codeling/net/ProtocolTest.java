@@ -205,6 +205,9 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.TEMPERATURE, 0, 0), sim("agent.temperature", "[]"));
         assertEquals(new RobotCommand(RobotCommand.Op.TIME_OF_DAY, 0, 0), sim("gameplay.timeOfDay", "[]"));
         assertEquals(new RobotCommand(RobotCommand.Op.IS_RAINING, 0, 0), sim("gameplay.isRaining", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.SIGNAL_SEND, 0, 0, 0, "lamp-red"), sim("signals.send", "[\"lamp-red\"]"));
+        assertEquals(Result.Code.BAD_ARGS, assertThrows(RobotException.class, () -> sim("signals.send", "[\"lamp red\"]")).code);
+        assertEquals(Result.Code.BAD_ARGS, assertThrows(RobotException.class, () -> sim("signals.send", "[7]")).code);
         int stone = codeling.robot.BlockIds.byName("stone");
         assertEquals(new RobotCommand(RobotCommand.Op.FILL, 0, 64, 0, 4, 60, 4, stone, 3, null), sim("blocks.fill", "[" + stone + ",0,64,0,4,60,4,3]"));
         assertEquals(new RobotCommand(RobotCommand.Op.LINE, 1, 2, 3, 4, 5, 6, 0, 0, null), sim("shapes.line", "[0,1,2,3,4,5,6]"));

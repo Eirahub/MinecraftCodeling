@@ -57,8 +57,8 @@ class ChatCommandsTest {
 
     @Test
     void subscribeIsChecked() throws RobotException {
-        assertEquals(new Protocol.Subscription(Set.of("jump", "*"), true, Set.of(), false, false), subscribe(",\"chat\":[\"jump\",\"*\",\"jump\"],\"died\":true"));
-        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(), false, false), subscribe(""));
+        assertEquals(new Protocol.Subscription(Set.of("jump", "*"), true, Set.of(), false, false, Set.of()), subscribe(",\"chat\":[\"jump\",\"*\",\"jump\"],\"died\":true"));
+        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(), false, false, Set.of()), subscribe(""));
         StringBuilder many = new StringBuilder();
         for (int i = 0; i <= ChatCommands.MAX_KEYWORDS; i++) many.append(i == 0 ? "" : ",").append("\"k").append(i).append('"');
         assertEquals(Result.Code.BAD_ARGS, refused(",\"chat\":[" + many + "]"));
@@ -72,7 +72,7 @@ class ChatCommandsTest {
     @Test
     void subscribeToBlocksRedstoneAndDayStart() throws RobotException {
         int stone = BlockIds.byName("STONE"), log = BlockIds.byName("OAK_LOG");
-        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(stone, log), true, true),
+        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(stone, log), true, true, Set.of()),
                 subscribe(",\"broken\":[" + stone + "," + log + "," + stone + "],\"redstone\":true,\"dayStart\":true,\"later\":[1]"));
         StringBuilder many = new StringBuilder();
         List<String> names = List.of("STONE", "GRANITE", "DIORITE", "ANDESITE", "DIRT", "COBBLESTONE", "SAND", "GRAVEL", "GOLD_ORE",
@@ -89,10 +89,25 @@ class ChatCommandsTest {
         assertEquals(Result.Code.BAD_ARGS, refused(",\"dayStart\":null"));
     }
 
+    // Issue #249: signal names follow the keyword rules without "*", up to the cap; an older editor sends none.
+    @Test
+    void subscribeToSignals() throws RobotException {
+        assertEquals(Set.of("qr-forest", "lamp_2"), subscribe(",\"signals\":[\"qr-forest\",\"lamp_2\",\"qr-forest\"]").signals());
+        StringBuilder many = new StringBuilder();
+        for (int i = 0; i <= Protocol.MAX_SIGNALS; i++) many.append(i == 0 ? "" : ",").append("\"s").append(i).append('"');
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":[" + many + "]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":[\"*\"]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":[\"two words\"]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":[\"\"]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":[1]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"signals\":\"lamp\""));
+    }
+
     @Test
     void eventMessage() {
         assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,-1.0]}", Protocol.event("chat", List.of("jump", 3.0, 0.0, -1.0)));
         assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"playerDied\",\"args\":[]}", Protocol.event("playerDied", List.of()));
         assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"blockBroken\",\"args\":[1]}", Protocol.event("blockBroken", List.of(1)));
+        assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"signal\",\"args\":[\"qr\",0.0]}", Protocol.event("signal", List.of("qr", 0.0)));
     }
 }
