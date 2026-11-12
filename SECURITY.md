@@ -2,11 +2,11 @@
 
 ## Supported versions
 
-Codeling has no release yet; 0.0.1 is in development on `develop`. Until the first release, only the current
-`develop` branch gets security fixes.
+Codeling has only pre-releases so far (0.0.1 and 0.0.2). The current `develop` branch gets security fixes, and so
+does the latest release, as follows.
 
-After the first release, the latest release for each supported Minecraft version (now 26.3 and 1.21.1, on Fabric and
-NeoForge) gets fixes. Older releases do not; update to the latest one.
+The latest release for each supported Minecraft version (now 26.3, 26.2, 26.1 to 26.1.2, 1.21.1 and 1.21.2 to 1.21.11,
+on Fabric and NeoForge) gets fixes. Older releases do not; update to the latest one.
 
 ## Reporting a vulnerability
 
