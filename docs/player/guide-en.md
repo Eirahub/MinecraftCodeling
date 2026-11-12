@@ -386,6 +386,34 @@ while (gameplay.timeOfDay() < 12000) {
 }
 ```
 
+### Signals (category Signals)
+
+A signal is a name, such as `qr-forest` or `lamp-red`. Another mod on the server can send one to you, for example
+when you scan a QR code at a museum post or reach a checkpoint, and your program can send one to the other mods, for
+example to switch a lamp. An op can send one with `/codeling signal` (see "Chat commands" below), so a command block
+or a map can send signals without any other mod.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| on signal (name) | `signals.onReceived("qr-forest", function (value) { })` | Runs its code when a signal with that name comes to you. `value` is the number it carries, 0 when it has none. |
+| send signal (name) | `signals.send("lamp-red")` | Sends the name to the other mods on the server. The robot log shows true when a mod took it, else false and why. |
+
+```
+signals.onReceived("qr-forest", function (value) {
+    agent.move(SixDirection.Forward, value)
+})
+signals.send("lamp-red")
+```
+
+- A name is one word of letters, digits, `-` and `_`, 1 to 32 characters. Case matters: `Lamp` and `lamp` are two
+  names. A program can listen for at most 16 names.
+- A signal comes only to your own program, only while it runs and has an "on signal" block for that name. Signals
+  share the 16 waiting events with chat, death, blocks, redstone and the day.
+- "send signal" sends the name only, never anything else from your program. It goes to the other mods on the server,
+  never to another player's program and never back to your own. The same name goes at most once a second; a second
+  one sooner answers false. On a server without a mod that listens, it always answers false.
+- A program with an "on signal" block keeps running after its last line, until you press stop or type `/robot stop`.
+
 ### Positions (category Positions)
 
 | Block | JavaScript | What it does |
@@ -526,6 +554,7 @@ your default robot.
 |---|---|
 | `/codeling` | Opens the editor in your browser. |
 | `/codeling chat <text>` | Sends a chat line to your own running program's "on chat command" code, as typing it in the chat would. Works on servers whose chat plugins take chat lines first. Says so when no program of yours is listening. |
+| `/codeling signal <players> <name> [number]` | Sends a signal to the programs of the players named (for example `@a` or a player name), with the number (0 without one). Ops only, and command blocks. It says how many programs got it and names the players it did not reach. |
 | `/robot spawn [name]` | Spawns your robot, or moves it to you. Stops a running program. A new robot with a name needs room under `codeling:max_robots`. |
 | `/robot list` | Your robots and where they are. |
 | `/robot remove <name>` | Removes a robot with a name. Its items go to you. |
@@ -576,7 +605,8 @@ These keep the game fast for everyone.
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
 - `say` shows at most 80 characters, and the player's `say` at most 256.
 - The game runs at most one player block per tick (20 a second) for you; more than 16 waiting is refused with `RATE_LIMITED`.
-- A program listens for at most 16 chat command keywords of at most 32 characters and at most 16 kinds of broken block. At most 16 events wait for it.
+- A program listens for at most 16 chat command keywords of at most 32 characters, at most 16 kinds of broken block and at most 16 signal names. At most 16 events wait for it.
+- "send signal" sends the same name at most once a second.
 - Gravity is off at the start, so the robot floats. Turn it on with "agent gravity" or `/robot gravity true`.
 - The program runs in your browser. If you close the tab or leave the world, the program stops. After 10 seconds without contact the game stops the robot.
 
@@ -594,6 +624,8 @@ These keep the game fast for everyone.
 - A program hears only its own player's chat commands, death and broken blocks, its own robot's redstone signal and
   the day in its own player's world, never anything about another player. A chat line is held back from the chat
   only while your program runs and listens for its first word.
+- A signal reaches only the program of the player it was sent to. A program's "send signal" goes to the server's
+  other mods only, never to another player, and carries the name only.
 - The gamerule `codeling:robot_camera` decides who may use the robot camera: `owner` (the default: every player through their own robot), `ops` (only ops) or `off` (nobody). For example `/gamerule codeling:robot_camera off`. On NeoForge 26.3 the Edit Game Rules screen shows this rule as a text field: type `off`, `owner` or `ops` (on NeoForge 1.21.1 the screen leaves it out; use the command). The server checks this, and the camera ends at once when the rule takes it away.
 - The robot breaks and uses things as if it were you. If the server protects an area, the robot cannot change it either.
 
