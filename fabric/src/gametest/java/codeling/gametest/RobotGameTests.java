@@ -41,7 +41,10 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+//? if >=26.1 {
 import net.minecraft.world.entity.EntityTypes;
+//?} else
+/*import net.minecraft.world.entity.EntityType;*/
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.core.component.DataComponents;
@@ -987,7 +990,7 @@ public class RobotGameTests {
         Set<String> registry = new java.util.TreeSet<>();
         for (Identifier id : BuiltInRegistries.ITEM.keySet()) registry.add(id.toString());
         registry.remove("minecraft:air");
-        //? if >=26.1 {
+        //? if >=26.3 {
         helper.assertValueEqual(new java.util.TreeSet<>(ItemIds.modernIds()), registry, "items");
         //?} else {
         /*// Issue #189: the table stays 26.3's. The entries this version has (renamed ones included, see McCompat.itemId)

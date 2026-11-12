@@ -12,11 +12,11 @@ val mc = stonecutter.current.version
 // The version whose full test set runs (client GameTests, editor suite, standalone relay); see README "Build".
 val isMain = mc == "26.3"
 val javaRelease = property("java_version").toString().toInt()
-// codeling.mixins.json: Mixin's compatibility level follows the Java version, and 1.21.1 needs one mixin more
-// (GameRendererMixin hides the hand while the robot camera is on; 26.x does that from the render state).
+// codeling.mixins.json: Mixin's compatibility level follows the Java version, and before 26.3 one mixin more
+// (GameRendererMixin hides the hand while the robot camera is on; 26.3 does that from the level render state).
 val mixinProps = mapOf(
     "mixin_java" to "JAVA_$javaRelease",
-    "extra_client_mixins" to if (stonecutter.current.parsed < "1.21.2") ", \"GameRendererMixin\"" else "",
+    "extra_client_mixins" to if (stonecutter.current.parsed < "26.3") ", \"GameRendererMixin\"" else "",
 )
 
 java {

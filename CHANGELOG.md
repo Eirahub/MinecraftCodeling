@@ -28,6 +28,7 @@ Every user-visible change to Codeling is listed here. The format follows
   "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
   the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
   it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
+- Mod jars for Minecraft 26.2 (Fabric and NeoForge, Java 25).
 
 ### Fixed
 
