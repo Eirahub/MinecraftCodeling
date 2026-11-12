@@ -28,7 +28,25 @@ Every user-visible change to Codeling is listed here. The format follows
   "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
   the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
   it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
+- A Player category with MakeCode's `player.say`, `player.position`, `player.getOrientation`, `player.name` and
+  `player.teleport` (issue #26). They are about the program's own player only and need no robot. Unlike MakeCode,
+  `say` shows the message to that player only, as plain text of at most 256 characters. `teleport` works for the host
+  of a singleplayer world or an op, in the player's own dimension, inside the world border and the build height;
+  anyone else gets `NO_PERMISSION`. One player call per tick, at most 16 waiting (`RATE_LIMITED`).
+- Chat and death events in the Player category (issue #27): `player.onChat(keyword, handler)` ("on chat command"),
+  `player.onDied(handler)` ("on player died") and `player.runChatCommand(text)` ("run chat command"), in Blocks,
+  JavaScript and Python. A chat line whose first word is a keyword of the sender's running program (or any line for
+  `*`) is not broadcast; the program gets the keyword and up to three numbers parsed as JavaScript's `parseInt`
+  (0 when missing or not a number), never the line. Lines from other players, and every line once the run ends, are
+  broadcast as usual. `/codeling chat <text>` does the same for servers whose chat plugins take chat lines first.
+  `runChatCommand` runs the program's own handlers in the editor and sends nothing to the game. A program with
+  handlers keeps running after its last line until Stop or `/robot stop`. At most 16 keywords of 32 characters per
+  run, and 16 events waiting per player.
 - Mod jars for Minecraft 26.2 (Fabric and NeoForge, Java 25).
+
+### Changed
+
+- `agent.say` turns the section sign (the colour code character) into a space, as `player.say` does.
 
 ### Fixed
 

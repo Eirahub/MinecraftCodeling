@@ -11,7 +11,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Protocol messages (architecture section 3): decoding untrusted JSON and encoding replies.
@@ -84,6 +86,44 @@ public final class Protocol {
             args.add(p.isNumber() ? (Object) p.getAsDouble() : p.isBoolean() ? (Object) p.getAsBoolean() : p.getAsString());
         }
         return new Cmd(id, run, RobotCommand.parse(string(msg, "op"), args), robot(msg));
+    }
+
+    /** What a program listens for (issue #27): its onChat keywords and whether it has an onDied handler. */
+    public record Subscription(Set<String> chat, boolean died) {
+    }
+
+    /**
+     * Decodes {@code control subscribe}: {@code chat}, an array of onChat keywords (optional), and {@code died}, true
+     * when the program has an onDied handler (optional). Each keyword is checked by {@link ChatCommands#keywordProblem}.
+     */
+    public static Subscription subscription(JsonObject msg) throws RobotException {
+        Set<String> chat = new LinkedHashSet<>();
+        if (msg.has("chat")) {
+            if (!(msg.get("chat") instanceof JsonArray array)) throw new RobotException(Result.Code.BAD_ARGS, "chat must be an array of keywords");
+            for (JsonElement e : array) {
+                if (!(e instanceof JsonPrimitive p) || !p.isString()) throw new RobotException(Result.Code.BAD_ARGS, "chat must be an array of keywords");
+                String problem = ChatCommands.keywordProblem(p.getAsString());
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                chat.add(p.getAsString());
+            }
+            if (chat.size() > ChatCommands.MAX_KEYWORDS) {
+                throw new RobotException(Result.Code.BAD_ARGS, "a program may listen for at most " + ChatCommands.MAX_KEYWORDS + " chat commands");
+            }
+        }
+        boolean died = false;
+        if (msg.has("died")) {
+            if (!(msg.get("died") instanceof JsonPrimitive p) || !p.isBoolean()) throw new RobotException(Result.Code.BAD_ARGS, "died must be true or false");
+            died = p.getAsBoolean();
+        }
+        return new Subscription(Set.copyOf(chat), died);
+    }
+
+    /** An {@code event} for a handler the program subscribed to: {@code chat} with [keyword, num1, num2, num3], or {@code playerDied} with []. */
+    public static String event(String name, List<?> args) {
+        JsonObject o = envelope("event");
+        o.addProperty("name", name);
+        o.add("args", new Gson().toJsonTree(args));
+        return o.toString();
     }
 
     /** The {@code robot} field: which of the player's robots, "" (or absent) for the default robot. */

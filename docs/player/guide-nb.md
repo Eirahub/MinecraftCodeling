@@ -294,6 +294,49 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | robot si (tekst) | `agent.say("Hei")` | Viser tekst over roboten i 5 sekunder. Høyst 80 tegn. |
 | robot kamera (modus) | `agent.camera(CameraMode.Follow)` | Setter robotkameraet til øyne, følg eller av (se Robotkamera under). Hvis serveren ikke tillater det, stopper programmet med en feil. |
 
+### Spiller (kategorien Spiller)
+
+Disse blokkene handler om deg, spilleren som kjører programmet. De virker uten robot. Ingen andres navn eller
+posisjon kan leses, og ingen andre kan flyttes.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| si i chatten (melding) | `player.say("Hei!")` | Viser meldingen i chatten din. Bare du ser den (i MakeCode ser alle den). Ren tekst, høyst 256 tegn. |
+| spiller posisjon i verden | `player.position()` | Der du står: blokken føttene dine er i, som en posisjon i verden. |
+| spiller retning | `player.getOrientation()` | Hvilken vei du ser, i grader: sør 0, vest 90, nord 180 (eller -180), øst -90. |
+| spiller navn | `player.name()` | Spillernavnet ditt. |
+| teleporter til (posisjon) | `player.teleport(pos(0, 10, 0))` | Flytter deg dit, i dimensjonen du er i. Bare i en enspillerverden (som verten) eller for en operatør på serveren; for alle andre nekter spillet med `NO_PERMISSION`. Utenfor verdensgrensen eller byggehøyden nekter det med `OUT_OF_RANGE`. |
+| når chatkommando (nøkkelord) | `player.onChat("jump", function (num1, num2, num3) { })` | Kjører koden sin når du skriver en chattelinje som begynner med nøkkelordet, for eksempel `jump 10`. Se "Reager på chat og død" under. |
+| når spilleren dør | `player.onDied(function () { })` | Kjører koden sin når du dør. |
+| kjør chatkommando (tekst) | `player.runChatCommand("jump 10")` | Kjører din egen "når chatkommando"-kode for det nøkkelordet, som om du hadde skrevet det. Den sender ingenting til chatten eller spillet. |
+
+Spillmodus betyr ikke noe for disse blokkene: i tilskuer- eller eventyrmodus kan du fortsatt bruke alle (teleporter
+krever fortsatt enspiller eller operatør).
+
+#### Reager på chat og død
+
+"når chatkommando" og "når spilleren dør" lar programmet ditt vente på deg. Dette programmet teleporterer deg opp når
+du skriver `jump 10` i chatten:
+
+```
+player.onChat("jump", function (num1, num2, num3) {
+    player.teleport(pos(0, num1, 0))
+})
+```
+
+- Nøkkelordet er ett ord: bokstaver, sifre, `-` og `_`, høyst 32 tegn, og store bokstaver teller (`Jump` er ikke
+  `jump`). Nøkkelordet `*` får hver chattelinje du skriver. Et program kan lytte etter høyst 16 nøkkelord.
+- Ordene etter nøkkelordet blir num1, num2 og num3: hele tall. Et ord som ikke er et tall, eller et som mangler,
+  blir 0. `jump 10 abc` gir 10, 0 og 0.
+- En linje som begynner med nøkkelordet ditt, vises ikke i chatten; den går bare til programmet ditt. Alle andre
+  linjer sendes som vanlig. Linjer fra andre spillere når aldri programmet ditt, og programmet ditt ser aldri ordene
+  i en linje, bare nøkkelordet og tallene.
+- Har serveren en chatteutvidelse som tar chattelinjene først, skriver du `/codeling chat jump 10` i stedet.
+- Et program med "når chatkommando" eller "når spilleren dør" fortsetter å kjøre etter siste linje, så det kan
+  reagere. Trykk på stoppknappen i editoren, eller skriv `/robot stop`, for å avslutte det. Da vises chattelinjene
+  dine som vanlig igjen.
+- Høyst 16 chatkommandoer venter på programmet ditt; flere på en gang blir forkastet.
+
 ### Posisjoner (kategorien Posisjoner)
 
 | Blokk | JavaScript | Hva den gjør |
@@ -409,6 +452,7 @@ standardroboten din.
 | Kommando | Hva den gjør |
 |---|---|
 | `/codeling` | Åpner editoren i nettleseren. |
+| `/codeling chat <tekst>` | Sender en chattelinje til "når chatkommando"-koden i ditt eget program, slik det å skrive den i chatten ville gjort. Virker på servere der chatteutvidelser tar chattelinjene først. Sier fra når ingen av programmene dine lytter. |
 | `/robot spawn [navn]` | Lager roboten din, eller flytter den til deg. Stopper et program som kjører. En ny robot med navn trenger plass under `codeling:max_robots`. |
 | `/robot list` | Robotene dine og hvor de er. |
 | `/robot remove <navn>` | Fjerner en robot med navn. Tingene den har, får du. |
@@ -457,7 +501,9 @@ Grensene holder spillet raskt for alle.
 - `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann.
 - Roboten virker bare i deler av verdenen som er lastet inn (nær spillere).
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
-- `si` viser høyst 80 tegn.
+- `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
+- Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
+- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn. Høyst 16 chatte- og dødshendelser venter på det.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -471,6 +517,9 @@ Grensene holder spillet raskt for alle.
 - Bare du og operatører på serveren kan åpne inventaret til roboten din. Andre får beskjeden "This is not your robot."
 - I overlevelse samler roboten sine egne ressurser. "robot gi" og `/robot give` virker bare i kreativ modus, eller når verdenen har `/gamerule codeling:free_items true`. Ellers legger du ting i roboten gjennom inventarskjermen dens.
 - Operatører kan stoppe alle roboter med `/robot stop all`.
+- `player.say` i et program går bare til spilleren som kjører det, og `player.teleport` virker på en server bare for operatører.
+- Et program hører bare chatkommandoene og døden til sin egen spiller, aldri en annen spillers. En chattelinje holdes
+  bare tilbake fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 

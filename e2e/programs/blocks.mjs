@@ -5,6 +5,9 @@
 // Calls with more than three arguments come back one argument per line, so they are written that way.
 // Reporters are put in a variable: a bare call of a value block is grey in Blocks. Names are unique per program.
 export const BLOCK_PROGRAMS = {
+    // First: Blocks writes event blocks before the code on start, in this order.
+    player_on_chat: "player.onChat(\"jump\", function (num1, num2) {\n    agent.move(SixDirection.Up, num2)\n})",
+    player_on_died: "player.onDied(function () {\n    agent.say(\"Oops\")\n})",
     agent_move: "agent.move(SixDirection.Back, 2)",
     agent_turn: "agent.turn(TurnDirection.Right)",
     agent_move_to: "let movedTo = agent.moveTo(pos(0, 0, 5))",
@@ -102,6 +105,12 @@ export const BLOCK_PROGRAMS = {
     builder_fill: "builder.fill(Block.Cobblestone, FillOperation.Outline)",
     control_assert: "control.check(false, \"Not built\")",
     control_fail: "control.fail(\"Gave up\")",
+    player_say: "player.say(\"Hi from my program\")",
+    player_position: "let myPlace = player.position()",
+    player_get_orientation: "let myHeading = player.getOrientation()",
+    player_name: "let myName = player.name()",
+    player_teleport: "player.teleport(pos(0, 4, 0))",
+    player_run_chat_command: "player.runChatCommand(\"jump 3\")",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
     loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",

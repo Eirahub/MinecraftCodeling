@@ -1254,6 +1254,99 @@ namespace pxsim {
     }
 }
 
+// The player API (issue #26): names as in MakeCode for Minecraft. Every call is about you, the program's owner, and
+// is checked by the game. Unlike MakeCode, say shows the message to you only, not to everyone in the chat.
+namespace pxsim.player {
+    /**
+     * Show a message in your chat. Only you see it. Longer than 256 characters is cut, and it is plain text (no colours).
+     * @param message what to show, eg: "Hi!"
+     */
+    //% blockId=player_say block="say %message"
+    //% weight=100
+    export function sayAsync(message: string): Promise<void> {
+        return agent.call("player.say", ["" + message], "");
+    }
+
+    /**
+     * Where you are: the block your feet are in, as a world position.
+     */
+    //% blockId=player_position block="player world position"
+    //% weight=90
+    export async function positionAsync(): Promise<Position> {
+        const [x, y, z] = await agent.call("player.position", [], "");
+        return new Position(x, y, z);
+    }
+
+    /**
+     * Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90.
+     */
+    //% blockId=player_get_orientation block="player orientation"
+    //% weight=89
+    export function getOrientationAsync(): Promise<number> {
+        return agent.call("player.getOrientation", [], "");
+    }
+
+    /**
+     * Your player name.
+     */
+    //% blockId=player_name block="player name"
+    //% weight=88
+    export function nameAsync(): Promise<string> {
+        return agent.call("player.name", [], "");
+    }
+
+    /**
+     * Teleport yourself to a position in the same dimension. Only in singleplayer or for an operator; otherwise the
+     * game refuses it with a NO_PERMISSION error. Relative positions are worked out from where you stand now.
+     * @param to where to go, eg: pos(0, 10, 0)
+     */
+    //% blockId=player_teleport block="teleport to %to=positions_pos"
+    //% weight=80
+    export async function teleportAsync(to: Position): Promise<void> {
+        if (!to) return;
+        const p = await to.toWorldAsync();
+        await agent.call("player.teleport", [p.x, p.y, p.z], "");
+    }
+
+    // Issue #27: chat commands and death. The game sends only your own chat lines and deaths, and only the keyword and
+    // the numbers, never the line itself. A program with handlers keeps running after its last line until you press Stop.
+
+    /**
+     * Run code when you type a chat command: a chat line that starts with the keyword, for example "jump 10". The
+     * line is then not shown in the chat. The words after the keyword are num1, num2 and num3: whole numbers, or 0
+     * when missing or not a number. Use * as the keyword to get every chat line. /codeling chat jump 10 does the same.
+     * @param command the keyword, one word, eg: "jump"
+     * @param handler the code to run
+     */
+    //% blockId=player_on_chat block="on chat command %command"
+    //% draggableParameters=reporter optionalVariableArgs=1
+    //% weight=70
+    export function onChat(command: string, handler: (num1: number, num2: number, num3: number) => void): void {
+        board().onChat("" + command, handler as any as RefAction);
+    }
+
+    /**
+     * Run code when you die.
+     * @param handler the code to run
+     */
+    //% blockId=player_on_died block="on player died"
+    //% weight=69
+    export function onDied(handler: () => void): void {
+        board().onDied(handler as any as RefAction);
+    }
+
+    /**
+     * Run your program's own on chat command code for a keyword, as if you had typed it, for example "jump 10". It
+     * never sends anything to the chat or to the game, and it waits until that code has finished.
+     * @param command the keyword and up to three numbers, eg: "jump"
+     */
+    //% blockId=player_run_chat_command block="run chat command %command"
+    //% weight=68
+    export function runChatCommandAsync(command: string): Promise<void> {
+        return board().runChatCommand("" + command);
+    }
+}
+
 namespace pxsim.robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its

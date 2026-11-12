@@ -179,6 +179,31 @@ class RobotCommandTest {
         assertEquals(Result.Code.BAD_ARGS, rejected("agent.say"));
     }
 
+    // Issue #26: player.say is plain text only, one line of at most 256 characters; no section-sign format codes.
+    @Test
+    void playerSayIsPlainCappedText() throws RobotException {
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_SAY, 0, 0, 0, "Hi  cred there"), RobotCommand.parse("player.say", List.of("Hi §cred\nthere")));
+        String said = RobotCommand.parse("player.say", List.of("x".repeat(1000))).text();
+        assertEquals("x".repeat(RobotCommand.MAX_PLAYER_SAY - 3) + "...", said);
+        assertEquals("a b", RobotCommand.parse("agent.say", List.of("a§b")).text());
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.say", 5));
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.say"));
+    }
+
+    @Test
+    void playerQueriesAndTeleport() throws RobotException {
+        assertEquals(RobotCommand.Op.PLAYER_POSITION, RobotCommand.parse("player.position", List.of()).op());
+        assertEquals(RobotCommand.Op.PLAYER_ORIENTATION, RobotCommand.parse("player.getOrientation", List.of()).op());
+        assertEquals(RobotCommand.Op.PLAYER_NAME, RobotCommand.parse("player.name", List.of()).op());
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.name", 1));
+        assertEquals(new RobotCommand(RobotCommand.Op.PLAYER_TELEPORT, 10, -60, 3), RobotCommand.parse("player.teleport", List.of(10, -60.0, 3L)));
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.teleport", Double.NaN, 0, 0));
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.teleport", 0, Double.POSITIVE_INFINITY, 0));
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.teleport", 0.5, 0, 0));
+        assertEquals(Result.Code.OUT_OF_RANGE, rejected("player.teleport", 0, 0, Positions.MAX_COORDINATE + 1));
+        assertEquals(Result.Code.BAD_ARGS, rejected("player.teleport", 0, 0));
+    }
+
     @Test
     void rejectsOutOfRangeDistance() {
         assertEquals(Result.Code.OUT_OF_RANGE, rejected("agent.move", 0, 0));

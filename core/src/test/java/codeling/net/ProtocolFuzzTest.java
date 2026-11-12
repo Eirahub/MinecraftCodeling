@@ -39,6 +39,8 @@ class ProtocolFuzzTest {
             cmd("blocks.fill", "[1,0,64,0,4,60,4,3]"), cmd("shapes.line", "[0,1,2,3,4,5,6]"), cmd("shapes.circle", "[1,1,2,3,5,1,1]"),
             cmd("shapes.sphere", "[1,1,2,3,5,2]"), cmd("agent.camera", "[2]"), cmd("agent.followPath", "[0]"), cmd("agent.followPath", "[0,3]"),
             cmd("shapes.maze", "[1,2,3,15,9,1,13,42]"),
+            cmd("player.say", "[\"Hi!\"]"), cmd("player.position", "[]"), cmd("player.getOrientation", "[]"), cmd("player.name", "[]"),
+            cmd("player.teleport", "[1,100,-2]"),
             "{\"v\":2,\"t\":\"control\",\"op\":\"start\"}", "{\"v\":2,\"t\":\"control\",\"op\":\"heartbeat\",\"run\":2}",
             "{\"v\":2,\"t\":\"control\",\"op\":\"stop\",\"run\":2}", "{\"v\":2,\"t\":\"control\",\"op\":\"pause\",\"run\":2}");
     /** The first COMMANDS entries of VALID are cmd messages, the rest control messages. */

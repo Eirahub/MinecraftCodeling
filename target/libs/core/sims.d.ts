@@ -1018,6 +1018,85 @@ declare namespace agent {
         public camera(mode: CameraMode): void;
 
     }
+declare namespace player {
+    /**
+     * Show a message in your chat. Only you see it. Longer than 256 characters is cut, and it is plain text (no colours).
+     * @param message what to show, eg: "Hi!"
+     */
+    //% blockId=player_say block="say %message"
+    //% weight=100
+    //% shim=player::sayAsync promise
+    function say(message: string): void;
+
+    /**
+     * Where you are: the block your feet are in, as a world position.
+     */
+    //% blockId=player_position block="player world position"
+    //% weight=90
+    //% shim=player::positionAsync promise
+    function position(): Position;
+
+    /**
+     * Which way you look, in degrees: south 0, west 90, north 180 (or -180), east -90.
+     */
+    //% blockId=player_get_orientation block="player orientation"
+    //% weight=89
+    //% shim=player::getOrientationAsync promise
+    function getOrientation(): number;
+
+    /**
+     * Your player name.
+     */
+    //% blockId=player_name block="player name"
+    //% weight=88
+    //% shim=player::nameAsync promise
+    function name(): string;
+
+    /**
+     * Teleport yourself to a position in the same dimension. Only in singleplayer or for an operator; otherwise the
+     * game refuses it with a NO_PERMISSION error. Relative positions are worked out from where you stand now.
+     * @param to where to go, eg: pos(0, 10, 0)
+     */
+    //% blockId=player_teleport block="teleport to %to=positions_pos"
+    //% weight=80
+    //% shim=player::teleportAsync promise
+    function teleport(to: Position): void;
+
+    // Issue #27: chat commands and death. The game sends only your own chat lines and deaths, and only the keyword and
+    // the numbers, never the line itself. A program with handlers keeps running after its last line until you press Stop.
+    /**
+     * Run code when you type a chat command: a chat line that starts with the keyword, for example "jump 10". The
+     * line is then not shown in the chat. The words after the keyword are num1, num2 and num3: whole numbers, or 0
+     * when missing or not a number. Use * as the keyword to get every chat line. /codeling chat jump 10 does the same.
+     * @param command the keyword, one word, eg: "jump"
+     * @param handler the code to run
+     */
+    //% blockId=player_on_chat block="on chat command %command"
+    //% draggableParameters=reporter optionalVariableArgs=1
+    //% weight=70
+    //% shim=player::onChat
+    function onChat(command: string, handler: (num1: number, num2: number, num3: number) => void): void;
+
+    /**
+     * Run code when you die.
+     * @param handler the code to run
+     */
+    //% blockId=player_on_died block="on player died"
+    //% weight=69
+    //% shim=player::onDied
+    function onDied(handler: () => void): void;
+
+    /**
+     * Run your program's own on chat command code for a keyword, as if you had typed it, for example "jump 10". It
+     * never sends anything to the chat or to the game, and it waits until that code has finished.
+     * @param command the keyword and up to three numbers, eg: "jump"
+     */
+    //% blockId=player_run_chat_command block="run chat command %command"
+    //% weight=68
+    //% shim=player::runChatCommandAsync promise
+    function runChatCommand(command: string): void;
+
+}
 declare namespace robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its
