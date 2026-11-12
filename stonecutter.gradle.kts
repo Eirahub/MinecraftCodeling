@@ -62,6 +62,10 @@ stonecutter parameters {
         replace("helper.assertFalse(", "GameTestAsserts.assertFalse(helper, ")
         replace("helper.assertValueEqual(", "GameTestAsserts.assertValueEqual(helper, ")
     }
+    // fail takes a String from 1.21.9 (checked on 1.21.10).
+    replacements.string(current.parsed >= "1.21.5" && current.parsed < "1.21.9") {
+        replace("helper.fail(", "GameTestAsserts.fail(helper, ")
+    }
     // Renames that came with 26.3.
     replacements.string(current.parsed < "26.3") { replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE") }
     // Fabric's own @GameTest (structure, maxTicks, environment) came with 1.21.5. Before that the tests use vanilla's
