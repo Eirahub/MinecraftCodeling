@@ -15,8 +15,9 @@ permissions:
   contents: read
 
 # Job limits (issue #252): a hung GameTest server once held a job for 35 minutes, and GitHub's default limit is 6 hours.
-# The limits are about three times the normal time of the last green runs on develop; a hung server also stops its
-# Gradle task after 10 minutes (gradle/loader.gradle.kts), which leaves room for one such stop inside each limit.
+# A hung server stops its Gradle task after 10 minutes (gradle/loader.gradle.kts). Each limit is the normal time of the
+# last green runs on develop, plus up to 5 minutes of setup with a cold cache (Minecraft download, Loom remap), plus that
+# one 10-minute stop, so the job still ends with the gameTestHang message and is not cut off before it.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -104,7 +105,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # Normal time 2 to 3 minutes.
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -145,7 +146,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # Normal time 2 to 4 minutes.
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -189,7 +190,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # Normal time 2 to 4 minutes.
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
