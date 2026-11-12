@@ -1,6 +1,7 @@
 package codeling.gametest;
 
 import codeling.Codeling;
+import codeling.McCompat;
 import codeling.net.Protocol;
 import codeling.net.ServerRelay;
 import codeling.robot.RobotCamera;
@@ -302,6 +303,42 @@ public class RelayGameTests {
             helper.assertValueEqual(errorCode(b, 2), "OUT_OF_RANGE", "above the build height");
             helper.assertValueEqual(b.player().blockPosition(), to, "not moved by the refused call");
             GameTestCompat.deop(b.player());
+            b.leave();
+        });
+    }
+
+    private static void command(GameTestHelper helper, String command) {
+        var server = helper.getLevel().getServer();
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
+    }
+
+    private static String gameplay(long id, long run, String op) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"gameplay." + op + "\",\"args\":[]}";
+    }
+
+    // Issue #87: the time and the weather of the owner's dimension, set with /time and /weather and read back. One test,
+    // so nothing else changes them meanwhile; both are put back at the end.
+    @GameTest(maxTicks = 200)
+    public void timeOfDayAndRainAreRead(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long before = McCompat.dayTime(helper.getLevel());
+        command(helper, "time set 1234");
+        command(helper, "weather clear");
+        long run = b.start();
+        b.send(gameplay(1, run, "timeOfDay"));
+        b.send(gameplay(2, run, "isRaining"));
+        command(helper, "weather rain");
+        // The rain level rises by 0.01 a tick and counts as rain from 0.2.
+        helper.runAfterDelay(40, () -> b.send(gameplay(3, run, "isRaining")));
+        helper.succeedWhen(() -> {
+            for (int id = 1; id <= 3; id++) helper.assertTrue(b.find("result", id) != null, "result " + id);
+            long time = b.find("result", 1).get("value").getAsLong();
+            // The daylight cycle may run in the test server, so a few ticks may have passed.
+            helper.assertTrue(time >= 1234 && time < 1234 + 20, "time of day " + time);
+            helper.assertValueEqual(b.find("result", 2).get("value").getAsBoolean(), false, "clear");
+            helper.assertValueEqual(b.find("result", 3).get("value").getAsBoolean(), true, "rain");
+            command(helper, "weather clear");
+            command(helper, "time set " + Math.floorMod(before, 24000L));
             b.leave();
         });
     }
