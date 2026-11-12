@@ -1,6 +1,6 @@
 # Codeling
 
-A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 and 1.21.4 to 1.21.11 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
+A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 to 1.21.11 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
 The editor is a custom pxt target that runs in your browser and is served by the mod on `127.0.0.1`.
 Each robot command goes over a local WebSocket to the mod.
 
@@ -63,7 +63,9 @@ Build the target first; otherwise the jars have no editor. One build makes a Fab
 | 1.21.5 | NeoForge | `./gradlew :neoforge:1.21.5:build` | `neoforge/versions/1.21.5/build/libs/codeling-neoforge-1.21.5-<version>.jar` |
 | 1.21.4 | Fabric | `./gradlew :fabric:1.21.4:build` | `fabric/versions/1.21.4/build/libs/codeling-fabric-1.21.4-<version>.jar` |
 | 1.21.4 | NeoForge | `./gradlew :neoforge:1.21.4:build` | `neoforge/versions/1.21.4/build/libs/codeling-neoforge-1.21.4-<version>.jar` |
-| 1.21.1 | Fabric (Fabric API 0.116) | `./gradlew :fabric:1.21.1:build` | `fabric/versions/1.21.1/build/libs/codeling-fabric-1.21.1-<version>.jar` |
+| 1.21.2 to 1.21.3 | Fabric | `./gradlew :fabric:1.21.3:build` | `fabric/versions/1.21.3/build/libs/codeling-fabric-1.21.3-<version>.jar` |
+| 1.21.2 to 1.21.3 | NeoForge | `./gradlew :neoforge:1.21.3:build` | `neoforge/versions/1.21.3/build/libs/codeling-neoforge-1.21.3-<version>.jar` |
+| 1.21 and 1.21.1 | Fabric (Fabric API 0.116) | `./gradlew :fabric:1.21.1:build` | `fabric/versions/1.21.1/build/libs/codeling-fabric-1.21.1-<version>.jar` |
 | 1.21.1 | NeoForge 21.1 | `./gradlew :neoforge:1.21.1:build` | `neoforge/versions/1.21.1/build/libs/codeling-neoforge-1.21.1-<version>.jar` |
 
 Several Minecraft versions come from one source tree with [Stonecutter](https://stonecutter.kikugie.dev/) (issue #189): `src/` holds the 26.3 code, and lines that differ for an older version sit in `//? if` comments that Stonecutter swaps in for that version's build (`<module>/versions/<version>/build/generated/stonecutter/`). A jar named for the last patch version covers the patch versions before it that share its API (the 26.1.2 jar runs on 26.1, 26.1.1 and 26.1.2). Keep 26.3 active in git; see [docs/architecture.md](docs/architecture.md) "Several Minecraft versions".

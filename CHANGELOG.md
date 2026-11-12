@@ -42,7 +42,7 @@ Every user-visible change to Codeling is listed here. The format follows
   `runChatCommand` runs the program's own handlers in the editor and sends nothing to the game. A program with
   handlers keeps running after its last line until Stop or `/robot stop`. At most 16 keywords of 32 characters per
   run, and 16 events waiting per player.
-- Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11, 1.21.9 to 1.21.10 and 1.21.6 to 1.21.8, 1.21.5 and 1.21.4 (Java 21).
+- Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11, 1.21.9 to 1.21.10 and 1.21.6 to 1.21.8, 1.21.5, 1.21.4 and 1.21.2 to 1.21.3 (Java 21).
 
 ### Changed
 
@@ -50,6 +50,8 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ### Fixed
 
+- The Fabric jar for Minecraft 1.21.1 accepted every 1.21.x version and crashed on 1.21.2 and later. It now
+  accepts 1.21 and 1.21.1 only, so Fabric names the right jar instead.
 - A world moved from Minecraft 1.21.x to 26.x keeps its robots: 26.x reads the robot links from
   `data/codeling_robots.dat` when `data/codeling/robots.dat` is missing.
 - Positions in the lists from `agent.radar` and `agent.findBounds` lost their methods, so `toString` or `toWorld` on
