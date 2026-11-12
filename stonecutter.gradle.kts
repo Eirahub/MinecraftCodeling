@@ -30,8 +30,8 @@ tasks.register<Exec>("buildEditor") {
 // Version differences that are pure renames, applied to every versioned project's sources. Everything else is a
 // Stonecutter condition in the code (//? if >=1.21.6 ...), see docs/architecture.md "Several Minecraft versions".
 // The left side is the 26.x name in src/, the right side what Minecraft 1.21.1 calls it. A condition says from which
-// version the left side is right: 1.21.11 where the change is documented, else 26.1 (only 26.3 and 1.21.1 are built,
-// so any boundary between them gives the same result).
+// version the left side is right. Boundaries checked against a built version are exact; others follow the changelogs,
+// and the next older target's build checks them.
 stonecutter parameters {
     // Minecraft 1.21.11 renamed ResourceLocation to Identifier; the methods we use are the same.
     // ResourceKey.location() became identifier() with it.
@@ -55,6 +55,12 @@ stonecutter parameters {
     replacements.string(current.parsed < "26.2") {
         replace("EntityTypes.PIG", "EntityType.PIG")
         replace("EntityTypes.ZOMBIE", "EntityType.ZOMBIE")
+    }
+    // 1.21.5 to 1.21.10 take an assert's message only as a Component (see GameTestAsserts in both gametest folders).
+    replacements.string(current.parsed >= "1.21.5" && current.parsed < "1.21.11") {
+        replace("helper.assertTrue(", "GameTestAsserts.assertTrue(helper, ")
+        replace("helper.assertFalse(", "GameTestAsserts.assertFalse(helper, ")
+        replace("helper.assertValueEqual(", "GameTestAsserts.assertValueEqual(helper, ")
     }
     // Renames that came with 26.3.
     replacements.string(current.parsed < "26.3") { replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE") }
