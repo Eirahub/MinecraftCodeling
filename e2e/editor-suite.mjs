@@ -6,7 +6,8 @@
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers,
-//      and the player calls (issue #26) send their ops and use the relay's answers;
+//      and the player calls (issue #26) send their ops and use the relay's answers; chat and death events (issue #27)
+//      run their handlers with the numbers, keep the program running until Stop, and runChatCommand sends nothing;
 //   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
 //      parallel code, and nobody catching it, STOPPED and Stop end the program; assert, raise and throw end it with
 //      their message;
@@ -228,6 +229,69 @@ async function playerSection(page) {
     const log = await editor.run(page, PLAYER_LOG.length);
     await editor.stop(page);
     check(JSON.stringify(log) === JSON.stringify(PLAYER_LOG), "player calls", `robot log ${JSON.stringify(log)}, expected ${JSON.stringify(PLAYER_LOG)}`);
+}
+
+// Issue #27: the standalone relay turns player.say "chat <line>" into that chat line and "die" into a death, for a
+// program that subscribed to them. The tick handler keeps sending itself a chat line after the top-level code has
+// ended, so the program keeps running on its handlers until Stop; "hello" matches no keyword, so no event comes.
+const EVENTS = `let total = 0
+player.onChat("tick", function (num1, num2, num3) {
+    total += num1
+    console.log("tick " + total + " " + num2 + " " + num3)
+    loops.pause(300)
+    player.say("chat tick 1")
+})
+player.onDied(function () {
+    console.log("died")
+})
+player.say("chat hello 5")
+player.say("die")
+player.say("chat tick 1 x -2")
+console.log("top level done")
+`;
+// runChatCommand runs the keyword's handlers and the "*" handlers in the editor only: the relay gets no cmd at all.
+const RUN_CHAT = `player.onChat("build", function (num1, num2) {
+    console.log("build " + num1 + " " + num2)
+})
+player.onChat("*", function (num1) {
+    console.log("any " + num1)
+})
+player.runChatCommand("build 4 5abc")
+player.runChatCommand("other 7")
+console.log("done")
+`;
+
+async function eventsSection(page, relay) {
+    step("events: on chat command and on player died keep the program running until Stop");
+    await setProgram(page, "ts", EVENTS);
+    await editor.start(page);
+    const started = Date.now();
+    let says = [];
+    while (Date.now() - started < 30000 && says.filter(l => l.startsWith("say: tick")).length < 3) {
+        await page.waitForTimeout(100);
+        says = (await editor.robotLog(page)).filter(l => l.startsWith("say: "));
+    }
+    await editor.stop(page);
+    await page.waitForTimeout(200);
+    const atStop = await editor.robotLog(page);
+    await page.waitForTimeout(2000);
+    const after = await editor.robotLog(page);
+    const text = atStop.filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    // The handler and the rest of the program run side by side, so only the order of the ticks is fixed.
+    check(text.includes("died") && text.includes("top level done") && !text.some(l => l.includes("5"))
+        && text.filter(l => l.startsWith("tick")).slice(0, 3).join() === "tick 1 0 -2,tick 2 0 0,tick 3 0 0", "events", `said ${JSON.stringify(text)}`);
+    check(after.length === atStop.length, "events", `lines after Stop: ${after.slice(atStop.length).join(" | ") || "none"}`);
+
+    step("events: run chat command stays in the editor");
+    const cmds = relay.cmds();
+    await setProgram(page, "ts", RUN_CHAT);
+    const log = await editor.run(page, 6);
+    await editor.stop(page);
+    const said = log.filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    // The keyword's handler and the "*" handler run side by side; runChatCommand waits for both.
+    check(JSON.stringify([...said.slice(0, 2)].sort().concat(said.slice(2))) === JSON.stringify(["any 4", "build 4 5", "any 7", "done"]),
+        "run chat command", `robot log ${JSON.stringify(log)}`);
+    check(relay.cmds() === cmds, "run chat command", `the relay got ${relay.cmds() - cmds} cmd messages`);
 }
 
 // Issues #218 and #221: the standalone relay refuses say "refuse <CODE>" with that code. A refused command throws into
@@ -741,6 +805,7 @@ async function main() {
         await timingSection(page);
         await positionMathSection(page);
         await playerSection(page);
+        await eventsSection(page, relay);
         await errorsSection(page);
         await debugSection(page);
         await fixturesSection(page);
