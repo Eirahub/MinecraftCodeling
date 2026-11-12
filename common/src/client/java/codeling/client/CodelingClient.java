@@ -9,9 +9,11 @@ import codeling.platform.ClientPlatform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-//? if >=26.1 {
+//? if >=26.3 {
 import com.mojang.blaze3d.Blaze3D;
-//?} else
+//?} else if >=26.1 {
+/*import net.minecraft.util.Util;
+*///?} else
 /*import net.minecraft.Util;*/
 import java.io.IOException;
 
@@ -87,7 +89,7 @@ public final class CodelingClient {
     public static int openEditor() {
         if (relay == null) return 0;
         try {
-            //? if >=26.1 {
+            //? if >=26.3 {
             EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Blaze3D::openPath);
             //?} else
             /*EditorLauncher.launch(EditorLauncher.DIR, relay.editorUrl(), Util.getPlatform()::openPath);*/

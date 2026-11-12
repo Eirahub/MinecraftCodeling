@@ -6,6 +6,10 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Mod jars for Minecraft 26.2 (Fabric and NeoForge, Java 25).
+
 ## [0.0.1] - 2026-11-11
 
 The first public version, a pre-release for testing.
