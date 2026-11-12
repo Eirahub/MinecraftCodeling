@@ -102,6 +102,11 @@ export const BLOCK_PROGRAMS = {
     builder_fill: "builder.fill(Block.Cobblestone, FillOperation.Outline)",
     control_assert: "control.check(false, \"Not built\")",
     control_fail: "control.fail(\"Gave up\")",
+    player_say: "player.say(\"Hi from my program\")",
+    player_position: "let myPlace = player.position()",
+    player_get_orientation: "let myHeading = player.getOrientation()",
+    player_name: "let myName = player.name()",
+    player_teleport: "player.teleport(pos(0, 4, 0))",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
     loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",

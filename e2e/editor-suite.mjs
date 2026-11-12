@@ -5,7 +5,8 @@
 //   2. small MakeCode-style example programs (programs/examples.mjs) round-trip the same way and run unchanged in the
 //      simulator against the relay's fake answers, with the robot log they must produce;
 //   3. pause and forever (issue #215): the times in the robot log, a forever that repeats, and Stop during a pause;
-//   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers;
+//   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers,
+//      and the player calls (issue #26) send their ops and use the relay's answers;
 //   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
 //      parallel code, and nobody catching it, STOPPED and Stop end the program; assert, raise and throw end it with
 //      their message;
@@ -208,6 +209,25 @@ async function positionMathSection(page) {
     await editor.stop(page);
     check(JSON.stringify(says) === JSON.stringify(POSITION_MATH_SAYS), "position math",
         `said ${JSON.stringify(says)}, expected ${JSON.stringify(POSITION_MATH_SAYS)}`);
+}
+
+// Issue #26: the player calls reach the relay with the robot-less op names and use its answers.
+const PLAYER = `player.say("Hi " + player.name())
+let where = player.position()
+let heading = player.getOrientation()
+player.teleport(pos(0, 5, 0))
+console.log("at " + where + " facing " + heading)
+`;
+const PLAYER_LOG = ["connected as standalone", "run 0 started", "player.name : standalone", "player.say Hi standalone: true",
+    "player.position : 0,0,0", "player.getOrientation : 0", "positions.toWorld 1 0 5 0: 0,5,0", "player.teleport 0 5 0: true",
+    "say: at 0 0 0 facing 0"];
+
+async function playerSection(page) {
+    step("player calls: say, name, position, orientation, teleport");
+    await setProgram(page, "ts", PLAYER);
+    const log = await editor.run(page, PLAYER_LOG.length);
+    await editor.stop(page);
+    check(JSON.stringify(log) === JSON.stringify(PLAYER_LOG), "player calls", `robot log ${JSON.stringify(log)}, expected ${JSON.stringify(PLAYER_LOG)}`);
 }
 
 // Issues #218 and #221: the standalone relay refuses say "refuse <CODE>" with that code. A refused command throws into
@@ -720,6 +740,7 @@ async function main() {
         await examplesSection(page);
         await timingSection(page);
         await positionMathSection(page);
+        await playerSection(page);
         await errorsSection(page);
         await debugSection(page);
         await fixturesSection(page);
