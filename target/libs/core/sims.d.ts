@@ -302,6 +302,16 @@ declare namespace agent {
     function redstonePower(direction: SixDirection): number;
 
     /**
+     * Run code when your robot gets a redstone signal: when the block it stands in goes from no signal to a signal,
+     * for example from a lever, a button or a redstone block next to it. Only your default robot, while it is loaded.
+     * @param handler the code to run
+     */
+    //% blockId=agent_on_redstone_powered block="on agent redstone powered"
+    //% group="Inspecting" weight=78
+    //% shim=agent::onRedstonePowered
+    function onRedstonePowered(handler: () => void): void;
+
+    /**
      * Where the robot is: its block position in the world.
      */
     //% blockId=agent_get_position block="agent position"
@@ -1158,6 +1168,16 @@ declare namespace gameplay {
     //% shim=gameplay::isRainingAsync promise
     function isRaining(): boolean;
 
+    /**
+     * Run code when a new day starts where you are: when the time of day goes round from the night to the morning
+     * (time 0). Sleeping through the night counts, and so does /time set to an earlier time of day.
+     * @param handler the code to run
+     */
+    //% blockId=gameplay_on_day_start block="on day start"
+    //% weight=80
+    //% shim=gameplay::onDayStart
+    function onDayStart(handler: () => void): void;
+
 }
 declare namespace robots {
     /**
@@ -1195,6 +1215,17 @@ declare namespace blocks {
     //% block.shadow=codeling_block weight=89
     //% shim=blocks::placeAsync promise
     function place(block: number, position: Position): void;
+
+    /**
+     * Run code when you break a block of this kind by hand, as MakeCode's on block broken. Blocks your robots break
+     * and blocks other players break do not count.
+     * @param block the kind of block, eg: Block.DiamondOre
+     * @param handler the code to run
+     */
+    //% blockId=blocks_on_block_broken block="on %block broken"
+    //% block.shadow=codeling_block weight=88
+    //% shim=blocks::onBlockBroken
+    function onBlockBroken(block: number, handler: () => void): void;
 
 }
 declare namespace shapes {
