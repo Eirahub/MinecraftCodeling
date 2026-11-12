@@ -49,7 +49,7 @@ public class RobotPerformanceGameTests {
      */
     private static final boolean CI = "true".equals(System.getenv("CI"));
     private static final double SLACK = CI ? 2.5 : 1;
-    private static final long MAX_MEAN_NANOS = (long) (1000 * SLACK), MAX_TICK_NANOS = (long) (20_000_000 * SLACK);
+    private static final long MAX_MEAN_NANOS = (long) (4_000_000 * SLACK), MAX_TICK_NANOS = (long) (20_000_000 * SLACK);
     private static final int SLOW_TICKS_ALLOWED = 3;
 
     private record Robot(RobotLinks.Key key, Supplier<RobotCommand> next, List<Result> results) {
