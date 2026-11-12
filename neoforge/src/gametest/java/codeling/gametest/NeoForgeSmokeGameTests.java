@@ -98,6 +98,7 @@ public final class NeoForgeSmokeGameTests {
         TESTS.put("fake_player_respects_claims", NeoForgeSmokeGameTests::fakePlayerRespectsClaims);
         TESTS.put("adventure_owner_cannot_build", NeoForgeSmokeGameTests::adventureOwnerCannotBuild);
         TESTS.put("chat_line_for_the_program", NeoForgeSmokeGameTests::chatLineForTheProgram);
+        TESTS.put("block_broken_for_the_program", NeoForgeSmokeGameTests::blockBrokenForTheProgram);
     }
 
     private NeoForgeSmokeGameTests() {
@@ -317,6 +318,23 @@ public final class NeoForgeSmokeGameTests {
         helper.assertTrue(!hello.isCanceled(), "hello broadcast");
         helper.succeedWhen(() -> {
             helper.assertTrue(inbox.contains("{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,0.0]}"), "event: " + inbox);
+            helper.getLevel().getServer().getPlayerList().remove(player);
+        });
+    }
+
+    // Issue #89: the block break event reaches the common hook through a real break (NeoForge fires it inside
+    // destroyBlock); the stone the program listens for becomes an event and the break is not changed.
+    private static void blockBrokenForTheProgram(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(START.east(2), Blocks.STONE);
+        List<String> inbox = new ArrayList<>();
+        ServerRelay.handle(player, "{\"v\":2,\"t\":\"control\",\"op\":\"start\"}", inbox::add);
+        long run = RobotManager.queue(player.getUUID()).run();
+        ServerRelay.handle(player, "{\"v\":2,\"t\":\"control\",\"op\":\"subscribe\",\"run\":" + run + ",\"broken\":[1]}", inbox::add);
+        helper.assertTrue(player.gameMode.destroyBlock(helper.absolutePos(START.east(2))), "broken");
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.AIR, START.east(2));
+            helper.assertTrue(inbox.contains("{\"v\":2,\"t\":\"event\",\"name\":\"blockBroken\",\"args\":[1]}"), "event: " + inbox);
             helper.getLevel().getServer().getPlayerList().remove(player);
         });
     }

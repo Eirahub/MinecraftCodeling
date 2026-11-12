@@ -21,6 +21,7 @@ import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -317,7 +318,8 @@ public class RelayGameTests {
     }
 
     // Issue #87: the time and the weather of the owner's dimension, set with /time and /weather and read back. One test,
-    // so nothing else changes them meanwhile; both are put back at the end.
+    // so nothing else changes them meanwhile; both are put back at the end. Issue #89: the day start event is checked
+    // here too, so this stays the only test that changes the time: 1234 to 23000 is no new day, 23000 to 100 is one.
     @GameTest(maxTicks = 200)
     public void timeOfDayAndRainAreRead(GameTestHelper helper) {
         Browser b = browser(helper);
@@ -325,13 +327,17 @@ public class RelayGameTests {
         command(helper, "time set 1234");
         command(helper, "weather clear");
         long run = b.start();
+        subscribe(b, run, ",\"dayStart\":true");
         b.send(gameplay(1, run, "timeOfDay"));
         b.send(gameplay(2, run, "isRaining"));
         command(helper, "weather rain");
+        helper.runAfterDelay(5, () -> command(helper, "time set 23000"));
+        helper.runAfterDelay(8, () -> command(helper, "time set 100"));
         // The rain level rises by 0.01 a tick and counts as rain from 0.2.
         helper.runAfterDelay(40, () -> b.send(gameplay(3, run, "isRaining")));
         helper.succeedWhen(() -> {
             for (int id = 1; id <= 3; id++) helper.assertTrue(b.find("result", id) != null, "result " + id);
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("name").getAsString()).toList(), List.of("dayStart"), "one day start");
             long time = b.find("result", 1).get("value").getAsLong();
             // The daylight cycle may run in the test server, so a few ticks may have passed.
             helper.assertTrue(time >= 1234 && time < 1234 + 20, "time of day " + time);
@@ -474,6 +480,104 @@ public class RelayGameTests {
         helper.runAfterDelay(30, () -> {
             helper.assertValueEqual(events(b).size(), 16, "events");
             helper.assertValueEqual(events(b).getLast().get("args").getAsJsonArray().get(1).getAsDouble(), 16.0, "last kept");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // ---- Issue #89: block broken and redstone events (the day start is in timeOfDayAndRainAreRead)
+
+    private static final int STONE = 1;
+
+    // Only the owner's own break of a block the program listens for: another player's stone and the owner's dirt give nothing.
+    @GameTest
+    public void blockBrokenByTheOwnerOnly(GameTestHelper helper) {
+        Browser b = browser(helper);
+        ServerPlayer other = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(START.east(2), Blocks.STONE);
+        helper.setBlock(START.east(3), Blocks.STONE);
+        helper.setBlock(START.east(4), Blocks.DIRT);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        other.gameMode.destroyBlock(helper.absolutePos(START.east(2)));
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(3)));
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(4)));
+        helper.runAfterDelay(5, () -> {
+            helper.assertBlockPresent(Blocks.AIR, START.east(2));
+            helper.assertBlockPresent(Blocks.AIR, START.east(4));
+            helper.assertValueEqual(events(b).stream().map(JsonObject::toString).toList(),
+                    List.of("{\"v\":2,\"t\":\"event\",\"name\":\"blockBroken\",\"args\":[" + STONE + "]}"), "events");
+            helper.getLevel().getServer().getPlayerList().remove(other);
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // The robot breaks blocks through a FakePlayer with its owner's UUID: that is never the owner's break.
+    @GameTest(maxTicks = 100)
+    public void robotsOwnBreakIsNoEvent(GameTestHelper helper) {
+        Browser b = browser(helper);
+        helper.setBlock(START.south(), Blocks.STONE);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        b.send("{\"v\":2,\"t\":\"cmd\",\"id\":1,\"run\":" + run + ",\"op\":\"agent.destroy\",\"args\":[0]}");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 1) != null, "destroy answered");
+            helper.assertBlockPresent(Blocks.AIR, START.south());
+            helper.assertTrue(events(b).isEmpty(), "no event: " + events(b));
+            b.leave();
+        });
+    }
+
+    // Twenty breaks in one tick: 16 events wait and the rest are dropped, as for chat.
+    @GameTest(maxTicks = 60)
+    public void blockBrokenEventsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        List<BlockPos> stones = new ArrayList<>();
+        for (int x = 0; x < 5; x++) for (int y = 2; y < 6; y++) stones.add(new BlockPos(x, y, 5));
+        stones.forEach(p -> helper.setBlock(p, Blocks.STONE));
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        stones.forEach(p -> b.player().gameMode.destroyBlock(helper.absolutePos(p)));
+        helper.runAfterDelay(30, () -> {
+            helper.assertValueEqual(events(b).size(), 16, "events");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // One event each time the robot's block goes from no signal to a signal, none while the signal stays.
+    @GameTest(maxTicks = 60)
+    public void redstoneAtTheRobotOncePerRisingEdge(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"redstone\":true");
+        helper.runAfterDelay(2, () -> helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK));
+        helper.runAfterDelay(8, () -> {
+            helper.assertValueEqual(events(b).size(), 1, "first signal");
+            helper.setBlock(START.east(), Blocks.AIR);
+        });
+        helper.runAfterDelay(12, () -> helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK));
+        helper.runAfterDelay(20, () -> {
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("name").getAsString()).toList(), List.of("redstonePowered", "redstonePowered"), "events");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /robot stop ends these subscriptions too: a break and a signal afterwards give nothing.
+    @GameTest
+    public void blockAndRedstoneEndWithTheRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        helper.setBlock(START.east(3), Blocks.STONE);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "],\"redstone\":true");
+        helper.getLevel().getServer().getCommands().performPrefixedCommand(b.player().createCommandSourceStack(), "robot stop");
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(3)));
+        helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK);
+        helper.runAfterDelay(5, () -> {
+            helper.assertBlockPresent(Blocks.AIR, START.east(3));
+            helper.assertTrue(events(b).isEmpty(), "no events: " + events(b));
             b.leave();
             helper.succeed();
         });
