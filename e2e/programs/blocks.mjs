@@ -8,6 +8,7 @@ export const BLOCK_PROGRAMS = {
     // First: Blocks writes event blocks before the code on start, in this order.
     gameplay_on_day_start: "gameplay.onDayStart(function () {\n    agent.say(\"Morning\")\n})",
     player_on_chat: "player.onChat(\"jump\", function (num1, num2) {\n    agent.move(SixDirection.Up, num2)\n})",
+    signals_on_received: "signals.onReceived(\"qr-forest\", function (value) {\n    agent.move(SixDirection.Forward, value)\n})",
     agent_on_redstone_powered: "agent.onRedstonePowered(function () {\n    agent.say(\"Click\")\n})",
     blocks_on_block_broken: "blocks.onBlockBroken(Block.DiamondOre, function () {\n    agent.say(\"Diamond\")\n})",
     player_on_died: "player.onDied(function () {\n    agent.say(\"Oops\")\n})",
@@ -122,6 +123,7 @@ export const BLOCK_PROGRAMS = {
     gameplay_time_of_day: "let ticks = gameplay.timeOfDay()",
     gameplay_is_raining: "let raining = gameplay.isRaining()",
     player_run_chat_command: "player.runChatCommand(\"jump 3\")",
+    signals_send: "signals.send(\"lamp-red\")",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
     loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",
