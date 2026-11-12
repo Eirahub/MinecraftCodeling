@@ -33,6 +33,15 @@ Every user-visible change to Codeling is listed here. The format follows
   `say` shows the message to that player only, as plain text of at most 256 characters. `teleport` works for the host
   of a singleplayer world or an op, in the player's own dimension, inside the world border and the build height;
   anyone else gets `NO_PERMISSION`. One player call per tick, at most 16 waiting (`RATE_LIMITED`).
+- Chat and death events in the Player category (issue #27): `player.onChat(keyword, handler)` ("on chat command"),
+  `player.onDied(handler)` ("on player died") and `player.runChatCommand(text)` ("run chat command"), in Blocks,
+  JavaScript and Python. A chat line whose first word is a keyword of the sender's running program (or any line for
+  `*`) is not broadcast; the program gets the keyword and up to three numbers parsed as JavaScript's `parseInt`
+  (0 when missing or not a number), never the line. Lines from other players, and every line once the run ends, are
+  broadcast as usual. `/codeling chat <text>` does the same for servers whose chat plugins take chat lines first.
+  `runChatCommand` runs the program's own handlers in the editor and sends nothing to the game. A program with
+  handlers keeps running after its last line until Stop or `/robot stop`. At most 16 keywords of 32 characters per
+  run, and 16 events waiting per player.
 
 ### Changed
 
