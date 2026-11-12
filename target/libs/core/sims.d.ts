@@ -1202,6 +1202,34 @@ declare namespace gameplay {
     function onDayStart(handler: () => void): void;
 
 }
+declare namespace signals {
+    /**
+     * Run code when a signal with this name comes to you: from another mod on the server (a QR code scanned, a
+     * checkpoint reached) or from /codeling signal. value is the number it carries, 0 when it has none. Names are one
+     * word of letters, digits, - and _, and case matters. A program with handlers keeps running until you press Stop.
+     * @param name the signal's name, eg: "qr-forest"
+     * @param handler the code to run
+     */
+    //% blockId=signals_on_received block="on signal %name"
+    //% draggableParameters=reporter
+    //% weight=100
+    //% shim=signals::onReceived
+    function onReceived(name: string, handler: (value: number) => void): void;
+
+    /**
+     * Send a signal to the other mods on the server, for example to switch a lamp. Only the name goes, and the same
+     * name at most once a second. It is never sent to another player. The log shows true when a mod took it, else
+     * false and why.
+     * @param name the signal's name, eg: "lamp-red"
+     */
+    //% blockId=signals_send block="send signal %name"
+    //% weight=90
+    // A statement, like agent.place, so pasted `signals.send(...)` lines stay blocks; the server's true/false goes to the log.
+    // shortcut: no way to read the answer in a program, add a boolean block if players ask for one.
+    //% shim=signals::sendAsync promise
+    function send(name: string): void;
+
+}
 declare namespace robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its

@@ -40,6 +40,8 @@ namespace pxsim {
         private broken: { [block: number]: RefAction[] } = {};
         private redstone: RefAction[] = [];
         private dayStart: RefAction[] = [];
+        /** Issue #249: signals.onReceived handlers by signal name, no prototype as for chat. */
+        private signals: { [name: string]: RefAction[] } = Object.create(null);
 
         onChat(command: string, handler: RefAction) {
             (this.chat[command] = this.chat[command] || []).push(handler);
@@ -66,11 +68,16 @@ namespace pxsim {
             this.subscribe();
         }
 
+        onSignal(name: string, handler: RefAction) {
+            (this.signals[name] = this.signals[name] || []).push(handler);
+            this.subscribe();
+        }
+
         // Everything the program listens for; each subscribe replaces the one before.
         private subscribe() {
             this.relay.subscribe({
                 chat: Object.keys(this.chat), died: this.died.length > 0, broken: Object.keys(this.broken).map(Number),
-                redstone: this.redstone.length > 0, dayStart: this.dayStart.length > 0
+                redstone: this.redstone.length > 0, dayStart: this.dayStart.length > 0, signals: Object.keys(this.signals)
             });
         }
 
@@ -82,6 +89,7 @@ namespace pxsim {
             else if (name === "blockBroken") run(this.broken[args[0]]);
             else if (name === "redstonePowered") run(this.redstone);
             else if (name === "dayStart") run(this.dayStart);
+            else if (name === "signal") (this.signals[args[0]] || []).forEach(h => runtime.runFiberAsync(h, args[1] || 0));
         }
 
         /** player.runChatCommand: the handlers for the line's first word and for "*", as the game would match it, and nothing sent. */
@@ -230,8 +238,8 @@ namespace pxsim {
             });
         }
 
-        /** Tells the game what the program listens for (issues #27, #89); each call replaces the one before. */
-        async subscribe(what: { chat: string[], died: boolean, broken: number[], redstone: boolean, dayStart: boolean }) {
+        /** Tells the game what the program listens for (issues #27, #89, #249); each call replaces the one before. */
+        async subscribe(what: { chat: string[], died: boolean, broken: number[], redstone: boolean, dayStart: boolean, signals: string[] }) {
             await this.connect();
             this.send({ t: "control", op: "subscribe", run: this.run, ...what });
         }

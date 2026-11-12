@@ -47,6 +47,13 @@ namespace robots {
 }
 
 /**
+ * Named signals to and from other mods on the server, or from /codeling signal (issue #249)
+ */
+//% color=#E65100 weight=85 icon="\uf1eb"
+namespace signals {
+}
+
+/**
  * Positions in the world
  */
 //% color=#00838F weight=90 icon=""

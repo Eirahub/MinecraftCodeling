@@ -1467,6 +1467,38 @@ namespace pxsim.gameplay {
     }
 }
 
+// Issue #249: named signals. Another mod on the server (or an operator with /codeling signal) sends one to you, and
+// your program can send a name to other mods. Never to another player's program, and never any text but the name.
+namespace pxsim.signals {
+    /**
+     * Run code when a signal with this name comes to you: from another mod on the server (a QR code scanned, a
+     * checkpoint reached) or from /codeling signal. value is the number it carries, 0 when it has none. Names are one
+     * word of letters, digits, - and _, and case matters. A program with handlers keeps running until you press Stop.
+     * @param name the signal's name, eg: "qr-forest"
+     * @param handler the code to run
+     */
+    //% blockId=signals_on_received block="on signal %name"
+    //% draggableParameters=reporter
+    //% weight=100
+    export function onReceived(name: string, handler: (value: number) => void): void {
+        board().onSignal("" + name, handler as any as RefAction);
+    }
+
+    /**
+     * Send a signal to the other mods on the server, for example to switch a lamp. Only the name goes, and the same
+     * name at most once a second. It is never sent to another player. The log shows true when a mod took it, else
+     * false and why.
+     * @param name the signal's name, eg: "lamp-red"
+     */
+    //% blockId=signals_send block="send signal %name"
+    //% weight=90
+    // A statement, like agent.place, so pasted `signals.send(...)` lines stay blocks; the server's true/false goes to the log.
+    // shortcut: no way to read the answer in a program, add a boolean block if players ask for one.
+    export async function sendAsync(name: string): Promise<void> {
+        await agent.call("signals.send", ["" + name], "");
+    }
+}
+
 namespace pxsim.robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its
