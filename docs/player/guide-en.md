@@ -218,6 +218,7 @@ Slots are the robot's 27 inventory places, numbered 1 to 27.
 | agent detect (hostile mob/animal/player/item) (direction) | `agent.detectEntity(EntityKind.Mob, SixDirection.Forward)` | True if one is in the block next to the robot. |
 | agent count nearby (kind) within (radius) | `agent.countNearby(EntityKind.Animal, 4)` | How many are near the robot, at most 8 blocks away. |
 | agent redstone power (direction) | `agent.redstonePower(SixDirection.Forward)` | Redstone power, 0 to 15. |
+| on agent redstone powered | `agent.onRedstonePowered(function () { })` | Runs its code each time the block your robot stands in gets a redstone signal, for example when you flip a lever next to it. See "React to blocks, redstone and the day" below. |
 | agent position | `agent.getPosition()` | Where the robot is. |
 | agent orientation | `agent.getOrientation()` | Which way it looks, in degrees. |
 | agent find nearest (block) within (radius) | `agent.findNearest(Block.OakLog, 16)` | The nearest block of that kind, or nothing. |
@@ -337,6 +338,35 @@ player.onChat("jump", function (num1, num2, num3) {
   stop button in the editor, or type `/robot stop`, to end it. From then on your chat lines are shown as usual again.
 - At most 16 chat commands wait for your program; more at once are dropped.
 
+#### React to blocks, redstone and the day
+
+Three more blocks let your program wait for something to happen. This program says so each time you dig up diamond
+ore, each time the robot gets a signal, and each morning:
+
+```
+blocks.onBlockBroken(Block.DiamondOre, function () {
+    player.say("Diamonds!")
+})
+agent.onRedstonePowered(function () {
+    agent.move(SixDirection.Forward, 1)
+})
+gameplay.onDayStart(function () {
+    player.say("Good morning")
+})
+```
+
+- "on (block) broken" runs when you break that kind of block yourself. Blocks your robots break, and blocks other
+  players break, do not count. A program can listen for at most 16 kinds of block.
+- "on agent redstone powered" runs when the block your default robot stands in goes from no redstone signal to a
+  signal: a lever, a button or a redstone block next to the robot, for example. It runs once per new signal, not
+  again while the signal stays. A robot that already has a signal when the program starts does not count. Robots
+  with a name do not have this block.
+- "on day start" runs when the time of day goes round from night to morning in your world. Sleeping through the night
+  counts, and so does `/time set` to an earlier time of day (`/time set day` in the evening). `/time add` a whole
+  day does not.
+- These programs keep running after their last line too, until you press stop or type `/robot stop`. At most 16 events
+  wait for your program; more at once are dropped.
+
 ### Time and weather (category Gameplay)
 
 These blocks read the world you are in. They work without a robot.
@@ -345,6 +375,7 @@ These blocks read the world you are in. They work without a robot.
 |---|---|---|
 | time of day | `gameplay.timeOfDay()` | The time in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. The Nether and the End have the Overworld's time. |
 | is raining | `gameplay.isRaining()` | True when it rains or thunders in your dimension (snow counts too). Never in the Nether or the End. It does not say whether rain reaches one spot: under a roof it still answers true. |
+| on day start | `gameplay.onDayStart(function () { })` | Runs its code when a new day starts (time 0, sunrise). See "React to blocks, redstone and the day" above. |
 
 This program works only in daytime and stops when night comes:
 
@@ -379,6 +410,7 @@ while (gameplay.timeOfDay() < 12000) {
 |---|---|---|
 | fill with (block) from (a) to (b) (how) | `blocks.fill(Block.Stone, pos(1, 0, 1), pos(5, 3, 5), FillOperation.Hollow)` | Fills the box. Hollow makes walls with air inside, Outline only the walls, Keep fills only air. Air clears the box. |
 | place (block) at (position) | `blocks.place(Block.Glass, pos(0, 2, 0))` | Places one block. |
+| on (block) broken | `blocks.onBlockBroken(Block.DiamondOre, function () { })` | Runs its code when you break that kind of block by hand. See "React to blocks, redstone and the day" above. |
 | line of (block) from (a) to (b) | `shapes.line(Block.OakPlanks, pos(0, 0, 1), pos(5, 3, 1))` | A straight line of blocks. |
 | circle of (block) center (c) radius (r) around (axis) (how) | `shapes.circle(Block.Stone, pos(0, 0, 8), 5, Axis.Y, ShapeOperation.Outline)` | A circle; around Y it lies flat on the ground. |
 | sphere of (block) center (c) radius (r) (how) | `shapes.sphere(Block.Glass, pos(0, 6, 0), 4, ShapeOperation.Hollow)` | A ball. Hollow makes a bubble with air inside. |
@@ -516,7 +548,7 @@ These keep the game fast for everyone.
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
 - `say` shows at most 80 characters, and the player's `say` at most 256.
 - The game runs at most one player block per tick (20 a second) for you; more than 16 waiting is refused with `RATE_LIMITED`.
-- A program listens for at most 16 chat command keywords of at most 32 characters. At most 16 chat and death events wait for it.
+- A program listens for at most 16 chat command keywords of at most 32 characters and at most 16 kinds of broken block. At most 16 events wait for it.
 - Gravity is off at the start, so the robot floats. Turn it on with "agent gravity" or `/robot gravity true`.
 - The program runs in your browser. If you close the tab or leave the world, the program stops. After 10 seconds without contact the game stops the robot.
 
@@ -531,8 +563,9 @@ These keep the game fast for everyone.
 - In survival the robot gathers its own resources. "agent give" and `/robot give` only work in creative mode, or when the world has `/gamerule codeling:free_items true`. Otherwise put items in the robot through its inventory screen.
 - Ops can stop all robots with `/robot stop all`.
 - A program's `player.say` goes to its own player only, and `player.teleport` works on a server only for ops.
-- A program hears only its own player's chat commands and death, never another player's. A chat line is held back
-  from the chat only while your program runs and listens for its first word.
+- A program hears only its own player's chat commands, death and broken blocks, its own robot's redstone signal and
+  the day in its own player's world, never anything about another player. A chat line is held back from the chat
+  only while your program runs and listens for its first word.
 - The gamerule `codeling:robot_camera` decides who may use the robot camera: `owner` (the default: every player through their own robot), `ops` (only ops) or `off` (nobody). For example `/gamerule codeling:robot_camera off`. On NeoForge 26.3 the Edit Game Rules screen shows this rule as a text field: type `off`, `owner` or `ops` (on NeoForge 1.21.1 the screen leaves it out; use the command). The server checks this, and the camera ends at once when the rule takes it away.
 - The robot breaks and uses things as if it were you. If the server protects an area, the robot cannot change it either.
 
