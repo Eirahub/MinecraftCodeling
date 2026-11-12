@@ -8,7 +8,32 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ### Added
 
+- `loops.pause(ms)` and `loops.forever` with the blocks "pause (ms)" and "forever" in the Loops category: wait in
+  one part of a program, and repeat code until the program is stopped (issue #215).
+- Position math in the Positions category: `distanceTo` (straight line, with decimals), `subtract` and `scale` on a
+  position, and `positions.sortByDistance` and `positions.nearest` for a list of positions, so Blocks can pick the
+  closest of a radar list without a function argument (issue #219).
+- An Examples gallery on the editor's start page with the seven example programs the editor suite tests, each with a
+  title, one sentence on what it teaches and an icon, in English and Norwegian. Opening one makes a new project in
+  Blocks, JavaScript or Python. It works offline like the rest of the editor (issue #216).
+- Debug mode in the editor (the bug button under the simulator): breakpoints and Step in Blocks, JavaScript and
+  Python, the running block or line highlighted, the values of the variables while the program is stopped, and
+  Slow-Mo, which highlights each block as it runs. A robot command always finishes before the program stops.
+  "Exit Debug Mode" stops the program; pxt would have run it again from the start (issue #217).
+- A robot command the game refuses throws an error into the program, the text `CODE: message`, so JavaScript
+  `try`/`catch` and Python `try`/`except` can catch it and go on. Not caught, it stops the program with the "Robot
+  error" dialog as before, and the robot log names the command. Stop, `/robot stop`, a lost connection, `STOPPED` and
+  `VERSION` still end the program and cannot be caught. The player guide lists the error codes (issue #218).
+- `control.assert(condition, message)` and `control.fail(message)`, with the blocks "check ... or stop with" and
+  "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
+  the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
+  it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
 - Mod jars for Minecraft 26.2 (Fabric and NeoForge, Java 25).
+
+### Fixed
+
+- Positions in the lists from `agent.radar` and `agent.findBounds` lost their methods, so `toString` or `toWorld` on
+  one of them failed (issue #219).
 
 ## [0.0.1] - 2026-11-11
 

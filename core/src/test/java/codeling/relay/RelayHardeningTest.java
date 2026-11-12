@@ -147,6 +147,18 @@ class RelayHardeningTest {
         assertTrue(raw("GET /sub/page.txt HTTP/1.1\r\nHost: " + HOST + "\r\nConnection: close\r\n\r\n").endsWith("\r\n\r\npage\n"));
     }
 
+    // Issue #216: docs/page.md?lang=nb is docs/_locales/nb/page.md when the editor has it, else the page itself.
+    @Test
+    void docsPageInTheAskedLanguage() throws Exception {
+        String[][] cases = {{"/docs/page.md", "page"}, {"/docs/page.md?lang=nb", "side"}, {"/docs/page.md?x=1&lang=nb", "side"},
+                {"/docs/page.md?lang=de", "page"}, {"/docs/page.md?lang=nb/../..", "page"}, {"/docs/page.md?lang=..%2fnb", "page"}};
+        for (String[] c : cases) {
+            String res = raw("GET " + c[0] + " HTTP/1.1\r\nHost: " + HOST + "\r\nConnection: close\r\n\r\n");
+            assertTrue(res.startsWith("HTTP/1.1 200") && res.endsWith("\r\n\r\n" + c[1] + "\n"), c[0] + ": " + res);
+        }
+        assertTrue(raw("GET /docs/page.md?lang=nb HTTP/1.1\r\nHost: evil.example\r\n\r\n").startsWith("HTTP/1.1 403"), "bad host");
+    }
+
     @Test
     void staticFileHasLengthAndFrameHeaders() throws Exception {
         try (Socket s = socket()) {

@@ -83,6 +83,104 @@ In Python, names use underscores: `agent.move_to(...)`, `agent.find_nearest(...)
 Each command waits until the robot is done. Then the next one starts.
 To stop a program, press the stop button in the editor, or type `/robot stop` in the game.
 
+## Examples
+
+The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": seven small
+programs, such as a staircase, a tunnel, a room with a fence and a guard patrol. Click one to read what it teaches,
+then press "Open Example" under Blocks, Python or JavaScript. You get a new project of your own with the program in
+it: press Run to try it, and change it as you like. The example itself stays as it was.
+
+## Wait and repeat
+
+"pause (ms)" in the Loops category waits before the next command: 1000 ms is one second. "forever" runs the code
+inside it over and over, for as long as the program runs. This robot stands guard and walks 3 blocks forward and back
+every two seconds:
+
+```
+loops.forever(function () {
+    agent.move(SixDirection.Forward, 3)
+    agent.turn(TurnDirection.Left)
+    agent.turn(TurnDirection.Left)
+    loops.pause(2000)
+})
+```
+
+A pause only holds the code it is in. Code in "run in parallel" and in other "forever" blocks keeps going. A program
+with "forever" never ends by itself: press the stop button in the editor, or type `/robot stop` in the game. Both
+stop it at once, also in the middle of a pause.
+
+## Step through a program
+
+The bug button under the simulator turns on debug mode. The program starts and stops before its first command.
+
+- Click the circle on a block (or the space left of a line number in JavaScript and Python) to set a breakpoint. The
+  program stops there each time it gets to it.
+- In Blocks, "Step" runs one block and stops again. In JavaScript and Python, "Step over" runs one line (a function
+  call in one step), and "Step into" goes into the function.
+- The arrow (Continue) runs on to the next breakpoint, or to the end.
+- While the program is stopped, the block or line that comes next is highlighted, and "Variables" shows the value of
+  each variable.
+- The turtle button (Slow-Mo) runs the program slowly and highlights each block as it runs, without stopping.
+
+A robot command always finishes before the program stops. The robot stands still while the program is stopped, and
+so do "forever" and "run in parallel". To stop the program, press "Exit Debug Mode", or type `/robot stop` in the
+game. Turning debug mode or Slow-Mo on starts the program from the beginning, so the robot does its commands again
+from where it stands.
+
+## Errors, and checking your own program
+
+When the game refuses a robot command (for example a move of more than 64 blocks), the command throws an error into
+your program. If nothing catches it, the program stops, the robot log shows the command and the error, and a "Robot
+error" box says what went wrong. In debug mode the editor also marks the block or line it came from.
+
+In JavaScript and Python your program can catch the error and go on, for example to go home instead:
+
+```
+try {
+    agent.move(SixDirection.Forward, 100)
+} catch (e) {
+    let error: string = e
+    console.log("could not: " + error)
+    agent.goHome()
+}
+```
+
+```python
+try:
+    agent.move(SixDirection.FORWARD, 100)
+except:
+    print("could not move")
+    agent.go_home()
+```
+
+In JavaScript the error is a text: the code, a colon and the message, such as
+`OUT_OF_RANGE: blocks must be 1 to 64`. Put it in a `string` variable first, as above, to use it as text (for
+example `error.indexOf("OUT_OF_RANGE") == 0`). In Python write a plain `except:`; Python in the editor cannot name the
+error (`except Exception as e` does not compile), but the robot log shows it. Blocks have no "try" block, so catching
+errors is for JavaScript and Python.
+
+The error codes a program can catch:
+
+| Code | Why |
+|---|---|
+| `BAD_ARGS` | The command or a value is not valid, for example an item that is not in this Minecraft version. |
+| `NO_PERMISSION` | You may not do this here, for example "agent give" without creative mode, or the robot camera when the server turned it off. |
+| `RATE_LIMITED` | The robot has too many commands waiting. |
+| `PROTECTED` | Kept for protected areas. Today the game answers false instead (the action did nothing). |
+| `UNLOADED` | The robot or the block is in a part of the world that is not loaded, or the robot is not spawned. |
+| `OUT_OF_RANGE` | A number is too big or too small, for example a move of more than 64 blocks or a slot above 27. |
+
+These end the program and cannot be caught: the stop button, `/robot stop`, "Exit Debug Mode", a lost connection to
+the game, `STOPPED` (the game stopped the robot) and `VERSION` (the editor is older than the game; reload it).
+
+Your program can also check its own work. "check ... or stop with" in the Logic category stops the program with your
+message when the condition is false, and "stop with error" stops it at once. In JavaScript they are
+`control.assert(condition, message)` (the block writes it as `control.check`) and `control.fail(message)`, and
+`throw "message"` does the same. In Python, `assert condition, "message"` and `raise ValueError("message")` work. The
+program stops and a "Program error" box shows the message; debug mode marks the block or line it came from. A
+`try`/`catch` (or `try`/`except`) around them catches them like a robot error. The "Room and fence" example checks
+where its line of glass ends.
+
 ## All robot commands
 
 Directions are relative to the robot: forward, back, left, right, up, down.
@@ -207,6 +305,11 @@ Chests, barrels, hoppers, furnaces and similar blocks.
 | (position) + (other) | `p.add(other)` | Adds two positions. |
 | (position) = (other) | `p.equals(other)` | True if they are the same. |
 | (position) as text | `p.toString()` | The position as text. |
+| (position) distance to (other) | `p.distanceTo(other)` | How many blocks apart they are in a straight line, with decimals. A `~` or `^` position against another kind is first turned into an exact place. |
+| (position) - (other) | `p.subtract(other)` | How far it is from the other one to this one, as a position of the same kind. |
+| (position) times (number) | `p.scale(2)` | Every number multiplied, rounded to whole blocks. |
+| sort (list) by distance from (position) | `positions.sortByDistance(list, p)` | A new list of the same positions, nearest first. |
+| nearest in (list) to (position) | `positions.nearest(list, p)` | The nearest position in the list, or `null` when the list is empty. |
 
 ### Building big (categories Blocks, Shapes and Builder)
 

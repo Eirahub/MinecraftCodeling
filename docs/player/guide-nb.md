@@ -85,6 +85,104 @@ I Python har navnene understrek: `agent.move_to(...)`, `agent.find_nearest(...)`
 Hver kommando venter til roboten er ferdig. Så starter den neste.
 For å stoppe et program trykker du på stoppknappen i editoren, eller skriver `/robot stop` i spillet.
 
+## Eksempler
+
+Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": sju små programmer,
+for eksempel en trapp, en tunnel, et rom med gjerde og en vaktpatrulje. Klikk på ett for å lese hva det lærer deg,
+og trykk så på "Åpne eksempel" under Blokker, Python eller JavaScript. Da får du et nytt prosjekt med programmet i:
+trykk på Kjør-knappen for å prøve det, og endre det som du vil. Selve eksempelet blir som det var.
+
+## Vent og gjenta
+
+"pause (ms)" i kategorien Løkker venter før neste kommando: 1000 ms er ett sekund. "gjenta for alltid" kjører koden
+inni seg om og om igjen, så lenge programmet kjører. Denne roboten holder vakt og går 3 blokker fram og tilbake
+hvert andre sekund:
+
+```
+loops.forever(function () {
+    agent.move(SixDirection.Forward, 3)
+    agent.turn(TurnDirection.Left)
+    agent.turn(TurnDirection.Left)
+    loops.pause(2000)
+})
+```
+
+En pause holder bare igjen koden den står i. Kode i "kjør samtidig" og i andre "gjenta for alltid"-blokker fortsetter.
+Et program med "gjenta for alltid" slutter aldri av seg selv: trykk på stoppknappen i editoren, eller skriv
+`/robot stop` i spillet. Begge stopper det med en gang, også midt i en pause.
+
+## Gå gjennom et program steg for steg
+
+Knappen med insektet under simulatoren slår på feilsøkingsmodus. Programmet starter og stopper før sin første
+kommando.
+
+- Klikk på rundingen på en blokk (eller i feltet til venstre for et linjenummer i JavaScript og Python) for å sette et
+  stoppunkt. Programmet stopper der hver gang det kommer dit.
+- I Blokker kjører "Step" én blokk og stopper igjen (knappen har ikke norsk tekst). I JavaScript og Python kjører
+  "Hopp over" én linje (et funksjonskall i ett steg), og "Gå inn i" går inn i funksjonen.
+- Pilen (Fortsett kjøring) kjører videre til neste stoppunkt, eller til slutten.
+- Mens programmet står stille, er blokken eller linjen som kommer etterpå markert, og "Variabler" viser verdien til
+  hver variabel.
+- Skilpaddeknappen (Langsom tilstand) kjører programmet sakte og markerer hver blokk mens den kjører, uten å stoppe.
+
+En robotkommando blir alltid ferdig før programmet stopper. Roboten står stille mens programmet står stille, og det
+gjør også "gjenta for alltid" og "kjør samtidig". For å stoppe programmet trykker du på "Avslutt feilsøkingsmodus",
+eller skriver `/robot stop` i spillet. Når du slår på feilsøkingsmodus eller Langsom tilstand, starter programmet fra
+begynnelsen, så roboten gjør kommandoene sine på nytt fra der den står.
+
+## Feil, og å sjekke sitt eget program
+
+Når spillet avviser en robotkommando (for eksempel en flytting på mer enn 64 blokker), kaster kommandoen en feil inn i
+programmet ditt. Hvis ingenting fanger den, stopper programmet, robotloggen viser kommandoen og feilen, og en
+"Robot error"-boks sier hva som gikk galt. I feilsøkingsmodus markerer editoren også blokken eller linjen den kom fra.
+
+I JavaScript og Python kan programmet fange feilen og fortsette, for eksempel ved å gå hjem i stedet:
+
+```
+try {
+    agent.move(SixDirection.Forward, 100)
+} catch (e) {
+    let error: string = e
+    console.log("klarte ikke: " + error)
+    agent.goHome()
+}
+```
+
+```python
+try:
+    agent.move(SixDirection.FORWARD, 100)
+except:
+    print("klarte ikke å flytte")
+    agent.go_home()
+```
+
+I JavaScript er feilen en tekst: koden, et kolon og meldingen, som `OUT_OF_RANGE: blocks must be 1 to 64`. Legg den
+først i en `string`-variabel, som over, for å bruke den som tekst (for eksempel `error.indexOf("OUT_OF_RANGE") == 0`).
+I Python skriver du bare `except:`. Python i editoren kan ikke gi feilen et navn (`except Exception as e` kompilerer
+ikke), men robotloggen viser den. Blokker har ingen "prøv"-blokk, så å fange feil er for JavaScript og Python.
+
+Feilkodene et program kan fange:
+
+| Kode | Hvorfor |
+|---|---|
+| `BAD_ARGS` | Kommandoen eller en verdi er ugyldig, for eksempel en ting som ikke finnes i denne Minecraft-versjonen. |
+| `NO_PERMISSION` | Du har ikke lov her, for eksempel "robot gi" uten kreativ modus, eller robotkameraet når serveren har slått det av. |
+| `RATE_LIMITED` | Roboten har for mange kommandoer som venter. |
+| `PROTECTED` | Satt av til beskyttede områder. I dag svarer spillet false i stedet (handlingen gjorde ingenting). |
+| `UNLOADED` | Roboten eller blokken er i en del av verden som ikke er lastet, eller roboten er ikke laget. |
+| `OUT_OF_RANGE` | Et tall er for stort eller for lite, for eksempel en flytting på mer enn 64 blokker eller en plass over 27. |
+
+Disse avslutter programmet og kan ikke fanges: stoppknappen, `/robot stop`, "Avslutt feilsøkingsmodus", tapt kontakt
+med spillet, `STOPPED` (spillet stoppet roboten) og `VERSION` (editoren er eldre enn spillet; last den inn på nytt).
+
+Programmet kan også sjekke sitt eget arbeid. "sjekk ... ellers stopp med" i kategorien Logikk stopper programmet med
+meldingen din når betingelsen er usann, og "stopp med feil" stopper det med en gang. I JavaScript er de
+`control.assert(betingelse, melding)` (blokken skriver den som `control.check`) og `control.fail(melding)`, og
+`throw "melding"` gjør det samme. I Python virker `assert betingelse, "melding"` og `raise ValueError("melding")`.
+Programmet stopper, og en "Program error"-boks viser meldingen. Feilsøkingsmodus markerer blokken eller linjen den kom
+fra. En `try`/`catch` (eller `try`/`except`) rundt dem fanger dem som en robotfeil. Eksempelet "Rom og gjerde" sjekker
+hvor glasslinjen ender.
+
 ## Alle robotkommandoene
 
 Retningene gjelder fra robotens side: fremover, bakover, venstre, høyre, opp, ned.
@@ -209,6 +307,11 @@ Kister, tønner, trakter, ovner og lignende blokker.
 | (posisjon) + (annen) | `p.add(other)` | Legger sammen to posisjoner. |
 | (posisjon) = (annen) | `p.equals(other)` | Sann hvis de er like. |
 | (posisjon) som tekst | `p.toString()` | Posisjonen som tekst. |
+| (posisjon) avstand til (annen) | `p.distanceTo(other)` | Hvor mange blokker det er mellom dem i rett linje, med desimaler. En `~`- eller `^`-posisjon mot en annen type gjøres først om til et nøyaktig sted. |
+| (posisjon) - (annen) | `p.subtract(other)` | Hvor langt det er fra den andre til denne, som en posisjon av samme type. |
+| (posisjon) ganger (tall) | `p.scale(2)` | Hvert tall ganget opp, rundet av til hele blokker. |
+| sorter (liste) etter avstand fra (posisjon) | `positions.sortByDistance(list, p)` | En ny liste med de samme posisjonene, nærmeste først. |
+| nærmeste i (liste) til (posisjon) | `positions.nearest(list, p)` | Den nærmeste posisjonen i lista, eller `null` når lista er tom. |
 
 ### Bygge stort (kategoriene Blokker, Former og Bygger)
 

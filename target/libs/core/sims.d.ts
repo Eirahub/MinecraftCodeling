@@ -47,6 +47,35 @@
         //% shim=.toString
         public toString(): string;
 
+        /**
+         * How far it is to another position in a straight line, in blocks, with decimals: from world 0 64 0 to world
+         * 3 68 0 is 5. Two positions of different kinds are first turned into world positions, as to world does.
+         * @param other the position to measure to
+         */
+        //% blockId=position_distance_to block="%position=positions_pos|distance to %other=positions_pos"
+        //% blockNamespace=positions weight=75
+        //% shim=.distanceToAsync promise
+        public distanceTo(other: Position): number;
+
+        /**
+         * Subtract the coordinates of another position: how far you go from the other one to this one. The result is
+         * the same kind as this one, and like + it does not turn other kinds into world positions.
+         * @param other what to subtract
+         */
+        //% blockId=position_subtract block="%position=positions_pos|- %other=positions_pos"
+        //% blockNamespace=positions weight=74
+        //% shim=.subtract
+        public subtract(other: Position): Position;
+
+        /**
+         * Multiply every coordinate by a number, rounded to whole blocks (half away from zero). The same kind as this one.
+         * @param factor how many times, eg: 2
+         */
+        //% blockId=position_scale block="%position=positions_pos|times %factor"
+        //% blockNamespace=positions weight=73
+        //% shim=.scale
+        public scale(factor: number): Position;
+
     }
 declare namespace positions {
     /**
@@ -79,6 +108,28 @@ declare namespace positions {
     //% weight=60
     //% shim=positions::random
     function random(from: Position, to: Position): Position;
+
+    /**
+     * A new list with the same positions, nearest to a position first (straight line, as distance to measures it).
+     * Positions just as far away keep their order. The list itself does not change; no list gives an empty list.
+     * @param list the positions to sort
+     * @param from where to measure from
+     */
+    //% blockId=positions_sort_by_distance block="sort %list=variables_get(list)|by distance from %from=positions_pos"
+    //% weight=59
+    //% shim=positions::sortByDistanceAsync promise
+    function sortByDistance(list: Position[], from: Position): Position[];
+
+    /**
+     * The position in the list nearest to a position (straight line, as distance to measures it), the first one if
+     * two are just as near, or null when the list is empty.
+     * @param list the positions to look through
+     * @param from where to measure from
+     */
+    //% blockId=positions_nearest block="nearest in %list=variables_get(list)|to %from=positions_pos"
+    //% weight=58
+    //% shim=positions::nearestAsync promise
+    function nearest(list: Position[], from: Position): Position;
 
 }
 declare namespace agent {
@@ -1166,6 +1217,27 @@ declare namespace control {
     //% handlerStatement=1 blockNamespace=robots weight=80
     //% shim=control::runInParallel
     function runInParallel(handler: () => void): void;
+
+}
+declare namespace loops {
+    /**
+     * Pause this part of the program for some milliseconds (1000 ms is one second). Code in run in parallel and in
+     * other forever loops keeps running.
+     * @param ms how long to pause, in milliseconds, eg: 100
+     */
+    //% blockId=loops_pause block="pause (ms) %ms"
+    //% weight=99
+    //% shim=loops::pauseAsync promise
+    function pause(ms: number): void;
+
+    /**
+     * Run code over and over again, at the same time as the rest of the program, until the program is stopped.
+     * @param handler the code to repeat
+     */
+    //% blockId=loops_forever block="forever"
+    //% afterOnStart=true blockAllowMultiple=1 weight=100
+    //% shim=loops::forever
+    function forever(handler: () => void): void;
 
 }
 
