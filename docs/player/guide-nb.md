@@ -628,3 +628,11 @@ Codeling er et fanprosjekt. Det har ingen tilknytning til og er ikke godkjent av
 Minecraft er et varemerke som tilhører Mojang Synergies AB (Microsoft).
 Editoren er bygd med pxt, Microsofts verktøysett for MakeCode med åpen kildekode, som har MIT-lisens.
 Codeling har selv MIT-lisens. Detaljer og lisenstekster: [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md) og [LICENSE](../../LICENSE).
+
+## Robot appearance
+
+The robot is one block tall and has three original skins. Use `/robot skin workshop`, `/robot skin industrial` or `/robot skin mint`. Add a robot name after the skin to change a named robot, for example `/robot skin mint Miner`. Names and skins survive saving and moving between dimensions.
+
+Walking and left/right turns animate automatically. Use `/robot animation look_left`, `look_right`, `look_up`, `look_down` or `wave` for a short gesture; add a robot name at the end when needed. `idle` cancels a gesture. The lamp is a visual detail; directional illumination is separate work.
+
+Use `/robot color 3366FF` for a custom primary panel color, or `/robot color reset` to restore the selected skin's palette. An optional robot name follows the color. Metal, eyes, lamp and joints retain their original colors.

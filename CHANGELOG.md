@@ -19,6 +19,9 @@ Every user-visible change to Codeling is listed here. The format follows
 - Go to another robot (issue #243): `agent.goToRobot(robots.get("Miner"))` and `miner.goToRobot(other)` ("go to
   robot") walk like "move to" to a free block next to another of your own robots and face it, and the "robot (name)
   position" block gives a named robot's position, in Blocks, JavaScript and Python.
+- Robot styles and movement (issue #242): the robot is an articulated model instead of an observer block, with
+  three original styles saved per robot and chosen with `/robot skin`, and it walks, turns, gestures with its head and
+  waves.
 
 ### Fixed
 
