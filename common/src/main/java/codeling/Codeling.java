@@ -44,7 +44,7 @@ public final class Codeling {
     private static final ResourceKey<EntityType<?>> ROBOT_KEY =
             ResourceKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "robot"));
     // noSummon: a robot always needs an owner, so it is only created through /robot spawn. The name tag sits 1.7 up
-    // (vanilla adds 0.5 to the attachment), clear of the 0.8 block body even seen from above, as from the follow camera.
+    // (vanilla adds 0.5 to the attachment), clear of the 1.0 high robot model even seen from above, as from the follow camera.
     //? if >=1.21.2 {
     public static final Supplier<EntityType<RobotEntity>> ROBOT = PLATFORM.register(BuiltInRegistries.ENTITY_TYPE, ROBOT_KEY.identifier(),
             () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noLootTable().noSummon().sized(0.8F, 1.0F).nameTagOffset(1.2F)

@@ -30,7 +30,7 @@ final class RobotModel {
     private record Bone(String name, String parent, float[] pivot, ModelPart part) {
     }
 
-    private final List<Bone> bones = new ArrayList<>();
+    private final Map<String, Bone> bones = new LinkedHashMap<>();
     private final JsonObject animations;
 
     RobotModel() {
@@ -48,7 +48,7 @@ final class RobotModel {
                         faces.add(new Face(from, to, face.getKey(), vector(face.getValue().getAsJsonObject().getAsJsonArray("uv"))));
                     }
                 }
-                bones.add(new Bone(bone.get("name").getAsString(), bone.get("parent").isJsonNull() ? null : bone.get("parent").getAsString(),
+                bones.put(bone.get("name").getAsString(), new Bone(bone.get("name").getAsString(), bone.get("parent").isJsonNull() ? null : bone.get("parent").getAsString(),
                         vector(bone.getAsJsonArray("pivot")), new ModelPart(faces, Map.of())));
             }
         } catch (java.io.IOException exception) {
@@ -62,11 +62,9 @@ final class RobotModel {
 
     void draw(PoseStack poses, String animation, float seconds, float amount, boolean skipRoot, DrawPart draw) {
         JsonObject clip = animations.getAsJsonObject(animation);
-        Map<String, Bone> lookup = new LinkedHashMap<>();
-        for (Bone bone : bones) lookup.put(bone.name(), bone);
-        for (Bone bone : bones) {
+        for (Bone bone : bones.values()) {
             poses.pushPose();
-            applyParents(poses, bone, lookup, clip, seconds, amount, skipRoot);
+            applyParents(poses, bone, bones, clip, seconds, amount, skipRoot);
             draw.draw(bone.part(), poses);
             poses.popPose();
         }
