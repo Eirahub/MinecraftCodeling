@@ -6,6 +6,10 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-11-12
+
+The third pre-release, for testing.
+
 ### Added
 
 - World queries (issue #87): `gameplay.timeOfDay()` and `gameplay.isRaining()` read the time and weather of your
