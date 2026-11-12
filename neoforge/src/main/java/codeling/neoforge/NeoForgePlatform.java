@@ -100,7 +100,7 @@ public final class NeoForgePlatform implements Platform {
     }
     //?} else {
     /*// Before 1.21.11 a game rule is a GameRules key, registered at once (vanilla's own rules are static fields). The
-    // range and the enum type need members that META-INF/accesstransformer-1.21.1.cfg opens.
+    // range and the enum type need members that META-INF/accesstransformer-gamerules.cfg opens.
     @Override
     public Supplier<GameRules.Key<GameRules.BooleanValue>> booleanRule(Identifier id, GameRules.Category category, boolean defaultValue) {
         GameRules.Key<GameRules.BooleanValue> key = GameRules.register(id.toString(), category, GameRules.BooleanValue.create(defaultValue));
@@ -110,7 +110,10 @@ public final class NeoForgePlatform implements Platform {
     @Override
     public Supplier<GameRules.Key<GameRules.IntegerValue>> intRule(Identifier id, GameRules.Category category, int defaultValue, int min, int max) {
         GameRules.Key<GameRules.IntegerValue> key = GameRules.register(id.toString(), category,
-                GameRules.IntegerValue.create(defaultValue, min, max, (server, value) -> { }));
+                //? if >=1.21.2 {
+                GameRules.IntegerValue.create(defaultValue, min, max, net.minecraft.world.flag.FeatureFlagSet.of(), (server, value) -> { }));
+                //?} else
+                /^GameRules.IntegerValue.create(defaultValue, min, max, (server, value) -> { }));^/
         return () -> key;
     }
 
@@ -119,10 +122,15 @@ public final class NeoForgePlatform implements Platform {
      * method for it, so the Edit Game Rules screen leaves it out (on 26.x NeoForge shows a text field).
      ^/
     @Override
+    @SuppressWarnings("unchecked")
     public <E extends Enum<E>> Supplier<? extends GameRules.Key<?>> enumRule(Identifier id, GameRules.Category category, E defaultValue) {
         Class<E> type = defaultValue.getDeclaringClass();
         GameRules.Type<EnumValue<E>> ruleType = new GameRules.Type<EnumValue<E>>(() -> EnumArgument.enumArgument(type),
-                t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { });
+                //? if >=1.21.2 {
+                t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { },
+                (Class<EnumValue<E>>) (Class<?>) EnumValue.class, net.minecraft.world.flag.FeatureFlagSet.of());
+                //?} else
+                /^t -> new EnumValue<E>(t, type, defaultValue), (server, value) -> { }, (visitor, k, t) -> { });^/
         GameRules.Key<EnumValue<E>> key = GameRules.register(id.toString(), category, ruleType);
         return () -> key;
     }

@@ -41,9 +41,9 @@ public final class McCompat {
         /*return player.level().getServer().isSingleplayerOwner(player.getGameProfile());*/
     }
 
-    /** The player's level as a ServerLevel (26.x types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
+    /** The player's level as a ServerLevel (1.21.9 on types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
     public static ServerLevel level(ServerPlayer player) {
-        //? if >=1.21.11 {
+        //? if >=1.21.9 {
         return player.level();
         //?} else
         /*return player.serverLevel();*/

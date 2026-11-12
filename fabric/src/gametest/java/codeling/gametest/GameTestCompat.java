@@ -35,7 +35,10 @@ final class GameTestCompat {
         var players = player.level().getServer().getPlayerList();
         //? if >=1.21.11 {
         players.op(player.nameAndId(), java.util.Optional.of(LevelBasedPermissionSet.GAMEMASTER), java.util.Optional.empty());
-        //?} else {
+        //?} else if >=1.21.9 {
+        /*players.getOps().add(new ServerOpListEntry(player.nameAndId(), 2, false));
+        players.sendPlayerPermissionLevel(player);
+        *///?} else {
         /*players.getOps().add(new ServerOpListEntry(player.getGameProfile(), 2, false));
         players.sendPlayerPermissionLevel(player);
         *///?}
@@ -43,7 +46,8 @@ final class GameTestCompat {
 
     static void deop(ServerPlayer player) {
         var players = player.level().getServer().getPlayerList();
-        //? if >=1.21.11 {
+        // The op list keys on NameAndId from 1.21.9.
+        //? if >=1.21.9 {
         players.deop(player.nameAndId());
         //?} else
         /*players.deop(player.getGameProfile());*/
