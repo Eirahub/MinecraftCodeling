@@ -4,7 +4,7 @@ A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and
 The editor is a custom pxt target that runs in your browser and is served by the mod on `127.0.0.1`.
 Each robot command goes over a local WebSocket to the mod.
 
-**Status: first public version (0.0.1), not released yet.** The server has robots with a 27-slot inventory and `/robot` commands, and the browser editor drives them: every robot op (movement, building, inspecting, inventory, containers, crafting, measuring, sensors, camera) is a block, JavaScript and Python call, and each call returns when the robot has finished.
+**Status: pre-release (0.0.2), for testing.** Releases are on the GitHub releases page. The server has robots with a 27-slot inventory and `/robot` commands, and the browser editor drives them: every robot op (movement, building, inspecting, inventory, containers, crafting, measuring, sensors, camera) is a block, JavaScript and Python call, and each call returns when the robot has finished.
 Plan: [docs/architecture.md](docs/architecture.md).
 
 Not approved by or associated with Mojang or Microsoft. The editor is based on Microsoft MakeCode (pxt), MIT licence.
