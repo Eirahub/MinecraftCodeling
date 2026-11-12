@@ -28,8 +28,8 @@ public class RobotScreen extends ContainerScreen {
         }
         super.extractSlots(graphics, mouseX, mouseY);
     }
-    //?} else if >=1.21.6 && <1.21.11 {
-    /*// As below; 1.21.6 to 1.21.10 call the outline submitOutline (1.21.11 renamed it back).
+    //?} else if >=1.21.9 && <1.21.11 {
+    /*// As below; 1.21.9 to 1.21.10 call the outline submitOutline (1.21.11 renamed it back).
     @Override
     protected void renderBg(GuiGraphicsExtractor graphics, float partialTick, int mouseX, int mouseY) {
         super.renderBg(graphics, partialTick, mouseX, mouseY);
