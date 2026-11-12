@@ -71,4 +71,29 @@ class RobotLinksTest {
         old.addProperty(owner.toString(), robot.toString());
         assertEquals(robot, decode(old).robot(owner));
     }
+
+    //? if >=26.1 {
+    // A world from 1.21.x keeps its links in data/codeling_robots.dat, which 26.x reads when robots.dat is missing.
+    @Test
+    void readsTheFileSavedBy1_21(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
+        UUID owner = UUID.randomUUID(), robot = UUID.randomUUID(), miner = UUID.randomUUID();
+        net.minecraft.nbt.CompoundTag links = new net.minecraft.nbt.CompoundTag();
+        links.putString(owner.toString(), robot.toString());
+        net.minecraft.nbt.CompoundTag named = new net.minecraft.nbt.CompoundTag(), names = new net.minecraft.nbt.CompoundTag();
+        names.putString("Miner", miner.toString());
+        named.put(owner.toString(), names);
+        net.minecraft.nbt.CompoundTag data = new net.minecraft.nbt.CompoundTag();
+        data.put("links", links);
+        data.put("named", named);
+        net.minecraft.nbt.CompoundTag file = new net.minecraft.nbt.CompoundTag();
+        file.put("data", data);
+        file.putInt("DataVersion", 4671);
+        java.nio.file.Path path = dir.resolve(RobotLinks.LEGACY_FILE);
+        net.minecraft.nbt.NbtIo.writeCompressed(file, path);
+        RobotLinks loaded = RobotLinks.readLegacy(path);
+        assertEquals(robot, loaded.robot(owner));
+        assertEquals(miner, loaded.robot(new RobotLinks.Key(owner, "Miner")));
+        assertNull(RobotLinks.readLegacy(dir.resolve("missing.dat")), "no file, nothing to read");
+    }
+    //?}
 }

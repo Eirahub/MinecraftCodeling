@@ -10,6 +10,11 @@ Every user-visible change to Codeling is listed here. The format follows
 
 - Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11 (Java 21).
 
+### Fixed
+
+- A world moved from Minecraft 1.21.x to 26.x keeps its robots: 26.x reads the robot links from
+  `data/codeling_robots.dat` when `data/codeling/robots.dat` is missing.
+
 ## [0.0.1] - 2026-11-11
 
 The first public version, a pre-release for testing.

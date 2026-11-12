@@ -3,6 +3,15 @@ package codeling.robot;
 import codeling.Codeling;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+//? if >=26.1 {
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.world.level.storage.LevelResource;
+//?}
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -102,13 +111,37 @@ public final class RobotLinks extends SavedData {
 
     public static RobotLinks get(MinecraftServer server) {
         //? if >=26.1 {
-        return server.getDataStorage().computeIfAbsent(TYPE);
+        RobotLinks links = server.getDataStorage().get(TYPE);
+        if (links != null) return links;
+        // A world from 1.21.x has data/codeling_robots.dat, which 26.1's world upgrade leaves where it is. Read it once;
+        // set() marks the links dirty, so they are saved as data/codeling/robots.dat. The old file stays for a downgrade.
+        links = readLegacy(server.getWorldPath(LevelResource.DATA).resolve(LEGACY_FILE));
+        if (links == null) return server.getDataStorage().computeIfAbsent(TYPE);
+        Codeling.LOG.info("Robot links read from data/{} (saved before Minecraft 26.1)", LEGACY_FILE);
+        server.getDataStorage().set(TYPE, links);
+        return links;
         //?} else if >=1.21.5 {
         /*return server.overworld().getDataStorage().computeIfAbsent(TYPE);
         *///?} else {
         /*return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);
         *///?}
     }
+
+    //? if >=26.1 {
+    static final String LEGACY_FILE = "codeling_robots.dat";
+
+    /** The links in a file saved by 1.21.x ({"data": links, "DataVersion": n}), or null when there is none or it is broken. */
+    static RobotLinks readLegacy(Path file) {
+        if (!Files.isRegularFile(file)) return null;
+        try {
+            return CODEC.parse(NbtOps.INSTANCE, NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap()).get("data"))
+                    .resultOrPartial(error -> Codeling.LOG.error("Could not read {}: {}", file, error)).orElse(null);
+        } catch (IOException | RuntimeException e) {
+            Codeling.LOG.error("Could not read {}", file, e);
+            return null;
+        }
+    }
+    //?}
 
     /** The owner's default robot. */
     public UUID robot(UUID owner) {
