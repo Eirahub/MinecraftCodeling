@@ -11,8 +11,10 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -50,6 +52,12 @@ public final class CodelingNeoForge {
         game.addListener((EntityLeaveLevelEvent event) -> {
             if (event.getLevel() instanceof ServerLevel) Codeling.entityUnloaded(event.getEntity());
         });
+        // Issue #27: fired on the server thread, not when another mod cancelled the line; cancelled keeps it for its sender's program.
+        game.addListener((ServerChatEvent event) -> {
+            if (Codeling.chat(event.getPlayer(), event.getRawText())) event.setCanceled(true);
+        });
+        // Lowest priority and not when cancelled: only a death that happens counts.
+        game.addListener(EventPriority.LOWEST, (LivingDeathEvent event) -> Codeling.died(event.getEntity()));
         game.addListener((RegisterCommandsEvent event) -> RobotCommands.register(event.getDispatcher()));
     }
 
