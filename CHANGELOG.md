@@ -20,6 +20,11 @@ Every user-visible change to Codeling is listed here. The format follows
   robot") walk like "move to" to a free block next to another of your own robots and face it, and the "robot (name)
   position" block gives a named robot's position, in Blocks, JavaScript and Python.
 
+### Fixed
+
+- `scripts/setup-multimc.ps1 -Release` stopped with a bare 404 for a draft release or a tag without a release. It
+  now says so and shows the `gh release download` and `-JarDir` commands that work instead.
+
 ## [0.0.2] - 2026-11-12
 
 The second pre-release, for testing.
