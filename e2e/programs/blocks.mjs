@@ -6,7 +6,10 @@
 // Reporters are put in a variable: a bare call of a value block is grey in Blocks. Names are unique per program.
 export const BLOCK_PROGRAMS = {
     // First: Blocks writes event blocks before the code on start, in this order.
+    gameplay_on_day_start: "gameplay.onDayStart(function () {\n    agent.say(\"Morning\")\n})",
     player_on_chat: "player.onChat(\"jump\", function (num1, num2) {\n    agent.move(SixDirection.Up, num2)\n})",
+    agent_on_redstone_powered: "agent.onRedstonePowered(function () {\n    agent.say(\"Click\")\n})",
+    blocks_on_block_broken: "blocks.onBlockBroken(Block.DiamondOre, function () {\n    agent.say(\"Diamond\")\n})",
     player_on_died: "player.onDied(function () {\n    agent.say(\"Oops\")\n})",
     agent_move: "agent.move(SixDirection.Back, 2)",
     agent_turn: "agent.turn(TurnDirection.Right)",
