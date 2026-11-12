@@ -1,6 +1,6 @@
 # Codeling
 
-A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 and 1.21.6 to 1.21.11 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
+A Minecraft Java mod (Fabric and NeoForge, Minecraft 26.1 to 26.3 on Java 25 and Minecraft 1.21.1 and 1.21.5 to 1.21.11 on Java 21) where you program a robot with blocks, JavaScript or Python, in the style of MakeCode.
 The editor is a custom pxt target that runs in your browser and is served by the mod on `127.0.0.1`.
 Each robot command goes over a local WebSocket to the mod.
 
@@ -59,6 +59,8 @@ Build the target first; otherwise the jars have no editor. One build makes a Fab
 | 1.21.9 to 1.21.10 | NeoForge | `./gradlew :neoforge:1.21.10:build` | `neoforge/versions/1.21.10/build/libs/codeling-neoforge-1.21.10-<version>.jar` |
 | 1.21.6 to 1.21.8 | Fabric | `./gradlew :fabric:1.21.8:build` | `fabric/versions/1.21.8/build/libs/codeling-fabric-1.21.8-<version>.jar` |
 | 1.21.6 to 1.21.8 | NeoForge | `./gradlew :neoforge:1.21.8:build` | `neoforge/versions/1.21.8/build/libs/codeling-neoforge-1.21.8-<version>.jar` |
+| 1.21.5 | Fabric | `./gradlew :fabric:1.21.5:build` | `fabric/versions/1.21.5/build/libs/codeling-fabric-1.21.5-<version>.jar` |
+| 1.21.5 | NeoForge | `./gradlew :neoforge:1.21.5:build` | `neoforge/versions/1.21.5/build/libs/codeling-neoforge-1.21.5-<version>.jar` |
 | 1.21.1 | Fabric (Fabric API 0.116) | `./gradlew :fabric:1.21.1:build` | `fabric/versions/1.21.1/build/libs/codeling-fabric-1.21.1-<version>.jar` |
 | 1.21.1 | NeoForge 21.1 | `./gradlew :neoforge:1.21.1:build` | `neoforge/versions/1.21.1/build/libs/codeling-neoforge-1.21.1-<version>.jar` |
 
