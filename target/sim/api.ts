@@ -497,6 +497,38 @@ namespace pxsim.agent {
         return call("agent.isSafe", [direction]);
     }
 
+    // World queries (issue #87): the robot's own block, nothing further away.
+
+    /**
+     * How light it is where the robot stands, 0 (dark) to 15 (full daylight or right next to a torch). Sky light is
+     * lower at night and in rain. Hostile mobs can spawn on blocks with light 0.
+     */
+    //% blockId=agent_light_level block="agent light level"
+    //% group="Sensors" weight=57
+    export function lightLevelAsync(): Promise<number> {
+        return call("agent.lightLevel", []);
+    }
+
+    /**
+     * The biome where the robot stands, as its short id: "plains", "desert", "dark_forest". Biomes from other mods
+     * keep their mod name: "mymod:crystal_cave".
+     */
+    //% blockId=agent_biome block="agent biome"
+    //% group="Sensors" weight=56
+    export function biomeAsync(): Promise<string> {
+        return call("agent.biome", []);
+    }
+
+    /**
+     * The temperature of the biome where the robot stands. Biomes below 0.15 get snow instead of rain (snowy plains 0),
+     * plains 0.8, desert 2.
+     */
+    //% blockId=agent_temperature block="agent temperature"
+    //% group="Sensors" weight=55
+    export function temperatureAsync(): Promise<number> {
+        return call("agent.temperature", []);
+    }
+
     // The server answers [x, y, z], or no value when nothing was found.
     function found(value: number[]): Position {
         return value ? new Position(value[0], value[1], value[2]) : null;
@@ -1084,6 +1116,24 @@ namespace pxsim {
             return this.on(() => agent.isSafeAsync(direction));
         }
 
+        /** Like agent.lightLevel. */
+        //%
+        lightLevelAsync(): Promise<number> {
+            return this.on(() => agent.lightLevelAsync());
+        }
+
+        /** Like agent.biome. */
+        //%
+        biomeAsync(): Promise<string> {
+            return this.on(() => agent.biomeAsync());
+        }
+
+        /** Like agent.temperature. */
+        //%
+        temperatureAsync(): Promise<number> {
+            return this.on(() => agent.temperatureAsync());
+        }
+
         /** Like agent.measure. */
         //%
         measureAsync(direction: SixDirection, max: number): Promise<number> {
@@ -1344,6 +1394,28 @@ namespace pxsim.player {
     //% weight=68
     export function runChatCommandAsync(command: string): Promise<void> {
         return board().runChatCommand("" + command);
+    }
+}
+
+// Time and weather (issue #87): MakeCode's gameplay category. They read the dimension you are in and need no robot.
+namespace pxsim.gameplay {
+    /**
+     * The time of day in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. Every
+     * dimension has the Overworld's time.
+     */
+    //% blockId=gameplay_time_of_day block="time of day"
+    //% weight=100
+    export function timeOfDayAsync(): Promise<number> {
+        return agent.call("gameplay.timeOfDay", [], "");
+    }
+
+    /**
+     * True when it rains or thunders where you are (snow in cold biomes counts too). Never in the Nether or the End.
+     */
+    //% blockId=gameplay_is_raining block="is raining"
+    //% weight=90
+    export function isRainingAsync(): Promise<boolean> {
+        return agent.call("gameplay.isRaining", [], "");
     }
 }
 

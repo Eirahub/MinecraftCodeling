@@ -33,6 +33,13 @@ namespace player {
 }
 
 /**
+ * The time and weather where you are (issue #87)
+ */
+//% color=#F9A825 weight=92 icon=""
+namespace gameplay {
+}
+
+/**
  * Your other robots, by name (issue #141). agent is your default robot.
  */
 //% color=#558B2F weight=95 icon="\uf0c0"
