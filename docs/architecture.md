@@ -316,6 +316,13 @@ The built calls (issue #26) need no robot: `PlayerApi` answers them on the serve
 | Commands per player per second | 40 |
 | Target server cost | under 1 ms per tick with 32 active robots, measured by a GameTest stress run |
 
+The stress run is `RobotPerformanceGameTests` (20 robots, 200 ticks). It always fails on what the code controls: the
+per-tick budgets for actions, blocks scanned and path nodes, the commands done and the sticks crafted. It also has two
+time limits (mean cost per tick, and the number of slow ticks). Without `CI=true` they fail the test. In CI they only
+warn (a line in the run's step summary and in the log), because the same tree measured 2, 21 and 5 ms mean on shared
+runners (issue #229). So CI does not catch a real slowdown; the maintainer runs the test locally before each release
+(CONTRIBUTING.md, "Releases").
+
 ## 9. Test strategy
 
 1. **Unit tests (JUnit, no Minecraft):** command decoder and validator (argument types, ranges, slot bounds), rate limiter, run-id rules, token compare, Host/Origin checks.

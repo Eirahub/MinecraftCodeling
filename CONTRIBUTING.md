@@ -118,7 +118,10 @@ Maintainers only. `.github/workflows/release.yml` does the build and the upload.
 1. In `CHANGELOG.md`, move the lines under `## [Unreleased]` into a new `## [X.Y.Z] - YYYY-MM-DD` section (for 0.0.1:
    fill in the existing section, replace its intro paragraph and "unreleased" with the date). Set
    `mod_version=X.Y.Z` in `gradle.properties` if it is not already. Merge that to `develop`.
-2. Open a pull request from `develop` to `main` and merge it when CI is green.
+2. Open a pull request from `develop` to `main` and merge it when CI is green. CI only warns when the robot performance
+   test is slow, because shared runners vary too much (issue #229). So on your own PC, with `CI` unset, run
+   `./gradlew :fabric:26.3:build` and check that it ends with "All 132 required tests passed" (the count may have
+   grown); there the time limits fail the test.
 3. Tag the merge commit on `main` and push the tag: `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
 4. The workflow fails if the tag does not match `mod_version` or `CHANGELOG.md` has no `## [X.Y.Z]` section. Otherwise
    it builds the editor and the jars (with their tests), and creates a GitHub release with the jars, a
