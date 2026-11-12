@@ -9,9 +9,9 @@ plugins {
 }
 
 val javaRelease = property("java_version").toString().toInt()
-// Game rules before 1.21.11's rewrite need a few members opened (NeoForgePlatform); this AT ships on 1.21.1 only.
+// Game rules before 1.21.11's rewrite need a few members opened (NeoForgePlatform); this AT ships before 1.21.11 only.
 val oldGameRules = stonecutter.current.parsed < "1.21.11"
-val oldRulesAt = "META-INF/accesstransformer-1.21.1.cfg"
+val oldRulesAt = "META-INF/accesstransformer-gamerules.cfg"
 // Vanilla's GameTest rewrite (test registries, --tests and --report) came with 1.21.5.
 val oldGameTests = stonecutter.current.parsed < "1.21.5"
 // codeling.mixins.json: Mixin's compatibility level follows the Java version, and before 26.3 one mixin more

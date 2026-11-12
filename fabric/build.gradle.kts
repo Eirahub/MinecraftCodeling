@@ -96,6 +96,34 @@ tasks.named<ProcessResources>("processResources") {
     filesMatching("fabric.mod.json") { expand(props) }
 }
 
+// The GameTest environments in src/gametest are written in the game rule format of 1.21.11 and later ("rules": {id:
+// value}). 1.21.5 to 1.21.10 read lists of {rule, value} in bool_rules and int_rules, so those versions get converted
+// copies. (1.21.1 has no test environments.)
+if (stonecutter.current.parsed >= "1.21.5" && stonecutter.current.parsed < "1.21.11") {
+    val envDir = "data/codeling-gametest/test_environment"
+    val envSource = rootProject.file("fabric/src/gametest/resources/$envDir")
+    val converted = layout.buildDirectory.dir("generated/testEnvironments")
+    val convertTestEnvironments = tasks.register("convertTestEnvironments") {
+        inputs.dir(envSource)
+        outputs.dir(converted)
+        doLast {
+            val out = converted.get().dir(envDir).asFile.apply { deleteRecursively(); mkdirs() }
+            envSource.listFiles { f -> f.extension == "json" }!!.forEach { f ->
+                @Suppress("UNCHECKED_CAST")
+                val json = groovy.json.JsonSlurper().parse(f) as Map<String, Any>
+                @Suppress("UNCHECKED_CAST")
+                val rules = json["rules"] as Map<String, Any>
+                fun entries(kind: (Any) -> Boolean) =
+                    rules.filterValues(kind).map { (rule, value) -> mapOf("rule" to rule, "value" to value) }
+                val old = mapOf("type" to json["type"], "bool_rules" to entries { it is Boolean }, "int_rules" to entries { it is Number })
+                File(out, f.name).writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(old)))
+            }
+        }
+    }
+    sourceSets["gametest"].resources.exclude("$envDir/*.json")
+    tasks.named<ProcessResources>("processGametestResources") { from(convertTestEnvironments) }
+}
+
 tasks.withType<JavaCompile>().configureEach { options.release = javaRelease }
 
 // core (issue #185) has no fabric.mod.json, so its classes go straight into the mod jar instead of a nested jar.

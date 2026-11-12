@@ -4,7 +4,7 @@ import codeling.platform.ClientPlatform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//? if >=1.21.11 {
+//? if >=1.21.9 {
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 //?} else
 /*import net.neoforged.neoforge.network.PacketDistributor;*/
@@ -19,7 +19,7 @@ public final class NeoForgeClientPlatform implements ClientPlatform {
 
     @Override
     public void send(CustomPacketPayload payload) {
-        //? if >=1.21.11 {
+        //? if >=1.21.9 {
         ClientPacketDistributor.sendToServer(payload);
         //?} else
         /*PacketDistributor.sendToServer(payload);*/
