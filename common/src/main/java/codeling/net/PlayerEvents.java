@@ -28,6 +28,9 @@ import net.minecraft.world.level.block.state.BlockState;
  * default robot (a rising edge, looked at each tick only while it is loaded) and the start of a new day in the
  * owner's dimension (the time of day wrapping round, looked at each tick). The last two cost a lookup per tick only
  * for a run that listens for them.
+ * <p>
+ * Issue #249: a signal another mod posted through {@link codeling.api.Signals} (handed over at the start of each tick)
+ * or an operator sent with /codeling signal, for the named player's current run only, when it listens for that name.
  */
 public final class PlayerEvents {
     private static final class Listening {
@@ -60,9 +63,9 @@ public final class PlayerEvents {
         RobotEntity robot = RobotManager.robot(owner);
         l.powered = subscription.redstone() && robot != null && RobotManager.redstonePower(robot.level(), robot.blockPosition()) > 0;
         LISTENING.put(owner, l);
-        Codeling.LOG.info("events: {}'s program (run {}) listens for {} chat command(s){}, {} broken block(s){}{}.", name, run,
+        Codeling.LOG.info("events: {}'s program (run {}) listens for {} chat command(s){}, {} broken block(s){}{}, {} signal(s).", name, run,
                 subscription.chat().size(), subscription.died() ? ", their death" : "", subscription.broken().size(),
-                subscription.redstone() ? ", redstone at the robot" : "", subscription.dayStart() ? ", the day start" : "");
+                subscription.redstone() ? ", redstone at the robot" : "", subscription.dayStart() ? ", the day start" : "", subscription.signals().size());
     }
 
     /** The run ended in a way the editor already knows about (Stop, a new run, timeout, leaving): forget it at once. */
@@ -72,6 +75,7 @@ public final class PlayerEvents {
 
     static void serverStopped() {
         LISTENING.clear();
+        SignalHub.clear();
     }
 
     // Only while the run that subscribed is still the owner's current run: /robot stop ends it at once.
@@ -117,12 +121,22 @@ public final class PlayerEvents {
         if (l.subscription.broken().contains(code)) queue(l, Protocol.event("blockBroken", List.of(code)));
     }
 
-    private static void queue(Listening l, String event) {
+    /**
+     * Signal {@code name} with {@code value} for {@code owner} (issue #249). True when their running program listens
+     * for that name and the event waits for a tick; false when it does not, or {@link RobotQueue#MAX_LENGTH} wait already.
+     */
+    public static boolean signal(UUID owner, String name, double value) {
+        Listening l = active(owner);
+        return l != null && l.subscription.signals().contains(name) && queue(l, Protocol.event("signal", List.of(name, value)));
+    }
+
+    private static boolean queue(Listening l, String event) {
         if (l.waiting.size() >= RobotQueue.MAX_LENGTH) {
             Codeling.LOG.info("events: {}'s program has {} events waiting, so one was dropped.", l.name, RobotQueue.MAX_LENGTH);
-            return;
+            return false;
         }
         l.waiting.add(event);
+        return true;
     }
 
     // Issue #89: a new signal at the owner's default robot, and the time of day wrapping round in the owner's
@@ -150,6 +164,7 @@ public final class PlayerEvents {
      * waiting that would learn it otherwise before the next heartbeat.
      */
     static void tick(MinecraftServer server) {
+        SignalHub.deliver(p -> signal(p.player(), p.name(), p.value()));
         LISTENING.entrySet().removeIf(e -> {
             Listening l = e.getValue();
             if (l.run != RobotManager.queue(e.getKey()).run()) {

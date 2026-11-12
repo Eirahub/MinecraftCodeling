@@ -28,9 +28,16 @@ import net.minecraft.world.level.Level;
  * {@link RobotQueue#MAX_LENGTH} waiting, else {@code RATE_LIMITED}. Game mode does not matter: the calls only read
  * the owner, tell the owner something, or move the owner as /tp would, so spectator and adventure owners may use them
  * all (teleport still needs the rights below). Server thread only.
+ * <p>
+ * Issue #249: signals.send goes the same way, to the listeners other mods added through {@link codeling.api.Signals},
+ * never to a program, and at most once a second for each name and player.
  */
 final class PlayerApi {
     private static final Map<UUID, ArrayDeque<Runnable>> WAITING = new HashMap<>();
+    // Issue #249: the tick each player last sent each signal name, for one per name per second. Kept across runs, so
+    // pressing Run again does not skip the wait.
+    private static final Map<UUID, Map<String, Integer>> SENT = new HashMap<>();
+    private static final int TICKS_PER_SIGNAL = 20;
 
     private PlayerApi() {
     }
@@ -38,7 +45,7 @@ final class PlayerApi {
     /** Queues a player call from {@code player}'s browser; false when {@code cmd} is not one. */
     static boolean submit(ServerPlayer player, Protocol.Cmd cmd, Consumer<String> out) throws RobotException {
         RobotCommand c = cmd.command();
-        if (c.op().compareTo(RobotCommand.Op.PLAYER_SAY) < 0 || c.op().compareTo(RobotCommand.Op.IS_RAINING) > 0) return false;
+        if (c.op().compareTo(RobotCommand.Op.PLAYER_SAY) < 0 || c.op().compareTo(RobotCommand.Op.SIGNAL_SEND) > 0) return false;
         UUID owner = player.getUUID();
         MinecraftServer server = player.level().getServer();
         if (cmd.run() != RobotManager.queue(owner).run()) throw new RobotException(Result.Code.STOPPED, "run " + cmd.run() + " is no longer active");
@@ -64,10 +71,12 @@ final class PlayerApi {
 
     static void playerLeft(UUID owner) {
         WAITING.remove(owner);
+        SENT.remove(owner);
     }
 
     static void serverStopped() {
         WAITING.clear();
+        SENT.clear();
     }
 
     private static Result run(ServerPlayer player, RobotCommand c) {
@@ -89,8 +98,23 @@ final class PlayerApi {
             case TIME_OF_DAY -> Result.ok(Math.floorMod(McCompat.dayTime(player.level()), 24000L));
             // Rain or thunder in the owner's dimension (snow counts), not whether it falls on one block; never in the Nether or the End.
             case IS_RAINING -> Result.ok(player.level().isRaining());
+            case SIGNAL_SEND -> signal(player, c.text());
             default -> throw new IllegalStateException("not a player call: " + c.op());
         };
+    }
+
+    // Only the name leaves, and only to other mods' listeners. false with a message is an answer, not an error: no mod
+    // listens, none takes the name, or the same name went less than a second ago (a signal may switch real equipment).
+    private static Result signal(ServerPlayer player, String name) {
+        int now = player.level().getServer().getTickCount();
+        Map<String, Integer> sent = SENT.computeIfAbsent(player.getUUID(), o -> new HashMap<>());
+        sent.values().removeIf(tick -> now - tick >= TICKS_PER_SIGNAL || now < tick);
+        if (sent.containsKey(name)) return Result.ok(false, "Signal \"" + name + "\" was sent less than a second ago, so it was not sent again.");
+        sent.put(name, now);
+        if (!SignalHub.hasListeners()) return Result.ok(false, SignalHub.nobodyListens(name));
+        boolean taken = SignalHub.send(player.getUUID(), name);
+        Codeling.LOG.debug("signals: {}'s program sent \"{}\", {}.", player.getGameProfile().name(), name, taken ? "taken" : "not taken by any listener");
+        return taken ? Result.ok(true) : Result.ok(false, "No mod on this server takes the signal \"" + name + "\".");
     }
 
     // As /tp would allow it: the host of a singleplayer world or an op (game master), in the owner's own dimension,

@@ -2,12 +2,14 @@ package codeling.robot;
 
 import codeling.McCompat;
 import codeling.Codeling;
+import codeling.api.Signals;
 import codeling.net.PlayerEvents;
 import codeling.net.RelayPayloads;
 import codeling.platform.Platform;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -15,11 +17,13 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -65,8 +69,12 @@ public final class RobotCommands {
         }
         // Issue #27: a chat line for the caller's own program, for servers whose chat plugins take chat lines away. No
         // operator rights needed: it reaches nobody but the caller's program. /codeling alone is the client's command.
+        // Issue #249: a signal for the programs of the players named, for operators, command blocks and map makers.
         dispatcher.register(Commands.literal("codeling").then(Commands.literal("chat")
-                .then(Commands.argument("text", StringArgumentType.greedyString()).executes(RobotCommands::chat))));
+                .then(Commands.argument("text", StringArgumentType.greedyString()).executes(RobotCommands::chat)))
+                .then(Commands.literal("signal").requires(McCompat::isGamemaster).then(Commands.argument("players", EntityArgument.players())
+                        .then(Commands.argument("name", StringArgumentType.string()).executes(c -> signal(c, 0))
+                                .then(Commands.argument("number", DoubleArgumentType.doubleArg()).executes(c -> signal(c, DoubleArgumentType.getDouble(c, "number"))))))));
         // The slot comes before the robot name, so "give stone 5 3" is slot 3 (robot names start with a letter).
         Command<CommandSourceStack> giveToSlot = c -> give(c, IntegerArgumentType.getInteger(c, "slot"));
         dispatcher.register(Commands.literal("robot")
@@ -127,6 +135,32 @@ public final class RobotCommands {
                 ? "Your program has no on chat command for \"" + text.strip().split("\\s+")[0] + "\"."
                 : "No program of yours is listening for chat commands. Run a program with on chat command from the editor first."));
         return 0;
+    }
+
+    // Answers how many programs got it (the command's result, for command blocks) and names the players it did not
+    // reach, so a map maker sees a typo at once.
+    private static int signal(CommandContext<CommandSourceStack> c, double value) throws CommandSyntaxException {
+        String name = StringArgumentType.getString(c, "name");
+        String problem = Signals.nameProblem(name);
+        if (problem != null) {
+            c.getSource().sendFailure(Component.literal(problem));
+            return 0;
+        }
+        int reached = 0;
+        List<String> missed = new ArrayList<>();
+        for (ServerPlayer player : EntityArgument.getPlayers(c, "players")) {
+            if (PlayerEvents.signal(player.getUUID(), name, value)) reached++;
+            else missed.add(player.getGameProfile().name());
+        }
+        String others = missed.isEmpty() ? "" : " It did not reach " + String.join(", ", missed)
+                + " (no running program listening for it, or " + RobotQueue.MAX_LENGTH + " events waiting).";
+        if (reached == 0) {
+            c.getSource().sendFailure(Component.literal("Signal \"" + name + "\" reached no program." + others));
+            return 0;
+        }
+        int n = reached;
+        c.getSource().sendSuccess(() -> Component.literal("Sent signal \"" + name + "\" to " + n + (n == 1 ? " program." : " programs.") + others), false);
+        return reached;
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> robotName() {
