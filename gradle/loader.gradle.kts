@@ -25,6 +25,30 @@ val checkJarNames = tasks.register("checkJarNames") {
 }
 tasks.named("build") { dependsOn(checkJarNames) }
 
+// Issue #252: a server GameTest run that hangs stops here instead of holding the CI job until the job's own limit.
+// A normal run (Fabric runGameTest, NeoForge runGameTestServer) takes under 2 minutes with the server's startup.
+// On timeout Gradle interrupts the task, which stops the forked game JVM, and gameTestHang says what happened.
+val gameTestTasks = tasks.matching { it.name == "runGameTest" || it.name == "runGameTestServer" }
+val gameTestHang = tasks.register("gameTestHang") {
+    description = "Names a server GameTest run that hit its timeout as a hang (issue #252)"
+    val gameTests = gameTestTasks.toList()
+    onlyIf {
+        gameTests.any { task ->
+            generateSequence(task.state.failure) { it.cause }.any { "Timeout has been exceeded" in it.message.orEmpty() }
+        }
+    }
+    doLast {
+        throw GradleException(
+            "The server GameTests hung: no result within the task's timeout, so Gradle stopped the game. " +
+                "See CONTRIBUTING.md (\"A GameTest run that hangs\") and issue #252.",
+        )
+    }
+}
+gameTestTasks.configureEach {
+    timeout = java.time.Duration.ofMinutes(10)
+    finalizedBy(gameTestHang)
+}
+
 // The jar redistributes the editor's libraries (THIRD-PARTY-NOTICES.md), so their licences travel with it (issue #61).
 tasks.named<Jar>("jar") {
     from(rootProject.files("LICENSE", "THIRD-PARTY-NOTICES.md")) { into("META-INF") }

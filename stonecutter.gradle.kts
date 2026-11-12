@@ -66,6 +66,11 @@ stonecutter parameters {
     replacements.string(current.parsed >= "1.21.5" && current.parsed < "1.21.9") {
         replace("helper.fail(", "GameTestAsserts.fail(helper, ")
     }
+    // 1.21.6 to 1.21.8 wait in PlayerList.placeNewPlayer for the player's chunks, a wait that can last for ever in a
+    // GameTest (issue #252, see GameTestAsserts in both gametest folders).
+    replacements.string(current.parsed >= "1.21.6" && current.parsed < "1.21.9") {
+        replace("helper.makeMockServerPlayerInLevel()", "GameTestAsserts.makeMockServerPlayerInLevel(helper)")
+    }
     // Renames that came with 26.3.
     replacements.string(current.parsed < "26.3") { replace("PushReaction.IGNORE_ENTITY", "PushReaction.IGNORE") }
     // Fabric's own @GameTest (structure, maxTicks, environment) came with 1.21.5. Before that the tests use vanilla's

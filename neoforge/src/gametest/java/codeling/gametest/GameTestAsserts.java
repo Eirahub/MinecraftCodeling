@@ -32,4 +32,19 @@ final class GameTestAsserts {
         h.fail(Component.literal(message));
     }
     *///?}
+
+    //? if >=1.21.6 && <1.21.9 {
+    /*// Issue #252: placeNewPlayer waits in ServerLevel.waitForChunkAndEntities until the entities of the chunks around
+    // the player are loaded. A chunk only asks for its entities after a chunk task has made it visible, and the wait
+    // runs chunk tasks only while the tick is on time (MinecraftServer.pollTaskInternal checks haveTime()). So in a
+    // GameTest tick that runs late (a slow first batch, a busy machine) the wait never ends. Inside a server task
+    // haveTime() is true (runningTask()), so the same wait runs the chunk tasks and ends.
+    static net.minecraft.server.level.ServerPlayer makeMockServerPlayerInLevel(GameTestHelper h) {
+        var server = h.getLevel().getServer();
+        var player = java.util.concurrent.CompletableFuture.supplyAsync(h::makeMockServerPlayerInLevel,
+            task -> server.schedule(server.wrapRunnable(task)));
+        server.managedBlock(player::isDone);
+        return player.join();
+    }
+    *///?}
 }
