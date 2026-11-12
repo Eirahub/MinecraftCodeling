@@ -313,6 +313,46 @@ public class MultiRobotGameTests {
         });
     }
 
+    // Issue #242: /robot skin and /robot color stay with a named robot, and its name with them, through a save and a
+    // load and through /robot spawn while it is unloaded. Only that robot changes. A save from before styles is workshop.
+    @GameTest(maxTicks = 100, environment = MORE)
+    public void styleStaysWithTheRobotThroughSaveLoadAndRespawn(GameTestHelper helper) {
+        ServerPlayer player = player(helper);
+        run(player, "robot spawn");
+        run(player, "robot spawn Miner");
+        helper.assertTrue(run(player, "robot skin industrial Miner").toString().contains("industrial"), "skin set");
+        run(player, "robot color 3366FF Miner");
+        helper.assertTrue(run(player, "robot skin chrome Miner").toString().contains("workshop, industrial or mint"), "unknown skin refused");
+        RobotEntity miner = RobotManager.robot(key(player, "Miner"));
+        RobotEntity first = RobotManager.robot(player.getUUID());
+        helper.assertValueEqual(miner.skin(), "industrial", "Miner's skin");
+        helper.assertValueEqual(miner.primaryColor(), 0x3366FF, "Miner's colour");
+        helper.assertValueEqual(first.skin(), "workshop", "the default robot keeps its own skin");
+
+        CompoundTag saved = GameTestCompat.save(miner, helper.getLevel().registryAccess());
+        RobotEntity back = new RobotEntity(Codeling.ROBOT.get(), helper.getLevel());
+        GameTestCompat.load(back, saved, helper.getLevel().registryAccess());
+        helper.assertValueEqual(back.skin(), "industrial", "skin after a load");
+        helper.assertValueEqual(back.primaryColor(), 0x3366FF, "colour after a load");
+        helper.assertValueEqual(back.getCustomName().getString(), "Miner", "name after a load");
+        saved.remove("Skin");
+        saved.remove("PrimaryColor");
+        RobotEntity old = new RobotEntity(Codeling.ROBOT.get(), helper.getLevel());
+        GameTestCompat.load(old, saved, helper.getLevel().registryAccess());
+        helper.assertValueEqual(old.skin(), "workshop", "a save from before styles");
+        helper.assertValueEqual(old.primaryColor(), -1, "no colour in a save from before styles");
+
+        miner.inventory().clearContent();
+        miner.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+        run(player, "robot spawn Miner"); // a new robot in its place, from the links
+        RobotEntity respawned = RobotManager.robot(key(player, "Miner"));
+        helper.assertTrue(respawned != null && respawned != miner, "Miner spawned again");
+        helper.assertValueEqual(respawned.skin(), "industrial", "skin after a spawn while unloaded");
+        helper.assertValueEqual(respawned.primaryColor(), 0x3366FF, "colour after a spawn while unloaded");
+        leave(helper, player);
+        helper.succeed();
+    }
+
     /** Queues agent.goToRobot(target) for the player's robot {@code robot} ("" for the default robot); the result goes in the list. */
     private static List<Result> goTo(GameTestHelper helper, ServerPlayer player, String robot, String target) {
         return goTo(new ArrayList<>(), helper, player, robot, target);

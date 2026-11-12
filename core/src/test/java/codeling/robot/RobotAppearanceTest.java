@@ -16,6 +16,17 @@ class RobotAppearanceTest {
     }
 
     @Test
+    void colorsAreSixHexDigitsOrReset() {
+        assertEquals(0x3366FF, RobotAppearance.color("3366FF"));
+        assertEquals(0x3366FF, RobotAppearance.color("#3366ff"));
+        assertEquals(-1, RobotAppearance.color("reset"));
+        assertThrows(IllegalArgumentException.class, () -> RobotAppearance.color("12345"));
+        assertThrows(IllegalArgumentException.class, () -> RobotAppearance.color("red"));
+        assertEquals(-1, RobotAppearance.savedColor(0x1000000));
+        assertEquals(0x3366FF, RobotAppearance.savedColor(0x3366FF));
+    }
+
+    @Test
     void turningAcrossNorthUsesTheShortestArc() {
         assertEquals(20, RobotAppearance.angleDelta(170, -170));
         assertEquals(-20, RobotAppearance.angleDelta(-170, 170));
