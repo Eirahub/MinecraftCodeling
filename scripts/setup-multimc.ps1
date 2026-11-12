@@ -151,7 +151,16 @@ Write-Host "Fabric Loader $loaderVersion"
 if ($Release) {
     $JarDir = Join-Path $MultiMC "codeling-jars\$Release"
     New-Item -ItemType Directory -Force $JarDir | Out-Null
-    $info = Get-Text "https://api.github.com/repos/$GitHubRepo/releases/tags/$Release" | ConvertFrom-Json
+    # The public API does not show a draft release or a tag without a release (404): say how to get the jars then.
+    try { $info = Get-Text "https://api.github.com/repos/$GitHubRepo/releases/tags/$Release" | ConvertFrom-Json }
+    catch {
+        if ("$_" -notmatch '404') { throw }
+        throw ("No published release $Release in $GitHubRepo (GitHub answers 404). A draft release, or a tag without " +
+            "a release, is not visible to this script. With access to the repo, download the jars and pass the folder:`n" +
+            "    gh release download $Release --repo $GitHubRepo --pattern 'codeling-*.jar' --dir <folder>`n" +
+            "    .\setup-multimc.ps1 -JarDir <folder>`n" +
+            "or build the targets and leave out -Release.")
+    }
     foreach ($asset in $info.assets | Where-Object { $_.name -like "codeling-*.jar" -and $_.name -notlike "*-sources.jar" }) {
         $dest = Join-Path $JarDir $asset.name
         if (-not (Test-Path $dest)) {

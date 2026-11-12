@@ -6,6 +6,11 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/setup-multimc.ps1 -Release` stopped with a bare 404 for a draft release or a tag without a release. It
+  now says so and shows the `gh release download` and `-JarDir` commands that work instead.
+
 ## [0.0.2] - 2026-11-12
 
 The second pre-release, for testing.
