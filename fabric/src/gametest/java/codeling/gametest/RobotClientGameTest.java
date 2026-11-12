@@ -212,6 +212,22 @@ public class RobotClientGameTest implements FabricClientGameTest {
             context.getInput().lookAt(minerAt.above(2));
             context.waitTicks(5);
             context.takeScreenshot("robot-name-tag-full");
+            // Styles (issue #242): each robot shows its own, synced to the client, and keeps its name.
+            command(context, world, "robot skin industrial Miner");
+            command(context, world, "robot skin mint");
+            context.waitFor(mc -> mc.level.getEntity(minerId) instanceof RobotEntity r && r.skin().equals("industrial")
+                    && "Miner".equals(r.getCustomName().getString())
+                    && mc.level.getEntity(robotId) instanceof RobotEntity d && d.skin().equals("mint"), TICKS);
+            context.getInput().lookAt(minerAt);
+            context.waitTicks(210); // the chat lines over the robots fade after 10 seconds
+            context.takeScreenshot("robot-styles-full");
+            context.getInput().lookAt(robotAt);
+            context.waitTicks(5);
+            context.takeScreenshot("robot-mint-full");
+            command(context, world, "robot animation wave");
+            context.waitFor(mc -> mc.level.getEntity(robotId) instanceof RobotEntity r && r.animation().equals("wave"), TICKS);
+            context.waitTicks(10);
+            context.takeScreenshot("robot-wave-full");
             command(context, world, "robot nametag off Miner");
             context.waitFor(mc -> mc.level.getEntity(minerId) instanceof RobotEntity r && !r.isCustomNameVisible(), TICKS);
             save = world.getWorldSave();
@@ -227,6 +243,14 @@ public class RobotClientGameTest implements FabricClientGameTest {
             assertEquals(3, server.computeOnServer(s -> robot(owner).selectedSlot()), "selected slot after reload");
             assertStone(server, owner, 0, 0);
             assertStone(server, owner, 4, 5);
+            // The styles and the name come back with the robots, on the server and on the client.
+            RobotLinks.Key miner = new RobotLinks.Key(owner, "Miner");
+            server.waitFor(s -> RobotManager.robot(miner) != null, TICKS);
+            assertEquals("mint", server.computeOnServer(s -> robot(owner).skin()), "skin after reload");
+            assertEquals("industrial", server.computeOnServer(s -> robot(miner).skin()), "Miner's skin after reload");
+            int minerId = server.computeOnServer(s -> robot(miner).getId());
+            context.waitFor(mc -> mc.level.getEntity(minerId) instanceof RobotEntity r && r.skin().equals("industrial")
+                    && "Miner".equals(r.getCustomName().getString()), TICKS);
         }
     }
 

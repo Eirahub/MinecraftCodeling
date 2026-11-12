@@ -113,6 +113,11 @@ public final class RobotCommands {
                 .then(Commands.literal("nametag")
                         .then(named(Commands.literal("on"), c -> nametag(c, true)))
                         .then(named(Commands.literal("off"), c -> nametag(c, false))))
+                .then(Commands.literal("skin").then(named(Commands.argument("skin", StringArgumentType.word())
+                        .suggests((c, builder) -> SharedSuggestionProvider.suggest(RobotAppearance.SKINS, builder)), RobotCommands::skin)))
+                .then(Commands.literal("color").then(named(Commands.argument("color", StringArgumentType.word()), RobotCommands::color)))
+                .then(Commands.literal("animation").then(named(Commands.argument("animation", StringArgumentType.word())
+                        .suggests((c, builder) -> SharedSuggestionProvider.suggest(RobotAppearance.ANIMATIONS, builder)), RobotCommands::animation)))
                 .then(move)
                 .then(Commands.literal("turn")
                         .then(named(Commands.literal("left"), c -> send(c, "agent.turn", List.of(RobotCommand.LEFT_TURN))))
@@ -154,6 +159,54 @@ public final class RobotCommands {
     // "Robot" or "Robot Miner", for messages.
     private static String robot(String name) {
         return name.isEmpty() ? "Robot" : "Robot " + name;
+    }
+
+    private static int skin(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        RobotEntity robot = RobotManager.robot(key(c));
+        if (robot == null) {
+            c.getSource().sendFailure(Component.literal("Robot is not loaded. Use /robot spawn first."));
+            return 0;
+        }
+        String skin = StringArgumentType.getString(c, "skin");
+        if (!RobotAppearance.SKINS.contains(skin)) {
+            c.getSource().sendFailure(Component.literal("Choose workshop, industrial or mint."));
+            return 0;
+        }
+        robot.setSkin(skin);
+        c.getSource().sendSuccess(() -> Component.literal("Robot skin: " + skin), false);
+        return 1;
+    }
+
+    private static int color(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        RobotEntity robot = RobotManager.robot(key(c));
+        if (robot == null) {
+            c.getSource().sendFailure(Component.literal("Robot is not loaded. Use /robot spawn first."));
+            return 0;
+        }
+        try {
+            robot.setPrimaryColor(RobotAppearance.color(StringArgumentType.getString(c, "color")));
+        } catch (IllegalArgumentException exception) {
+            c.getSource().sendFailure(Component.literal("Use six hex digits, for example 3366FF, or reset."));
+            return 0;
+        }
+        c.getSource().sendSuccess(() -> Component.literal("Robot panel color updated"), false);
+        return 1;
+    }
+
+    private static int animation(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        RobotEntity robot = RobotManager.robot(key(c));
+        if (robot == null) {
+            c.getSource().sendFailure(Component.literal("Robot is not loaded. Use /robot spawn first."));
+            return 0;
+        }
+        String animation = StringArgumentType.getString(c, "animation");
+        if (!RobotAppearance.ANIMATIONS.contains(animation)) {
+            c.getSource().sendFailure(Component.literal("Choose " + String.join(", ", RobotAppearance.ANIMATIONS) + "."));
+            return 0;
+        }
+        robot.animate(animation);
+        c.getSource().sendSuccess(() -> Component.literal("Robot animation: " + animation), false);
+        return 1;
     }
 
     private static int spawn(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
