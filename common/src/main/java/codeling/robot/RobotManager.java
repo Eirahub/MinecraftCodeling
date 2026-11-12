@@ -151,6 +151,7 @@ public final class RobotManager {
         robot.setKey(key);
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(owner);
         if (player != null) robot.setOwnerName(player.getGameProfile().name());
+        robot.rememberAppearance();
         LOADED.put(key, robot);
         Codeling.LOG.info("spawn: {} was loaded into the world at {} in {}.", label(level.getServer(), key), fmt(robot.position()), dim(level));
     }
@@ -240,9 +241,16 @@ public final class RobotManager {
         if (player != null) robot.setOwnerName(player.getGameProfile().name());
         robot.snapTo(pos, facing.toYRot(), 0);
         RobotLinks links = RobotLinks.get(level.getServer());
+        RobotLinks.Appearance previousAppearance = links.appearance(links.robot(key));
+        if (old == null) {
+            robot.setSkin(previousAppearance.skin());
+            robot.setPrimaryColor(previousAppearance.color());
+        }
         if (old != null) {
             // Another dimension: the items move to the new robot, so the old one drops nothing when it is discarded.
             for (int i = 0; i < RobotCommand.SLOTS; i++) robot.inventory().setItem(i, old.inventory().removeItemNoUpdate(i));
+            robot.setSkin(old.skin());
+            robot.setPrimaryColor(old.primaryColor());
             robot.setCustomName(old.getCustomName());
             robot.setCustomNameVisible(old.isCustomNameVisible());
             old.discard();
@@ -251,6 +259,7 @@ public final class RobotManager {
             links.orphan(links.robot(key));
         }
         links.set(key, robot.getUUID());
+        robot.rememberAppearance();
         level.addFreshEntity(robot);
         Codeling.LOG.info("spawn: Created {} at {}, facing {}, in {}. It now stands at {}.{}", label(level.getServer(), key), fmt(pos), facing.getName(),
                 dim(level), fmt(robot.position()), robot.position().distanceTo(pos) > 0.5 ? " This is NOT where it was asked to go." : "");

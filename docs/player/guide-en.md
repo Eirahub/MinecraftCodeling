@@ -591,6 +591,14 @@ While you look through the robot, your own body stays where it is and does not m
 
 `/robot camera follow` puts the camera behind and above the robot instead, so you can watch a long build job or route. The camera turns with the robot. Move the mouse to look around the robot, and use the scroll wheel to come closer or move away (2 to 12 blocks). When a wall is in the way, the camera moves in front of it. "Robot camera: follow" in Key Binds gives it a key of its own. The same rules apply as for the eyes view.
 
+## Robot appearance
+
+The robot is one block tall and has three original skins. Use `/robot skin workshop`, `/robot skin industrial` or `/robot skin mint`. Add a robot name after the skin to change a named robot, for example `/robot skin mint Miner`. Names and skins survive saving and moving between dimensions.
+
+Walking and left/right turns animate automatically. Use `/robot animation look_left`, `look_right`, `look_up`, `look_down` or `wave` for a short gesture; add a robot name at the end when needed. `idle` cancels a gesture. The lamp is a visual detail; directional illumination is separate work.
+
+Use `/robot color 3366FF` for a custom primary panel color, or `/robot color reset` to restore the selected skin's palette. An optional robot name follows the color. Metal, eyes, lamp and joints retain their original colors.
+
 ## Limits
 
 These keep the game fast for everyone.

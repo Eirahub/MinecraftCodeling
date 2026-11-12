@@ -44,15 +44,15 @@ public final class Codeling {
     private static final ResourceKey<EntityType<?>> ROBOT_KEY =
             ResourceKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "robot"));
     // noSummon: a robot always needs an owner, so it is only created through /robot spawn. The name tag sits 1.7 up
-    // (vanilla adds 0.5 to the attachment), clear of the 0.8 block body even seen from above, as from the follow camera.
+    // (vanilla adds 0.5 to the attachment), clear of the 1.0 high robot model even seen from above, as from the follow camera.
     //? if >=1.21.2 {
     public static final Supplier<EntityType<RobotEntity>> ROBOT = PLATFORM.register(BuiltInRegistries.ENTITY_TYPE, ROBOT_KEY.identifier(),
-            () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noLootTable().noSummon().sized(0.8F, 0.8F).nameTagOffset(1.2F)
+            () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noLootTable().noSummon().sized(0.8F, 1.0F).nameTagOffset(1.2F)
                     .clientTrackingRange(10).build(ROBOT_KEY));
     //?} else {
     /*// Before 1.21.2 there is no noLootTable (entity loot tables came later), and the type is built from the plain id.
     public static final Supplier<EntityType<RobotEntity>> ROBOT = PLATFORM.register(BuiltInRegistries.ENTITY_TYPE, ROBOT_KEY.location(),
-            () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noSummon().sized(0.8F, 0.8F).nameTagOffset(1.2F)
+            () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noSummon().sized(0.8F, 1.0F).nameTagOffset(1.2F)
                     .clientTrackingRange(10).build(ROBOT_KEY.location().toString()));
     *///?}
     /** The robot's inventory screen (issue #67); the client registers RobotScreen for it. */
