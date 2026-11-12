@@ -1155,14 +1155,7 @@ public final class RobotManager {
             case DETECT_ENTITY -> Result.ok(!entities(level, new AABB(target), command.b()).isEmpty());
             case DETECT_LIQUID -> Result.ok(liquid(level, target));
             case IS_SAFE -> Result.ok(safe(level, target));
-            // F3's value: what a source gives out (redstone dust its power, a lever 15), otherwise what the block receives.
-            //? if >=26.2 {
-            case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? state.getOwnSignal(level, target) : level.getBestNeighborSignal(target));
-            //?} else {
-            /*// shortcut: before 26.2 there is no getOwnSignal, so a source's power is its strongest side; matches F3 for
-            // dust, levers, buttons and torches, may differ for a block that powers one side only.
-            case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? ownSignal(level, target, state) : level.getBestNeighborSignal(target));
-            *///?}
+            case REDSTONE_POWER -> Result.ok(redstonePower(level, target));
             case DROP -> Result.ok(drop(level, target, inv.removeItem(command.b() - 1, command.c())));
             case DROP_ALL -> {
                 boolean any = false;
@@ -1405,6 +1398,21 @@ public final class RobotManager {
             }
         }
         return entities(level, new AABB(pos).inflate(1), MOB).isEmpty();
+    }
+
+    /**
+     * F3's value at pos: what a source gives out (redstone dust its power, a lever 15), otherwise what the block
+     * receives. agent.redstonePower and the onRedstonePowered event (issue #89) both read it. The chunk must be loaded.
+     */
+    public static int redstonePower(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        //? if >=26.2 {
+        return state.isSignalSource() ? state.getOwnSignal(level, pos) : level.getBestNeighborSignal(pos);
+        //?} else {
+        /*// shortcut: before 26.2 there is no getOwnSignal, so a source's power is its strongest side; matches F3 for
+        // dust, levers, buttons and torches, may differ for a block that powers one side only.
+        return state.isSignalSource() ? ownSignal(level, pos, state) : level.getBestNeighborSignal(pos);
+        *///?}
     }
 
     //? if <26.2 {

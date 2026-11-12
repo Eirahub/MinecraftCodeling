@@ -220,6 +220,7 @@ Plassene er robotens 27 inventarplasser, nummerert fra 1 til 27.
 | robot oppdag (fiendtlig skapning/dyr/spiller/gjenstand) (retning) | `agent.detectEntity(EntityKind.Mob, SixDirection.Forward)` | Sann hvis en slik er i blokken ved siden av roboten. |
 | robot tell i nærheten (type) innen (radius) | `agent.countNearby(EntityKind.Animal, 4)` | Hvor mange som er nær roboten, høyst 8 blokker unna. |
 | robot redstonestyrke (retning) | `agent.redstonePower(SixDirection.Forward)` | Rødsteinstyrke fra 0 til 15. |
+| når roboten får redstonesignal | `agent.onRedstonePowered(function () { })` | Kjører koden sin hver gang blokken roboten står i, får et redstonesignal, for eksempel når du slår på en spak ved siden av den. Se "Reager på blokker, redstone og dagen" under. |
 | robot posisjon | `agent.getPosition()` | Hvor roboten er. |
 | robot retning | `agent.getOrientation()` | Hvilken vei den ser, i grader. |
 | robot finn nærmeste (blokk) innen (radius) | `agent.findNearest(Block.OakLog, 16)` | Den nærmeste blokken av den typen, eller ingenting. |
@@ -340,6 +341,35 @@ player.onChat("jump", function (num1, num2, num3) {
   dine som vanlig igjen.
 - Høyst 16 chatkommandoer venter på programmet ditt; flere på en gang blir forkastet.
 
+#### Reager på blokker, redstone og dagen
+
+Tre blokker til lar programmet ditt vente på at noe skjer. Dette programmet sier fra hver gang du graver opp
+diamantmalm, hver gang roboten får et signal, og hver morgen:
+
+```
+blocks.onBlockBroken(Block.DiamondOre, function () {
+    player.say("Diamanter!")
+})
+agent.onRedstonePowered(function () {
+    agent.move(SixDirection.Forward, 1)
+})
+gameplay.onDayStart(function () {
+    player.say("God morgen")
+})
+```
+
+- "når (blokk) blir ødelagt" kjører når du selv ødelegger en slik blokk. Blokker robotene dine ødelegger, og blokker
+  andre spillere ødelegger, teller ikke. Et program kan lytte etter høyst 16 slags blokker.
+- "når roboten får redstonesignal" kjører når blokken standardroboten din står i, går fra intet redstonesignal til et
+  signal: for eksempel en spak, en knapp eller en redstoneblokk ved siden av roboten. Den kjører én gang per nytt
+  signal, ikke igjen mens signalet varer. En robot som alt har signal når programmet starter, teller ikke. Roboter
+  med navn har ikke denne blokken.
+- "når en ny dag begynner" kjører når tiden på døgnet går rundt fra natt til morgen i verdenen din. Å sove gjennom
+  natten teller, og det gjør også `/time set` til et tidligere tidspunkt på døgnet (`/time set day` om kvelden).
+  `/time add` med et helt døgn gjør det ikke.
+- Også disse programmene fortsetter å kjøre etter siste linje, til du trykker på stopp eller skriver `/robot stop`.
+  Høyst 16 hendelser venter på programmet ditt; flere på en gang blir forkastet.
+
 ### Tid og vær (kategorien Vær og tid)
 
 Disse blokkene leser verdenen du er i. De virker uten robot.
@@ -348,6 +378,7 @@ Disse blokkene leser verdenen du er i. De virker uten robot.
 |---|---|---|
 | tid på døgnet | `gameplay.timeOfDay()` | Tiden i spill-tikk, 0 til 23999: 0 er soloppgang, 6000 middag, 12000 solnedgang, 18000 midnatt. Nether og End har tiden i Oververdenen. |
 | regner det | `gameplay.isRaining()` | Sann når det regner eller tordner i dimensjonen din (snø teller også). Aldri i Nether eller End. Den sier ikke om regnet når ett bestemt sted: under et tak svarer den fortsatt sann. |
+| når en ny dag begynner | `gameplay.onDayStart(function () { })` | Kjører koden sin når en ny dag begynner (tid 0, soloppgang). Se "Reager på blokker, redstone og dagen" over. |
 
 Dette programmet jobber bare om dagen og stopper når natten kommer:
 
@@ -382,6 +413,7 @@ while (gameplay.timeOfDay() < 12000) {
 |---|---|---|
 | fyll med (blokk) fra (a) til (b) (hvordan) | `blocks.fill(Block.Stone, pos(1, 0, 1), pos(5, 3, 5), FillOperation.Hollow)` | Fyller boksen. Hul gir vegger med luft inni, omriss bare veggene, behold fyller bare luft. Luft tømmer boksen. |
 | plasser (blokk) ved (posisjon) | `blocks.place(Block.Glass, pos(0, 2, 0))` | Plasserer én blokk. |
+| når (blokk) blir ødelagt | `blocks.onBlockBroken(Block.DiamondOre, function () { })` | Kjører koden sin når du selv ødelegger en slik blokk. Se "Reager på blokker, redstone og dagen" over. |
 | linje av (blokk) fra (a) til (b) | `shapes.line(Block.OakPlanks, pos(0, 0, 1), pos(5, 3, 1))` | En rett linje med blokker. |
 | sirkel av (blokk) sentrum (s) radius (r) rundt (akse) (hvordan) | `shapes.circle(Block.Stone, pos(0, 0, 8), 5, Axis.Y, ShapeOperation.Outline)` | En sirkel; rundt Y ligger den flatt på bakken. |
 | kule av (blokk) sentrum (s) radius (r) (hvordan) | `shapes.sphere(Block.Glass, pos(0, 6, 0), 4, ShapeOperation.Hollow)` | En kule. Hul gir en boble med luft inni. |
@@ -523,7 +555,7 @@ Grensene holder spillet raskt for alle.
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
 - `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
 - Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
-- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn. Høyst 16 chatte- og dødshendelser venter på det.
+- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn, og høyst 16 slags ødelagte blokker. Høyst 16 hendelser venter på det.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -538,8 +570,9 @@ Grensene holder spillet raskt for alle.
 - I overlevelse samler roboten sine egne ressurser. "robot gi" og `/robot give` virker bare i kreativ modus, eller når verdenen har `/gamerule codeling:free_items true`. Ellers legger du ting i roboten gjennom inventarskjermen dens.
 - Operatører kan stoppe alle roboter med `/robot stop all`.
 - `player.say` i et program går bare til spilleren som kjører det, og `player.teleport` virker på en server bare for operatører.
-- Et program hører bare chatkommandoene og døden til sin egen spiller, aldri en annen spillers. En chattelinje holdes
-  bare tilbake fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
+- Et program hører bare chatkommandoene, døden og de ødelagte blokkene til sin egen spiller, redstonesignalet til sin
+  egen robot og dagen i sin egen spillers verden, aldri noe om en annen spiller. En chattelinje holdes bare tilbake
+  fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 

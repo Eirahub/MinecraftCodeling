@@ -591,7 +591,7 @@ public final class RelayServer implements AutoCloseable {
         private volatile boolean authed;
         volatile long run = -1;
         // Standalone only: what the program listens for, for the chat and death events of player.say below.
-        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false);
+        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false, Set.of(), false, false);
 
         RelaySession(Socket socket, DataInputStream in, OutputStream out) {
             this.socket = socket;
@@ -777,12 +777,17 @@ public final class RelayServer implements AutoCloseable {
                 return;
             }
             // For the editor suite (issue #27): player.say "chat <line>" is that chat line and "die" a death, as the
-            // game would send them to a program that listens for them.
+            // game would send them to a program that listens for them. Issue #89: "break <block code>" is a block the
+            // player broke, "redstone" a signal reaching the robot and "day" the start of a new day.
             if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("player.say")) {
                 String command = said.startsWith("chat ") ? ChatCommands.match(subscribed.chat(), said.substring(5)) : null;
                 double[] n = command == null ? null : ChatCommands.numbers(said.substring(5));
+                Integer block = said.matches("break [0-9]{1,9}") ? Integer.valueOf(said.substring(6)) : null;
                 String event = command != null ? Protocol.event("chat", java.util.List.of(command, n[0], n[1], n[2]))
-                        : said.equals("die") && subscribed.died() ? Protocol.event("playerDied", java.util.List.of()) : null;
+                        : said.equals("die") && subscribed.died() ? Protocol.event("playerDied", java.util.List.of())
+                        : block != null && subscribed.broken().contains(block) ? Protocol.event("blockBroken", java.util.List.of(block))
+                        : said.equals("redstone") && subscribed.redstone() ? Protocol.event("redstonePowered", java.util.List.of())
+                        : said.equals("day") && subscribed.dayStart() ? Protocol.event("dayStart", java.util.List.of()) : null;
                 if (event != null) schedule(() -> write(event), STUB_ACK_MS);
             }
             // The second argument (max or length) as a number from 0 to MAX_MEASURE, for the measuring answers.

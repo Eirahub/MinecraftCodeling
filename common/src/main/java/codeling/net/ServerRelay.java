@@ -160,7 +160,7 @@ public final class ServerRelay {
 
     public static void tick(MinecraftServer server) {
         PlayerApi.tick();
-        PlayerEvents.tick();
+        PlayerEvents.tick(server);
         for (Map.Entry<UUID, Sessions.Session> e : SESSIONS.expire(server.getTickCount())) {
             PlayerEvents.ended(e.getKey());
             if (RobotManager.queue(e.getKey()).run() == e.getValue().run) RobotManager.stop(e.getKey(), "no heartbeat from the editor (it was closed or lost contact)");

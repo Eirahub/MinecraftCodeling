@@ -1,6 +1,9 @@
 package codeling.net;
 
 import codeling.Codeling;
+import codeling.McCompat;
+import codeling.robot.BlockIds;
+import codeling.robot.RobotEntity;
 import codeling.robot.RobotManager;
 import codeling.robot.RobotQueue;
 import java.util.ArrayDeque;
@@ -9,7 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Chat and death events (issue #27). A program subscribes at start to its onChat keywords and its onDied handler; then
@@ -17,9 +23,29 @@ import net.minecraft.server.level.ServerPlayer;
  * owner's editor, never anyone else's. Only the keyword and the numbers go, never the line. Everything ends with the
  * run: a stopped run (Stop, /robot stop, heartbeat timeout, leaving, a new run) has no listeners, so its owner's chat is
  * broadcast as usual again. Server thread only.
+ * <p>
+ * Issue #89: the blocks the owner breaks by hand (never the robot's FakePlayer), a redstone signal reaching the owner's
+ * default robot (a rising edge, looked at each tick only while it is loaded) and the start of a new day in the
+ * owner's dimension (the time of day wrapping round, looked at each tick). The last two cost a lookup per tick only
+ * for a run that listens for them.
  */
 public final class PlayerEvents {
-    private record Listening(long run, Protocol.Subscription subscription, Consumer<String> out, ArrayDeque<String> waiting) {
+    private static final class Listening {
+        final String name;
+        final long run;
+        final Protocol.Subscription subscription;
+        final Consumer<String> out;
+        final ArrayDeque<String> waiting = new ArrayDeque<>();
+        // What the last tick saw: whether the robot's block had a signal, and the time of day (-1 before the first look).
+        boolean powered;
+        long timeOfDay = -1;
+
+        Listening(String name, long run, Protocol.Subscription subscription, Consumer<String> out) {
+            this.name = name;
+            this.run = run;
+            this.subscription = subscription;
+            this.out = out;
+        }
     }
 
     private static final Map<UUID, Listening> LISTENING = new HashMap<>();
@@ -29,9 +55,14 @@ public final class PlayerEvents {
 
     /** {@code control subscribe} for the owner's current run; {@code out} reaches their editor. Replaces what it listened for. */
     static void subscribe(UUID owner, String name, long run, Protocol.Subscription subscription, Consumer<String> out) {
-        LISTENING.put(owner, new Listening(run, subscription, out, new ArrayDeque<>()));
-        Codeling.LOG.info("events: {}'s program (run {}) listens for {} chat command(s){}.", name, run,
-                subscription.chat().size(), subscription.died() ? " and their death" : "");
+        Listening l = new Listening(name, run, subscription, out);
+        // A robot that already has a signal when the program starts gives no event: only a new signal counts.
+        RobotEntity robot = RobotManager.robot(owner);
+        l.powered = subscription.redstone() && robot != null && RobotManager.redstonePower(robot.level(), robot.blockPosition()) > 0;
+        LISTENING.put(owner, l);
+        Codeling.LOG.info("events: {}'s program (run {}) listens for {} chat command(s){}, {} broken block(s){}{}.", name, run,
+                subscription.chat().size(), subscription.died() ? ", their death" : "", subscription.broken().size(),
+                subscription.redstone() ? ", redstone at the robot" : "", subscription.dayStart() ? ", the day start" : "");
     }
 
     /** The run ended in a way the editor already knows about (Stop, a new run, timeout, leaving): forget it at once. */
@@ -64,22 +95,53 @@ public final class PlayerEvents {
         String command = l == null ? null : ChatCommands.match(l.subscription.chat(), text);
         if (command == null) return false;
         double[] n = ChatCommands.numbers(text);
-        queue(player, l, Protocol.event("chat", List.of(command, n[0], n[1], n[2])));
+        queue(l, Protocol.event("chat", List.of(command, n[0], n[1], n[2])));
         return true;
     }
 
     /** {@code player} died; their running program gets the event if it has an onDied handler. */
     public static void died(ServerPlayer player) {
         Listening l = active(player.getUUID());
-        if (l != null && l.subscription.died()) queue(player, l, Protocol.event("playerDied", List.of()));
+        if (l != null && l.subscription.died()) queue(l, Protocol.event("playerDied", List.of()));
     }
 
-    private static void queue(ServerPlayer player, Listening l, String event) {
+    /**
+     * {@code player} broke a block of {@code state} by hand (the loader calls this only for a break that happened). Their
+     * running program gets the event if it listens for that block. Never the robot's breaks: its FakePlayer carries the
+     * owner's UUID, so the caller leaves FakePlayers out.
+     */
+    public static void blockBroken(ServerPlayer player, BlockState state) {
+        Listening l = active(player.getUUID());
+        if (l == null || l.subscription.broken().isEmpty()) return;
+        int code = BlockIds.fromModern(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        if (l.subscription.broken().contains(code)) queue(l, Protocol.event("blockBroken", List.of(code)));
+    }
+
+    private static void queue(Listening l, String event) {
         if (l.waiting.size() >= RobotQueue.MAX_LENGTH) {
-            Codeling.LOG.info("events: {}'s program has {} events waiting, so one was dropped.", player.getGameProfile().name(), RobotQueue.MAX_LENGTH);
+            Codeling.LOG.info("events: {}'s program has {} events waiting, so one was dropped.", l.name, RobotQueue.MAX_LENGTH);
             return;
         }
         l.waiting.add(event);
+    }
+
+    // Issue #89: a new signal at the owner's default robot, and the time of day wrapping round in the owner's
+    // dimension. Only a robot that is loaded is looked at, so no chunk is ever loaded for it.
+    private static void watch(MinecraftServer server, UUID owner, Listening l) {
+        if (l.subscription.redstone()) {
+            RobotEntity robot = RobotManager.robot(owner);
+            if (robot != null && robot.level().isLoaded(robot.blockPosition())) {
+                boolean powered = RobotManager.redstonePower(robot.level(), robot.blockPosition()) > 0;
+                if (powered && !l.powered) queue(l, Protocol.event("redstonePowered", List.of()));
+                l.powered = powered;
+            }
+        }
+        ServerPlayer player = l.subscription.dayStart() ? server.getPlayerList().getPlayer(owner) : null;
+        if (player != null) {
+            long time = Math.floorMod(McCompat.dayTime(player.level()), 24000L);
+            if (l.timeOfDay >= 0 && time < l.timeOfDay) queue(l, Protocol.event("dayStart", List.of()));
+            l.timeOfDay = time;
+        }
     }
 
     /**
@@ -87,13 +149,14 @@ public final class PlayerEvents {
      * listeners and its waiting events, and its editor is told now: a program with only handlers has no command
      * waiting that would learn it otherwise before the next heartbeat.
      */
-    static void tick() {
+    static void tick(MinecraftServer server) {
         LISTENING.entrySet().removeIf(e -> {
             Listening l = e.getValue();
             if (l.run != RobotManager.queue(e.getKey()).run()) {
                 l.out.accept(Protocol.control("stop", l.run, "The robot's run was stopped in the game."));
                 return true;
             }
+            watch(server, e.getKey(), l);
             String event = l.waiting.poll();
             if (event != null) l.out.accept(event);
             return false;

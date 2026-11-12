@@ -1,5 +1,6 @@
 package codeling.net;
 
+import codeling.robot.BlockIds;
 import codeling.robot.Result;
 import codeling.robot.RobotException;
 import java.util.List;
@@ -56,8 +57,8 @@ class ChatCommandsTest {
 
     @Test
     void subscribeIsChecked() throws RobotException {
-        assertEquals(new Protocol.Subscription(Set.of("jump", "*"), true), subscribe(",\"chat\":[\"jump\",\"*\",\"jump\"],\"died\":true"));
-        assertEquals(new Protocol.Subscription(Set.of(), false), subscribe(""));
+        assertEquals(new Protocol.Subscription(Set.of("jump", "*"), true, Set.of(), false, false), subscribe(",\"chat\":[\"jump\",\"*\",\"jump\"],\"died\":true"));
+        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(), false, false), subscribe(""));
         StringBuilder many = new StringBuilder();
         for (int i = 0; i <= ChatCommands.MAX_KEYWORDS; i++) many.append(i == 0 ? "" : ",").append("\"k").append(i).append('"');
         assertEquals(Result.Code.BAD_ARGS, refused(",\"chat\":[" + many + "]"));
@@ -67,9 +68,31 @@ class ChatCommandsTest {
         assertEquals(Result.Code.BAD_ARGS, refused(",\"died\":1"));
     }
 
+    // Issue #89: known blocks (not air) up to the cap, and two flags; an unknown field is ignored as before.
+    @Test
+    void subscribeToBlocksRedstoneAndDayStart() throws RobotException {
+        int stone = BlockIds.byName("STONE"), log = BlockIds.byName("OAK_LOG");
+        assertEquals(new Protocol.Subscription(Set.of(), false, Set.of(stone, log), true, true),
+                subscribe(",\"broken\":[" + stone + "," + log + "," + stone + "],\"redstone\":true,\"dayStart\":true,\"later\":[1]"));
+        StringBuilder many = new StringBuilder();
+        List<String> names = List.of("STONE", "GRANITE", "DIORITE", "ANDESITE", "DIRT", "COBBLESTONE", "SAND", "GRAVEL", "GOLD_ORE",
+                "IRON_ORE", "COAL_ORE", "GLASS", "TNT", "OBSIDIAN", "TORCH", "CHEST", "ICE");
+        for (String name : names) many.append(many.isEmpty() ? "" : ",").append(BlockIds.byName(name));
+        assertEquals(Protocol.MAX_BROKEN_BLOCKS + 1, names.size());
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":[" + many + "]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":[0]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":[999999]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":[1.5]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":[\"stone\"]"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"broken\":1"));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"redstone\":\"yes\""));
+        assertEquals(Result.Code.BAD_ARGS, refused(",\"dayStart\":null"));
+    }
+
     @Test
     void eventMessage() {
         assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,-1.0]}", Protocol.event("chat", List.of("jump", 3.0, 0.0, -1.0)));
         assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"playerDied\",\"args\":[]}", Protocol.event("playerDied", List.of()));
+        assertEquals("{\"v\":2,\"t\":\"event\",\"name\":\"blockBroken\",\"args\":[1]}", Protocol.event("blockBroken", List.of(1)));
     }
 }

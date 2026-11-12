@@ -36,21 +36,52 @@ namespace pxsim {
         // No prototype, so a keyword such as "constructor" finds no inherited member.
         private chat: { [command: string]: RefAction[] } = Object.create(null);
         private died: RefAction[] = [];
+        /** Issue #89: blocks.onBlockBroken handlers by block code, agent.onRedstonePowered and gameplay.onDayStart handlers. */
+        private broken: { [block: number]: RefAction[] } = {};
+        private redstone: RefAction[] = [];
+        private dayStart: RefAction[] = [];
 
         onChat(command: string, handler: RefAction) {
             (this.chat[command] = this.chat[command] || []).push(handler);
-            this.relay.subscribe(Object.keys(this.chat), this.died.length > 0);
+            this.subscribe();
         }
 
         onDied(handler: RefAction) {
             this.died.push(handler);
-            this.relay.subscribe(Object.keys(this.chat), true);
+            this.subscribe();
+        }
+
+        onBlockBroken(block: number, handler: RefAction) {
+            (this.broken[block] = this.broken[block] || []).push(handler);
+            this.subscribe();
+        }
+
+        onRedstonePowered(handler: RefAction) {
+            this.redstone.push(handler);
+            this.subscribe();
+        }
+
+        onDayStart(handler: RefAction) {
+            this.dayStart.push(handler);
+            this.subscribe();
+        }
+
+        // Everything the program listens for; each subscribe replaces the one before.
+        private subscribe() {
+            this.relay.subscribe({
+                chat: Object.keys(this.chat), died: this.died.length > 0, broken: Object.keys(this.broken).map(Number),
+                redstone: this.redstone.length > 0, dayStart: this.dayStart.length > 0
+            });
         }
 
         /** An event from the game: only for what this program subscribed to. */
         event(name: string, args: any[]) {
+            const run = (handlers: RefAction[]) => (handlers || []).forEach(h => runtime.runFiberAsync(h));
             if (name === "chat") this.runChat(args[0], args.slice(1, 4));
-            else if (name === "playerDied") this.died.forEach(h => runtime.runFiberAsync(h));
+            else if (name === "playerDied") run(this.died);
+            else if (name === "blockBroken") run(this.broken[args[0]]);
+            else if (name === "redstonePowered") run(this.redstone);
+            else if (name === "dayStart") run(this.dayStart);
         }
 
         /** player.runChatCommand: the handlers for the line's first word and for "*", as the game would match it, and nothing sent. */
@@ -199,10 +230,10 @@ namespace pxsim {
             });
         }
 
-        /** Tells the game what the program listens for (issue #27); each call replaces the one before. */
-        async subscribe(chat: string[], died: boolean) {
+        /** Tells the game what the program listens for (issues #27, #89); each call replaces the one before. */
+        async subscribe(what: { chat: string[], died: boolean, broken: number[], redstone: boolean, dayStart: boolean }) {
             await this.connect();
-            this.send({ t: "control", op: "subscribe", run: this.run, chat, died });
+            this.send({ t: "control", op: "subscribe", run: this.run, ...what });
         }
 
         private answer(id: number) {
