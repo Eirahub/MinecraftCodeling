@@ -183,6 +183,17 @@ declare namespace agent {
     function goHome(): boolean;
 
     /**
+     * Walk or fly to another of your robots, the same way as move to, and stop on a free block next to it, facing it.
+     * True when it got there, false when there is no way, no free block next to it, or it moved away meanwhile. The
+     * other robot must be loaded and in the same dimension, and close enough for the search. robots.get("") is agent.
+     * @param robot which of your robots to go to
+     */
+    //% blockId=agent_go_to_robot block="agent go to %robot=robots_get"
+    //% group="Movement" weight=95
+    //% shim=agent::goToRobotAsync promise
+    function goToRobot(robot: Robot): boolean;
+
+    /**
      * Walk along a path of one kind of block (dirt path, gravel, planks, ...) until it ends or splits. Without a block
      * the robot follows the block it stands on. With a block, a robot next to the path steps onto it; one that is not
      * on the path or next to it answers end and says "I am not on the path". It goes forward if it can, else the only way the path goes, one step
@@ -819,6 +830,23 @@ declare namespace agent {
         //% shim=.sayAsync promise
         public say(text: string): void;
 
+        /**
+         * Walk or fly to another of your robots and stop next to it, facing it, like agent go to. True when it got there.
+         * @param other which of your robots to go to
+         */
+        //% blockId=robot_go_to_robot block="%robot=robots_get|go to %other=robots_get"
+        //% blockNamespace=robots weight=88
+        //% shim=.goToRobotAsync promise
+        public goToRobot(other: Robot): boolean;
+
+        /**
+         * Where the robot is: its block position in the world, like agent position.
+         */
+        //% blockId=robot_get_position block="%robot=robots_get|position"
+        //% blockNamespace=robots weight=83
+        //% shim=.getPositionAsync promise
+        public getPosition(): Position;
+
         // The other agent calls, in JavaScript and Python only (no blocks: the agent blocks already show them all).
         /** Like agent.setHome. */
         //%
@@ -874,11 +902,6 @@ declare namespace agent {
         //%
         //% shim=.redstonePowerAsync promise
         public redstonePower(direction: SixDirection): number;
-
-        /** Like agent.getPosition. */
-        //%
-        //% shim=.getPositionAsync promise
-        public getPosition(): Position;
 
         /** Like agent.getOrientation. */
         //%
@@ -1182,7 +1205,8 @@ declare namespace gameplay {
 declare namespace robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its
-     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list).
+     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list). The empty
+     * name "" is your default robot, agent, so Miner go to robot "" walks Miner to agent.
      * @param name the robot's name, eg: "Miner"
      */
     //% blockId=robots_get block="robot %name"
