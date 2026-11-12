@@ -31,8 +31,8 @@ cd ..
 - `npm run build` twice: the first run regenerates `target/libs/core/sims.d.ts` from `target/sim/api.ts` but bundles the old API info. Running it once is enough when `api.ts` did not change. CI always runs it twice.
 - `./gradlew buildEditor` does `npm ci`, one `npm run build` and `npm run staticpkg` in `target/` (output `target/built/packaged`).
 - Use `node node_modules/pxt-core/built/pxt.js` (what the npm scripts call), never `npx pxt`: that installs an unrelated package.
-- `./gradlew build` makes four jars (Fabric and NeoForge, Minecraft 26.3 and 1.21.1) and runs the JUnit tests and the server GameTests for all of them. One jar: `./gradlew :fabric:26.3:build`, `:neoforge:26.3:build`, `:fabric:1.21.1:build` or `:neoforge:1.21.1:build`. Jar names and paths: [README, Build](README.md#build).
-- `src/` holds the 26.3 code. Lines that differ for 1.21.1 are Stonecutter `//? if` comments; keep 26.3 active in git. See [docs/architecture.md](docs/architecture.md), "Several Minecraft versions".
+- `./gradlew build` makes a Fabric and a NeoForge jar for every Minecraft version in `settings.gradle.kts` and runs the JUnit tests and the server GameTests for all of them. One jar: `./gradlew :<loader>:<version>:build`, for example `:fabric:26.3:build` or `:neoforge:1.21.1:build`. Jar names and paths: [README, Build](README.md#build).
+- `src/` holds the 26.3 code. Lines that differ for an older version are Stonecutter `//? if` comments; keep 26.3 active in git. See [docs/architecture.md](docs/architecture.md), "Several Minecraft versions".
 
 ## Run
 
@@ -121,7 +121,7 @@ Maintainers only. `.github/workflows/release.yml` does the build and the upload.
 2. Open a pull request from `develop` to `main` and merge it when CI is green.
 3. Tag the merge commit on `main` and push the tag: `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
 4. The workflow fails if the tag does not match `mod_version` or `CHANGELOG.md` has no `## [X.Y.Z]` section. Otherwise
-   it builds the editor and the four jars (with their tests), and creates a GitHub release with the jars, a
+   it builds the editor and the jars (with their tests), and creates a GitHub release with the jars, a
    `SHA256SUMS` file and the changelog section as notes. Versions starting with `0.` are marked as pre-releases.
 
 ## Code style

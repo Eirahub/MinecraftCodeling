@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.Block;
 //? if >=1.21.11 {
 import net.minecraft.server.permissions.Permissions;
 //?}
-//? if >=26.1
+//? if >=26.3
 import net.minecraft.util.Prediction;
 
 /**
@@ -104,7 +104,7 @@ public final class McCompat {
 
     /** Gives the stack back to the player (the server decides, the client is told), dropping what does not fit. */
     public static void giveBack(Player player, ItemStack stack) {
-        //? if >=26.1 {
+        //? if >=26.3 {
         player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
         //?} else
         /*player.getInventory().placeItemBackInInventory(stack);*/

@@ -95,8 +95,12 @@ public final class RobotCameraClient {
     }
 
     //? if >=1.21.2 {
-    /** End of level extraction: the first-person hand and the fire, water and portal overlays belong to the player. */
+    /**
+     * End of level extraction: the first-person hand and the fire, water and portal overlays belong to the player.
+     * Before 26.3 the level render state has no player part; GameRendererMixin hides the hand there.
+     */
     public static void extracted(LevelRenderState state) {
+        //? if >=26.3
         if (robot != null) state.playerRenderState.reset();
     }
     //?}
