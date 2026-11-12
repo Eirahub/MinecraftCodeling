@@ -8,12 +8,52 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ### Added
 
+- `loops.pause(ms)` and `loops.forever` with the blocks "pause (ms)" and "forever" in the Loops category: wait in
+  one part of a program, and repeat code until the program is stopped (issue #215).
+- Position math in the Positions category: `distanceTo` (straight line, with decimals), `subtract` and `scale` on a
+  position, and `positions.sortByDistance` and `positions.nearest` for a list of positions, so Blocks can pick the
+  closest of a radar list without a function argument (issue #219).
+- An Examples gallery on the editor's start page with the seven example programs the editor suite tests, each with a
+  title, one sentence on what it teaches and an icon, in English and Norwegian. Opening one makes a new project in
+  Blocks, JavaScript or Python. It works offline like the rest of the editor (issue #216).
+- Debug mode in the editor (the bug button under the simulator): breakpoints and Step in Blocks, JavaScript and
+  Python, the running block or line highlighted, the values of the variables while the program is stopped, and
+  Slow-Mo, which highlights each block as it runs. A robot command always finishes before the program stops.
+  "Exit Debug Mode" stops the program; pxt would have run it again from the start (issue #217).
+- A robot command the game refuses throws an error into the program, the text `CODE: message`, so JavaScript
+  `try`/`catch` and Python `try`/`except` can catch it and go on. Not caught, it stops the program with the "Robot
+  error" dialog as before, and the robot log names the command. Stop, `/robot stop`, a lost connection, `STOPPED` and
+  `VERSION` still end the program and cannot be caught. The player guide lists the error codes (issue #218).
+- `control.assert(condition, message)` and `control.fail(message)`, with the blocks "check ... or stop with" and
+  "stop with error" in the Logic category. Python `assert` and `raise` now compile, and they, JavaScript `throw` and
+  the two blocks all stop the program with the message in a "Program error" dialog; debug mode marks the block or line
+  it came from. The "Room and fence" example checks where its line of glass ends (issue #221).
+- A Player category with MakeCode's `player.say`, `player.position`, `player.getOrientation`, `player.name` and
+  `player.teleport` (issue #26). They are about the program's own player only and need no robot. Unlike MakeCode,
+  `say` shows the message to that player only, as plain text of at most 256 characters. `teleport` works for the host
+  of a singleplayer world or an op, in the player's own dimension, inside the world border and the build height;
+  anyone else gets `NO_PERMISSION`. One player call per tick, at most 16 waiting (`RATE_LIMITED`).
+- Chat and death events in the Player category (issue #27): `player.onChat(keyword, handler)` ("on chat command"),
+  `player.onDied(handler)` ("on player died") and `player.runChatCommand(text)` ("run chat command"), in Blocks,
+  JavaScript and Python. A chat line whose first word is a keyword of the sender's running program (or any line for
+  `*`) is not broadcast; the program gets the keyword and up to three numbers parsed as JavaScript's `parseInt`
+  (0 when missing or not a number), never the line. Lines from other players, and every line once the run ends, are
+  broadcast as usual. `/codeling chat <text>` does the same for servers whose chat plugins take chat lines first.
+  `runChatCommand` runs the program's own handlers in the editor and sends nothing to the game. A program with
+  handlers keeps running after its last line until Stop or `/robot stop`. At most 16 keywords of 32 characters per
+  run, and 16 events waiting per player.
 - Mod jars for Minecraft 26.2 and for 26.1 to 26.1.2 (Fabric and NeoForge, Java 25), and for 1.21.11 (Java 21).
+
+### Changed
+
+- `agent.say` turns the section sign (the colour code character) into a space, as `player.say` does.
 
 ### Fixed
 
 - A world moved from Minecraft 1.21.x to 26.x keeps its robots: 26.x reads the robot links from
   `data/codeling_robots.dat` when `data/codeling/robots.dat` is missing.
+- Positions in the lists from `agent.radar` and `agent.findBounds` lost their methods, so `toString` or `toWorld` on
+  one of them failed (issue #219).
 
 ## [0.0.1] - 2026-11-11
 

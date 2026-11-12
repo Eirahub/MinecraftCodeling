@@ -2,6 +2,7 @@ package codeling.robot;
 
 import codeling.McCompat;
 import codeling.Codeling;
+import codeling.net.PlayerEvents;
 import codeling.net.RelayPayloads;
 import codeling.platform.Platform;
 import com.mojang.brigadier.Command;
@@ -62,6 +63,10 @@ public final class RobotCommands {
             detect.then(named(Commands.literal(DIRECTIONS[i]), c -> send(c, "agent.detect", List.of(RobotCommand.KIND_BLOCK, d))));
             drop.then(named(Commands.literal(DIRECTIONS[i]), c -> send(c, "agent.dropAll", List.of(d))));
         }
+        // Issue #27: a chat line for the caller's own program, for servers whose chat plugins take chat lines away. No
+        // operator rights needed: it reaches nobody but the caller's program. /codeling alone is the client's command.
+        dispatcher.register(Commands.literal("codeling").then(Commands.literal("chat")
+                .then(Commands.argument("text", StringArgumentType.greedyString()).executes(RobotCommands::chat))));
         // The slot comes before the robot name, so "give stone 5 3" is slot 3 (robot names start with a letter).
         Command<CommandSourceStack> giveToSlot = c -> give(c, IntegerArgumentType.getInteger(c, "slot"));
         dispatcher.register(Commands.literal("robot")
@@ -112,6 +117,16 @@ public final class RobotCommands {
                 .then(Commands.literal("turn")
                         .then(named(Commands.literal("left"), c -> send(c, "agent.turn", List.of(RobotCommand.LEFT_TURN))))
                         .then(named(Commands.literal("right"), c -> send(c, "agent.turn", List.of(RobotCommand.RIGHT_TURN))))));
+    }
+
+    private static int chat(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        ServerPlayer player = c.getSource().getPlayerOrException();
+        String text = StringArgumentType.getString(c, "text");
+        if (PlayerEvents.chat(player, text)) return 1;
+        c.getSource().sendFailure(Component.literal(PlayerEvents.listensForChat(player.getUUID())
+                ? "Your program has no on chat command for \"" + text.strip().split("\\s+")[0] + "\"."
+                : "No program of yours is listening for chat commands. Run a program with on chat command from the editor first."));
+        return 0;
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> robotName() {

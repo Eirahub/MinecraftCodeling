@@ -81,6 +81,21 @@ class RelayServerTest {
         assertTrue(ms >= RelayServer.STUB_ACK_MS - 20, "acked after " + ms + " ms");
     }
 
+    @Test
+    void sayRefuseGetsThatError() throws Exception {
+        var inbox = new LinkedBlockingQueue<String>();
+        WebSocket ws = connect("http://127.0.0.1:" + PORT, inbox);
+        String token = server.editorUrl().substring(server.editorUrl().indexOf("=") + 1);
+        ws.sendText("{\"v\":2,\"t\":\"hello\",\"token\":\"" + token + "\"}", true).join();
+        assertTrue(inbox.poll(2, TimeUnit.SECONDS).contains("welcome"));
+        ws.sendText("{\"v\":2,\"t\":\"cmd\",\"id\":8,\"run\":0,\"op\":\"agent.say\",\"args\":[\"refuse OUT_OF_RANGE\"]}", true).join();
+        String error = inbox.poll(2, TimeUnit.SECONDS);
+        assertTrue(error.contains("\"t\":\"error\"") && error.contains("\"id\":8") && error.contains("\"code\":\"OUT_OF_RANGE\""), error);
+        ws.sendText("{\"v\":2,\"t\":\"cmd\",\"id\":9,\"run\":0,\"op\":\"agent.say\",\"args\":[\"refuse nothing\"]}", true).join();
+        String result = inbox.poll(2, TimeUnit.SECONDS);
+        assertTrue(result.contains("\"t\":\"result\"") && result.contains("\"id\":9"), result);
+    }
+
     private WebSocket connect(String origin, LinkedBlockingQueue<String> inbox) {
         return http.newWebSocketBuilder()
                 .header("Origin", origin)

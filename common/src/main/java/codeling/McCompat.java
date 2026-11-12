@@ -33,6 +33,14 @@ public final class McCompat {
         /*return player.hasPermissions(2);*/
     }
 
+    /** The host of a singleplayer world (also once it is opened to LAN); false on a dedicated server. */
+    public static boolean isSingleplayerOwner(ServerPlayer player) {
+        //? if >=1.21.9 {
+        return player.level().getServer().isSingleplayerOwner(player.nameAndId());
+        //?} else
+        /*return player.level().getServer().isSingleplayerOwner(player.getGameProfile());*/
+    }
+
     /** The player's level as a ServerLevel (26.x types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
     public static ServerLevel level(ServerPlayer player) {
         //? if >=1.21.11 {

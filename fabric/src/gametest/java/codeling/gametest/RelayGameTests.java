@@ -9,10 +9,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
@@ -220,6 +225,221 @@ public class RelayGameTests {
         helper.assertTrue(RobotCamera.viewing(b.player()) == null, "off");
         b.leave();
         helper.succeed();
+    }
+
+    // The error code for a command, or "none" yet, so a check inside succeedWhen fails softly and is tried again.
+    private static String errorCode(Browser b, long id) {
+        JsonObject error = b.find("error", id);
+        return error == null ? "none" : error.get("code").getAsString();
+    }
+
+    private static String player(long id, long run, String op, String args) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"player." + op + "\",\"args\":" + args + "}";
+    }
+
+    // Issue #26: the player calls answer about the owner, one per tick, without needing the robot.
+    @GameTest
+    public void playerCallsAnswerAboutTheOwner(GameTestHelper helper) {
+        Browser b = browser(helper);
+        b.player().setYRot(-90); // east
+        BlockPos feet = b.player().blockPosition();
+        long run = b.start();
+        b.send(player(1, run, "position", "[]"));
+        b.send(player(2, run, "getOrientation", "[]"));
+        b.send(player(3, run, "name", "[]"));
+        b.send(player(4, run, "say", "[\"Hi §cthere\"]"));
+        b.send(player(5, run - 1, "name", "[]"));
+        helper.assertValueEqual(errorCode(b, 5), "STOPPED", "old run");
+        helper.assertTrue(b.find("result", 1) == null, "answered on the tick, not at once");
+        helper.succeedWhen(() -> {
+            for (int id = 1; id <= 4; id++) helper.assertTrue(b.find("result", id) != null, "result " + id);
+            helper.assertValueEqual(b.find("result", 1).get("value").toString(), "[" + feet.getX() + "," + feet.getY() + "," + feet.getZ() + "]", "position");
+            helper.assertValueEqual(b.find("result", 2).get("value").getAsDouble(), -90.0, "orientation");
+            helper.assertValueEqual(b.find("result", 3).get("value").getAsString(), b.player().getGameProfile().name(), "name");
+            b.leave();
+        });
+    }
+
+    // Issue #26: more than a robot queue's worth of waiting player calls is refused, as a full robot queue is.
+    @GameTest
+    public void playerCallsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        for (int i = 1; i <= 17; i++) b.send(player(i, run, "name", "[]"));
+        helper.assertValueEqual(errorCode(b, 17), "RATE_LIMITED", "17th call");
+        b.leave();
+        helper.succeed();
+    }
+
+    // Issue #26: a player who is neither the singleplayer host nor an operator may not be teleported by their program.
+    @GameTest
+    public void playerTeleportNeedsOperator(GameTestHelper helper) {
+        Browser b = browser(helper);
+        BlockPos before = b.player().blockPosition();
+        BlockPos to = helper.absolutePos(START.above(3));
+        long run = b.start();
+        b.send(player(1, run, "teleport", "[" + to.getX() + "," + to.getY() + "," + to.getZ() + "]"));
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(errorCode(b, 1), "NO_PERMISSION", "not an op");
+            helper.assertValueEqual(b.player().blockPosition(), before, "not moved");
+            b.leave();
+        });
+    }
+
+    // Issue #26: an operator is teleported to the middle of the block; outside the build height is refused.
+    @GameTest
+    public void playerTeleportForAnOperator(GameTestHelper helper) {
+        Browser b = browser(helper);
+        GameTestCompat.op(b.player());
+        BlockPos to = helper.absolutePos(START.above(3));
+        int tooHigh = 20000; // above every build height
+        long run = b.start();
+        b.send(player(1, run, "teleport", "[" + to.getX() + "," + to.getY() + "," + to.getZ() + "]"));
+        b.send(player(2, run, "teleport", "[" + to.getX() + "," + tooHigh + "," + to.getZ() + "]"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 1) != null, "teleport answered");
+            helper.assertValueEqual(b.player().blockPosition(), to, "teleported");
+            helper.assertValueEqual(errorCode(b, 2), "OUT_OF_RANGE", "above the build height");
+            helper.assertValueEqual(b.player().blockPosition(), to, "not moved by the refused call");
+            GameTestCompat.deop(b.player());
+            b.leave();
+        });
+    }
+
+    // ---- Issue #27: chat and death events
+
+    // Every chat line that was broadcast, as "<sender uuid> <text>": CHAT_MESSAGE fires only for lines not held back.
+    private static final Set<String> BROADCAST = ConcurrentHashMap.newKeySet();
+
+    static {
+        ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> BROADCAST.add(sender.getUUID() + " " + message.signedContent()));
+    }
+
+    // A chat line typed by `player`, through the PlayerList call the game's chat handler makes (and Fabric's event).
+    private static void chat(ServerPlayer player, String text) {
+        player.level().getServer().getPlayerList().broadcastChatMessage(PlayerChatMessage.unsigned(player.getUUID(), text), player, ChatType.bind(ChatType.CHAT, player));
+    }
+
+    private static boolean broadcast(ServerPlayer player, String text) {
+        return BROADCAST.contains(player.getUUID() + " " + text);
+    }
+
+    private static void subscribe(Browser b, long run, String fields) {
+        b.send("{\"v\":2,\"t\":\"control\",\"op\":\"subscribe\",\"run\":" + run + fields + "}");
+    }
+
+    private static List<JsonObject> events(Browser b) {
+        return b.inbox().stream().filter(m -> m.get("t").getAsString().equals("event")).toList();
+    }
+
+    @GameTest
+    public void chatLineForTheProgramIsHeldBack(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"chat\":[\"jump\"]");
+        chat(b.player(), "jump 3 x -2 9");
+        chat(b.player(), "hello jump 4");
+        helper.assertTrue(!broadcast(b.player(), "jump 3 x -2 9"), "matching line held back");
+        helper.assertTrue(broadcast(b.player(), "hello jump 4"), "other line broadcast");
+        helper.assertTrue(events(b).isEmpty(), "events wait for the tick");
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(events(b).size(), 1, "one event");
+            helper.assertValueEqual(events(b).getFirst().toString(), "{\"v\":2,\"t\":\"event\",\"name\":\"chat\",\"args\":[\"jump\",3.0,0.0,-2.0]}", "event");
+            b.leave();
+        });
+    }
+
+    // Only the sender's own program hears a line: a program listening for every line ("*") and for its owner's death
+    // gets nothing when another player chats or dies.
+    @GameTest
+    public void anotherPlayersChatNeverReachesTheProgram(GameTestHelper helper) {
+        Browser b = browser(helper);
+        ServerPlayer other = helper.makeMockServerPlayerInLevel();
+        long run = b.start();
+        subscribe(b, run, ",\"chat\":[\"*\"],\"died\":true");
+        chat(other, "jump 5");
+        other.die(other.damageSources().genericKill());
+        helper.assertTrue(broadcast(other, "jump 5"), "other player's line broadcast");
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(events(b).isEmpty(), "no event: " + events(b));
+            helper.getLevel().getServer().getPlayerList().remove(other);
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // Stop from the editor or /robot stop: the subscriptions are gone at once and chat is broadcast again; /robot stop
+    // also tells the editor on the next tick, since a program with only handlers has no command waiting.
+    @GameTest
+    public void subscriptionsEndWithTheRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"chat\":[\"jump\"]");
+        helper.getLevel().getServer().getCommands().performPrefixedCommand(b.player().createCommandSourceStack(), "robot stop");
+        chat(b.player(), "jump 1");
+        helper.assertTrue(broadcast(b.player(), "jump 1"), "broadcast after /robot stop");
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(b.inbox().stream().anyMatch(m -> m.get("t").getAsString().equals("control") && m.get("op").getAsString().equals("stop")
+                    && m.get("run").getAsLong() == run), "editor told about /robot stop");
+            long second = b.start();
+            subscribe(b, second, ",\"chat\":[\"jump\"]");
+            b.send("{\"v\":2,\"t\":\"control\",\"op\":\"stop\",\"run\":" + second + "}");
+            chat(b.player(), "jump 2");
+            helper.assertTrue(broadcast(b.player(), "jump 2"), "broadcast after Stop");
+            subscribe(b, second, ",\"chat\":[\"jump\"]");
+            helper.assertValueEqual(b.inbox().getLast().get("code").getAsString(), "STOPPED", "subscribe for an ended run");
+            helper.runAfterDelay(3, () -> {
+                helper.assertTrue(events(b).isEmpty(), "no events");
+                b.leave();
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest
+    public void deathEventForTheOwner(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"died\":true");
+        b.player().die(b.player().damageSources().genericKill());
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(events(b).size(), 1, "one event");
+            helper.assertValueEqual(events(b).getFirst().get("name").getAsString(), "playerDied", "name");
+            b.leave();
+        });
+    }
+
+    // /codeling chat needs no operator rights; without a listening program, or for another word, nothing happens.
+    @GameTest
+    public void codelingChatCommand(GameTestHelper helper) {
+        Browser b = browser(helper);
+        var commands = helper.getLevel().getServer().getCommands();
+        commands.performPrefixedCommand(b.player().createCommandSourceStack(), "codeling chat jump 4");
+        long run = b.start();
+        subscribe(b, run, ",\"chat\":[\"jump\"]");
+        commands.performPrefixedCommand(b.player().createCommandSourceStack(), "codeling chat hop 4");
+        commands.performPrefixedCommand(b.player().createCommandSourceStack(), "codeling chat jump 7 8");
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(events(b).size(), 1, "one event");
+            helper.assertValueEqual(events(b).getFirst().get("args").toString(), "[\"jump\",7.0,8.0,0.0]", "args");
+            b.leave();
+        });
+    }
+
+    // At most 16 events wait for one player; the rest are dropped, and their lines are still held back.
+    @GameTest(maxTicks = 60)
+    public void waitingEventsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"chat\":[\"n\"]");
+        for (int i = 1; i <= 20; i++) chat(b.player(), "n " + i);
+        helper.assertTrue(!broadcast(b.player(), "n 20"), "held back");
+        helper.runAfterDelay(30, () -> {
+            helper.assertValueEqual(events(b).size(), 16, "events");
+            helper.assertValueEqual(events(b).getLast().get("args").getAsJsonArray().get(1).getAsDouble(), 16.0, "last kept");
+            b.leave();
+            helper.succeed();
+        });
     }
 
     private static String camera(long id, long run, int mode) {

@@ -40,11 +40,15 @@ public final class ServerRelay {
     public static void playerLeft(ServerPlayer player) {
         UUID owner = player.getUUID();
         SESSIONS.remove(owner);
+        PlayerApi.playerLeft(owner);
+        PlayerEvents.ended(owner);
         RobotManager.stop(owner, "the player left the game");
     }
 
     public static void serverStopped() {
         SESSIONS.clear();
+        PlayerApi.serverStopped();
+        PlayerEvents.serverStopped();
     }
 
     // Looks the player up by UUID on every send, so a respawned player (new ServerPlayer object) still gets replies.
@@ -67,7 +71,7 @@ public final class ServerRelay {
                     Protocol.Cmd cmd = Protocol.cmd(msg);
                     SESSIONS.touch(owner, cmd.run(), now);
                     RobotLinks.Key key = new RobotLinks.Key(owner, cmd.robot());
-                    if (toWorld(player, cmd, out) || camera(player, key, cmd, out)) return;
+                    if (toWorld(player, cmd, out) || camera(player, key, cmd, out) || PlayerApi.submit(player, cmd, out)) return;
                     RobotManager.submit(key, cmd.run(), cmd.command(), result -> out.accept(Protocol.reply(cmd.id(), result)));
                 }
                 default -> throw new RobotException(Result.Code.BAD_ARGS, "unknown message type " + Protocol.type(msg));
@@ -113,16 +117,20 @@ public final class ServerRelay {
         RobotQueue queue = RobotManager.queue(owner);
         String robot = Protocol.robot(msg);
         if (op.equals("start")) {
+            PlayerEvents.ended(owner);
             long run = RobotManager.start(owner);
             RobotManager.runStarted(owner, name);
             SESSIONS.start(owner, run, now, out);
             out.accept(Protocol.control("start", run, null));
             return;
         }
-        // shortcut: no events until step 3 (chat, playerDied), so subscribe is accepted and ignored.
-        if (op.equals("subscribe")) return;
         Long run = Protocol.run(msg);
         boolean current = run != null && run == queue.run();
+        if (op.equals("subscribe")) {
+            if (!current) throw new RobotException(Result.Code.STOPPED, "run " + run + " is no longer active");
+            PlayerEvents.subscribe(owner, name, run, Protocol.subscription(msg), out);
+            return;
+        }
         switch (op) {
             case "stop" -> {
                 // Only the run the message names: a closing old tab must not stop the run a newer one started.
@@ -131,6 +139,7 @@ public final class ServerRelay {
                 } else if (current) {
                     RobotManager.stop(owner, "the editor sent stop (Stop button, or the editor was closed)");
                     SESSIONS.remove(owner);
+                    PlayerEvents.ended(owner);
                 }
             }
             case "heartbeat" -> {
@@ -150,7 +159,10 @@ public final class ServerRelay {
     }
 
     public static void tick(MinecraftServer server) {
+        PlayerApi.tick();
+        PlayerEvents.tick();
         for (Map.Entry<UUID, Sessions.Session> e : SESSIONS.expire(server.getTickCount())) {
+            PlayerEvents.ended(e.getKey());
             if (RobotManager.queue(e.getKey()).run() == e.getValue().run) RobotManager.stop(e.getKey(), "no heartbeat from the editor (it was closed or lost contact)");
             e.getValue().out.accept(Protocol.control("stop", e.getValue().run,
                     "No heartbeat from the editor for " + Protocol.HEARTBEAT_TIMEOUT_MS / 1000 + " s, so the game stopped the robot."));

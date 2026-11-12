@@ -1,8 +1,10 @@
 package codeling.relay;
 
+import codeling.net.ChatCommands;
 import codeling.net.Protocol;
 import codeling.robot.Result;
 import codeling.robot.RobotCommand;
+import codeling.robot.RobotException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -50,6 +52,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -118,6 +122,9 @@ public final class RelayServer implements AutoCloseable {
             Map.entry("txt", "text/plain; charset=utf-8"),
             Map.entry("md", "text/plain; charset=utf-8"),
             Map.entry("xml", "application/xml"));
+
+    // Only a plain locale name (nb, en-GB), so the query can never add a path part.
+    private static final Pattern DOCS_LANG = Pattern.compile("[?&]lang=([a-z]{2,3}(?:-[A-Za-z]{2,4})?)(?:&|$)");
 
     private final int port;
     private final Link link;
@@ -420,6 +427,13 @@ public final class RelayServer implements AutoCloseable {
             return text(out, req, 400, "bad path");
         }
         URLConnection file = open(rel);
+        // A packaged pxt editor asks for docs pages as docs/<page>.md?lang=<locale> and has no translations of its own
+        // offline, so a docs/_locales/<locale>/<page>.md shipped with the editor (issue #216) answers in its place.
+        Matcher lang = DOCS_LANG.matcher(req.target());
+        if (rel.startsWith("docs/") && rel.endsWith(".md") && lang.find()) {
+            URLConnection localized = open("docs/_locales/" + lang.group(1) + "/" + rel.substring("docs/".length()));
+            if (localized != null) file = localized;
+        }
         if (file == null && !rel.contains(".")) {
             rel = rel + ".html"; // pxt static docs routes such as /about
             file = open(rel);
@@ -576,6 +590,8 @@ public final class RelayServer implements AutoCloseable {
         private final AtomicLong pending = new AtomicLong();
         private volatile boolean authed;
         volatile long run = -1;
+        // Standalone only: what the program listens for, for the chat and death events of player.say below.
+        private Protocol.Subscription subscribed = new Protocol.Subscription(Set.of(), false);
 
         RelaySession(Socket socket, DataInputStream in, OutputStream out) {
             this.socket = socket;
@@ -738,19 +754,43 @@ public final class RelayServer implements AutoCloseable {
         // Standalone: run 0 for every start, and a delayed ok for every command (a fake value for the position and container queries).
         private void stub(String type, JsonObject msg, Long id) {
             if (type.equals("control")) {
-                if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("start")) write(Protocol.control("start", 0, null));
+                String op = msg.get("op") instanceof JsonPrimitive p ? p.getAsString() : "";
+                if (op.equals("start")) write(Protocol.control("start", 0, null));
+                if (op.equals("subscribe")) {
+                    try {
+                        subscribed = Protocol.subscription(msg);
+                    } catch (RobotException e) {
+                        write(Protocol.error(null, e.code, e.getMessage()));
+                    }
+                }
                 return;
             }
             if (id == null) {
                 write(Protocol.error(null, Result.Code.BAD_ARGS, "cmd needs an id"));
                 return;
             }
+            // For the editor suite (issue #218): say "refuse <CODE>" is refused with that code, as the game refuses a command.
+            String said = msg.get("args") instanceof JsonArray a && a.size() == 1 && a.get(0) instanceof JsonPrimitive p && p.isString() ? p.getAsString() : "";
+            Result.Code refusal = java.util.Arrays.stream(Result.Code.values()).filter(c -> said.equals("refuse " + c.name())).findFirst().orElse(null);
+            if (refusal != null && msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("agent.say")) {
+                schedule(() -> write(Protocol.error(id, refusal, "refused on purpose by the standalone relay")), STUB_ACK_MS);
+                return;
+            }
+            // For the editor suite (issue #27): player.say "chat <line>" is that chat line and "die" a death, as the
+            // game would send them to a program that listens for them.
+            if (msg.get("op") instanceof JsonPrimitive op && op.getAsString().equals("player.say")) {
+                String command = said.startsWith("chat ") ? ChatCommands.match(subscribed.chat(), said.substring(5)) : null;
+                double[] n = command == null ? null : ChatCommands.numbers(said.substring(5));
+                String event = command != null ? Protocol.event("chat", java.util.List.of(command, n[0], n[1], n[2]))
+                        : said.equals("die") && subscribed.died() ? Protocol.event("playerDied", java.util.List.of()) : null;
+                if (event != null) schedule(() -> write(event), STUB_ACK_MS);
+            }
             // The second argument (max or length) as a number from 0 to MAX_MEASURE, for the measuring answers.
             int second = msg.get("args") instanceof JsonArray a && a.size() > 1 && a.get(1) instanceof JsonPrimitive p && p.isNumber()
                     ? (int) Math.max(0, Math.min((long) p.getAsDouble(), RobotCommand.MAX_MEASURE)) : 0;
             Object value = switch (msg.get("op") instanceof JsonPrimitive op ? op.getAsString() : "") {
-                case "agent.getPosition", "agent.findNearest", "agent.findNearestCategory" -> java.util.List.of(0, 0, 0);
-                case "agent.getOrientation", "agent.containerCount", "agent.takeItem", "agent.craft", "agent.stonecut", "agent.redstonePower" -> 0;
+                case "agent.getPosition", "agent.findNearest", "agent.findNearestCategory", "player.position" -> java.util.List.of(0, 0, 0);
+                case "agent.getOrientation", "player.getOrientation", "agent.containerCount", "agent.takeItem", "agent.craft", "agent.stonecut", "agent.redstonePower" -> 0;
                 case "agent.containerSize" -> 27; // a chest
                 // measuring: open ground at y 64 as far as the program looks
                 case "agent.measure", "agent.measureGap" -> second;
@@ -772,6 +812,7 @@ public final class RelayServer implements AutoCloseable {
                 case "blocks.fill", "shapes.line", "shapes.circle", "shapes.sphere", "shapes.maze" -> 0;
                 // as if the player stood at 0 0 0 facing south, where relative and local both equal the offsets
                 case "positions.toWorld" -> msg.get("args") instanceof JsonArray a && a.size() == 4 ? java.util.List.of(a.get(1), a.get(2), a.get(3)) : true;
+                case "player.name" -> "standalone"; // the welcome's player name
                 default -> true;
             };
             schedule(() -> write(Protocol.reply(id, Result.ok(value))), STUB_ACK_MS);

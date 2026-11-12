@@ -6,12 +6,15 @@ import codeling.net.ServerRelay;
 import codeling.robot.RobotCommands;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.ChatType;
 
 /** Fabric entrypoint: registers the payloads and wires Fabric's events to the common hooks in {@link Codeling}. */
 public final class CodelingFabric implements ModInitializer {
@@ -34,6 +37,10 @@ public final class CodelingFabric implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(Codeling::serverTick);
         ServerPlayConnectionEvents.DISCONNECT.register((listener, server) -> Codeling.playerLeft(listener.player));
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> Codeling.serverStopped());
+        // Issue #27: chat lines (not /say or /me) on the server thread; false keeps a line for its sender's program.
+        ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) ->
+                !(params.chatType().is(ChatType.CHAT) && Codeling.chat(sender, message.signedContent())));
+        ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> Codeling.died(entity));
         CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> RobotCommands.register(dispatcher));
     }
 }
