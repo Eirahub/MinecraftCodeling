@@ -222,6 +222,85 @@ public class RelayGameTests {
         helper.succeed();
     }
 
+    // The error code for a command, or "none" yet, so a check inside succeedWhen fails softly and is tried again.
+    private static String errorCode(Browser b, long id) {
+        JsonObject error = b.find("error", id);
+        return error == null ? "none" : error.get("code").getAsString();
+    }
+
+    private static String player(long id, long run, String op, String args) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"player." + op + "\",\"args\":" + args + "}";
+    }
+
+    // Issue #26: the player calls answer about the owner, one per tick, without needing the robot.
+    @GameTest
+    public void playerCallsAnswerAboutTheOwner(GameTestHelper helper) {
+        Browser b = browser(helper);
+        b.player().setYRot(-90); // east
+        BlockPos feet = b.player().blockPosition();
+        long run = b.start();
+        b.send(player(1, run, "position", "[]"));
+        b.send(player(2, run, "getOrientation", "[]"));
+        b.send(player(3, run, "name", "[]"));
+        b.send(player(4, run, "say", "[\"Hi §cthere\"]"));
+        b.send(player(5, run - 1, "name", "[]"));
+        helper.assertValueEqual(errorCode(b, 5), "STOPPED", "old run");
+        helper.assertTrue(b.find("result", 1) == null, "answered on the tick, not at once");
+        helper.succeedWhen(() -> {
+            for (int id = 1; id <= 4; id++) helper.assertTrue(b.find("result", id) != null, "result " + id);
+            helper.assertValueEqual(b.find("result", 1).get("value").toString(), "[" + feet.getX() + "," + feet.getY() + "," + feet.getZ() + "]", "position");
+            helper.assertValueEqual(b.find("result", 2).get("value").getAsDouble(), -90.0, "orientation");
+            helper.assertValueEqual(b.find("result", 3).get("value").getAsString(), b.player().getGameProfile().name(), "name");
+            b.leave();
+        });
+    }
+
+    // Issue #26: more than a robot queue's worth of waiting player calls is refused, as a full robot queue is.
+    @GameTest
+    public void playerCallsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        for (int i = 1; i <= 17; i++) b.send(player(i, run, "name", "[]"));
+        helper.assertValueEqual(errorCode(b, 17), "RATE_LIMITED", "17th call");
+        b.leave();
+        helper.succeed();
+    }
+
+    // Issue #26: a player who is neither the singleplayer host nor an operator may not be teleported by their program.
+    @GameTest
+    public void playerTeleportNeedsOperator(GameTestHelper helper) {
+        Browser b = browser(helper);
+        BlockPos before = b.player().blockPosition();
+        BlockPos to = helper.absolutePos(START.above(3));
+        long run = b.start();
+        b.send(player(1, run, "teleport", "[" + to.getX() + "," + to.getY() + "," + to.getZ() + "]"));
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(errorCode(b, 1), "NO_PERMISSION", "not an op");
+            helper.assertValueEqual(b.player().blockPosition(), before, "not moved");
+            b.leave();
+        });
+    }
+
+    // Issue #26: an operator is teleported to the middle of the block; outside the build height is refused.
+    @GameTest
+    public void playerTeleportForAnOperator(GameTestHelper helper) {
+        Browser b = browser(helper);
+        GameTestCompat.op(b.player());
+        BlockPos to = helper.absolutePos(START.above(3));
+        int tooHigh = 20000; // above every build height
+        long run = b.start();
+        b.send(player(1, run, "teleport", "[" + to.getX() + "," + to.getY() + "," + to.getZ() + "]"));
+        b.send(player(2, run, "teleport", "[" + to.getX() + "," + tooHigh + "," + to.getZ() + "]"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 1) != null, "teleport answered");
+            helper.assertValueEqual(b.player().blockPosition(), to, "teleported");
+            helper.assertValueEqual(errorCode(b, 2), "OUT_OF_RANGE", "above the build height");
+            helper.assertValueEqual(b.player().blockPosition(), to, "not moved by the refused call");
+            GameTestCompat.deop(b.player());
+            b.leave();
+        });
+    }
+
     private static String camera(long id, long run, int mode) {
         return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"agent.camera\",\"args\":[" + mode + "]}";
     }
