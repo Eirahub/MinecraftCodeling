@@ -768,8 +768,8 @@ public final class RelayServer implements AutoCloseable {
             int second = msg.get("args") instanceof JsonArray a && a.size() > 1 && a.get(1) instanceof JsonPrimitive p && p.isNumber()
                     ? (int) Math.max(0, Math.min((long) p.getAsDouble(), RobotCommand.MAX_MEASURE)) : 0;
             Object value = switch (msg.get("op") instanceof JsonPrimitive op ? op.getAsString() : "") {
-                case "agent.getPosition", "agent.findNearest", "agent.findNearestCategory" -> java.util.List.of(0, 0, 0);
-                case "agent.getOrientation", "agent.containerCount", "agent.takeItem", "agent.craft", "agent.stonecut", "agent.redstonePower" -> 0;
+                case "agent.getPosition", "agent.findNearest", "agent.findNearestCategory", "player.position" -> java.util.List.of(0, 0, 0);
+                case "agent.getOrientation", "player.getOrientation", "agent.containerCount", "agent.takeItem", "agent.craft", "agent.stonecut", "agent.redstonePower" -> 0;
                 case "agent.containerSize" -> 27; // a chest
                 // measuring: open ground at y 64 as far as the program looks
                 case "agent.measure", "agent.measureGap" -> second;
@@ -791,6 +791,7 @@ public final class RelayServer implements AutoCloseable {
                 case "blocks.fill", "shapes.line", "shapes.circle", "shapes.sphere", "shapes.maze" -> 0;
                 // as if the player stood at 0 0 0 facing south, where relative and local both equal the offsets
                 case "positions.toWorld" -> msg.get("args") instanceof JsonArray a && a.size() == 4 ? java.util.List.of(a.get(1), a.get(2), a.get(3)) : true;
+                case "player.name" -> "standalone"; // the welcome's player name
                 default -> true;
             };
             schedule(() -> write(Protocol.reply(id, Result.ok(value))), STUB_ACK_MS);
