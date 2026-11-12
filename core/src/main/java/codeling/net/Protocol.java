@@ -1,5 +1,6 @@
 package codeling.net;
 
+import codeling.api.Signals;
 import codeling.robot.BlockIds;
 import codeling.robot.Result;
 import codeling.robot.RobotCommand;
@@ -91,13 +92,15 @@ public final class Protocol {
 
     /** At most this many blocks in a program's on block broken handlers (issue #89), as many as chat keywords. */
     public static final int MAX_BROKEN_BLOCKS = 16;
+    /** At most this many signal names in a program's on signal handlers (issue #249), as many as chat keywords. */
+    public static final int MAX_SIGNALS = 16;
 
     /**
      * What a program listens for (issue #27): its onChat keywords and whether it has an onDied handler; issue #89 adds
      * the blocks of its onBlockBroken handlers ({@link BlockIds} codes) and whether it has onRedstonePowered and
-     * onDayStart handlers.
+     * onDayStart handlers. Issue #249 adds the names of its signals.onReceived handlers.
      */
-    public record Subscription(Set<String> chat, boolean died, Set<Integer> broken, boolean redstone, boolean dayStart) {
+    public record Subscription(Set<String> chat, boolean died, Set<Integer> broken, boolean redstone, boolean dayStart, Set<String> signals) {
     }
 
     /**
@@ -105,7 +108,8 @@ public final class Protocol {
      * when the program has an onDied handler (optional). Each keyword is checked by {@link ChatCommands#keywordProblem}.
      * Issue #89, all optional so an older editor's message still fits: {@code broken}, an array of known block codes
      * (not air), and {@code redstone} and {@code dayStart}, true or false. Unknown fields are ignored, as an older
-     * server ignores these.
+     * server ignores these. Issue #249, optional too: {@code signals}, an array of signal names, each checked by
+     * {@link Signals#nameProblem}.
      */
     public static Subscription subscription(JsonObject msg) throws RobotException {
         Set<String> chat = new LinkedHashSet<>();
@@ -135,7 +139,18 @@ public final class Protocol {
                 throw new RobotException(Result.Code.BAD_ARGS, "a program may listen for at most " + MAX_BROKEN_BLOCKS + " broken blocks");
             }
         }
-        return new Subscription(Set.copyOf(chat), flag(msg, "died"), Set.copyOf(broken), flag(msg, "redstone"), flag(msg, "dayStart"));
+        Set<String> signals = new LinkedHashSet<>();
+        if (msg.has("signals")) {
+            if (!(msg.get("signals") instanceof JsonArray array)) throw new RobotException(Result.Code.BAD_ARGS, "signals must be an array of signal names");
+            for (JsonElement e : array) {
+                if (!(e instanceof JsonPrimitive p) || !p.isString()) throw new RobotException(Result.Code.BAD_ARGS, "signals must be an array of signal names");
+                String problem = Signals.nameProblem(p.getAsString());
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                signals.add(p.getAsString());
+            }
+            if (signals.size() > MAX_SIGNALS) throw new RobotException(Result.Code.BAD_ARGS, "a program may listen for at most " + MAX_SIGNALS + " signals");
+        }
+        return new Subscription(Set.copyOf(chat), flag(msg, "died"), Set.copyOf(broken), flag(msg, "redstone"), flag(msg, "dayStart"), Set.copyOf(signals));
     }
 
     private static boolean flag(JsonObject msg, String name) throws RobotException {
@@ -147,7 +162,7 @@ public final class Protocol {
     /**
      * An {@code event} for a handler the program subscribed to: {@code chat} with [keyword, num1, num2, num3],
      * {@code playerDied} with [], and (issue #89) {@code blockBroken} with [block code], {@code redstonePowered} and
-     * {@code dayStart} with [].
+     * {@code dayStart} with [], and (issue #249) {@code signal} with [name, value].
      */
     public static String event(String name, List<?> args) {
         JsonObject o = envelope("event");

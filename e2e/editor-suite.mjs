@@ -8,7 +8,8 @@
 //   4. position math (issue #219): distance, subtract, scale, sort by distance and nearest give the right numbers,
 //      the player calls (issue #26) and go to robot (issue #243) send their ops and use the relay's answers; chat and death events (issue #27)
 //      run their handlers with the numbers, keep the program running until Stop, and runChatCommand sends nothing;
-//      block broken, redstone and day start events (issue #89) run their handlers;
+//      block broken, redstone and day start events (issue #89) run their handlers; a signal runs its handler with its
+//      number and signals.send answers false with no other mod (issue #249);
 //   5. robot errors and assert (issues #218, #221): a refused command is caught in JavaScript, Python and run in
 //      parallel code, and nobody catching it, STOPPED and Stop end the program; assert, raise and throw end it with
 //      their message;
@@ -298,6 +299,22 @@ player.say("day")
 console.log("top level done")
 `;
 
+// Issue #249: the standalone relay turns player.say "signal <name> [number]" into a signal for a program that listens
+// for that name. qr-lake has no handler; lamp comes without a number, so its handler gets 0. No other mod listens to
+// the standalone relay, so signals.send answers false with a message in the log.
+const SIGNALS = `signals.onReceived("qr-forest", function (value) {
+    console.log("forest " + value)
+})
+signals.onReceived("lamp", function (value) {
+    console.log("lamp " + value)
+})
+player.say("signal qr-lake 9")
+player.say("signal qr-forest 3")
+player.say("signal lamp")
+signals.send("lamp-red")
+console.log("top level done")
+`;
+
 async function eventsSection(page, relay) {
     step("events: on chat command and on player died keep the program running until Stop");
     await setProgram(page, "ts", EVENTS);
@@ -333,6 +350,23 @@ async function eventsSection(page, relay) {
     await editor.stop(page);
     // The handlers and the rest of the program run side by side, so only which lines came is checked.
     check(JSON.stringify([...heard].sort()) === JSON.stringify(["diamond", "morning", "powered", "top level done"]), "more events", `said ${JSON.stringify(heard)}`);
+
+    step("events: a signal runs its handler with its number, and signals.send answers false with no other mod");
+    await setProgram(page, "ts", SIGNALS);
+    await editor.start(page);
+    const sent = Date.now();
+    let signals = [];
+    while (Date.now() - sent < 30000 && signals.filter(l => l.startsWith("say: ")).length < 3) {
+        await page.waitForTimeout(100);
+        signals = await editor.robotLog(page);
+    }
+    await page.waitForTimeout(500);
+    signals = await editor.robotLog(page);
+    await editor.stop(page);
+    const signalSays = signals.filter(l => l.startsWith("say: ")).map(l => l.slice(5));
+    check(JSON.stringify([...signalSays].sort()) === JSON.stringify(["forest 3", "lamp 0", "top level done"]), "signals", `said ${JSON.stringify(signalSays)}`);
+    check(signals.includes("signals.send lamp-red: false")
+        && signals.includes("No mod on this server listens for signals, so \"lamp-red\" went nowhere."), "signals", `robot log ${JSON.stringify(signals)}`);
 
     step("events: run chat command stays in the editor");
     const cmds = relay.cmds();

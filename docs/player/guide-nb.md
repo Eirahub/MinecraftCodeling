@@ -389,6 +389,35 @@ while (gameplay.timeOfDay() < 12000) {
 }
 ```
 
+### Signaler (kategorien Signaler)
+
+Et signal er et navn, som `qr-forest` eller `lamp-red`. En annen mod på serveren kan sende et til deg, for eksempel
+når du skanner en QR-kode ved en post i et museum eller når et sjekkpunkt, og programmet ditt kan sende et til de
+andre modene, for eksempel for å slå på en lampe. En operatør kan sende et med `/codeling signal` (se
+"Chattekommandoer" under), slik at en kommandoblokk eller et kart kan sende signaler uten noen annen mod.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| når signal (navn) kommer | `signals.onReceived("qr-forest", function (value) { })` | Kjører koden sin når et signal med det navnet kommer til deg. `value` er tallet det har med, 0 når det ikke har noe. |
+| send signal (navn) | `signals.send("lamp-red")` | Sender navnet til de andre modene på serveren. Robotloggen viser sann når en mod tok det, ellers usann og hvorfor. |
+
+```
+signals.onReceived("qr-forest", function (value) {
+    agent.move(SixDirection.Forward, value)
+})
+signals.send("lamp-red")
+```
+
+- Et navn er ett ord av bokstaver, sifre, `-` og `_`, 1 til 32 tegn. Store og små bokstaver teller: `Lamp` og `lamp`
+  er to navn. Et program kan lytte etter høyst 16 navn.
+- Et signal kommer bare til ditt eget program, bare mens det kjører og har en "når signal"-blokk for det navnet.
+  Signaler deler de 16 ventende hendelsene med chat, død, blokker, redstone og dagen.
+- "send signal" sender bare navnet, aldri noe annet fra programmet ditt. Det går til de andre modene på serveren,
+  aldri til en annen spillers program og aldri tilbake til ditt eget. Samme navn går høyst én gang i sekundet; et
+  nytt før det svarer usann. På en server uten en mod som lytter, svarer det alltid usann.
+- Et program med en "når signal"-blokk fortsetter å kjøre etter siste linje, til du trykker på stopp eller skriver
+  `/robot stop`.
+
 ### Posisjoner (kategorien Posisjoner)
 
 | Blokk | JavaScript | Hva den gjør |
@@ -533,6 +562,7 @@ standardroboten din.
 |---|---|
 | `/codeling` | Åpner editoren i nettleseren. |
 | `/codeling chat <tekst>` | Sender en chattelinje til "når chatkommando"-koden i ditt eget program, slik det å skrive den i chatten ville gjort. Virker på servere der chatteutvidelser tar chattelinjene først. Sier fra når ingen av programmene dine lytter. |
+| `/codeling signal <spillere> <navn> [tall]` | Sender et signal til programmene til spillerne du nevner (for eksempel `@a` eller et spillernavn), med tallet (0 uten tall). Bare for operatører, og for kommandoblokker. Den sier hvor mange programmer som fikk det, og nevner spillerne det ikke nådde. |
 | `/robot spawn [navn]` | Lager roboten din, eller flytter den til deg. Stopper et program som kjører. En ny robot med navn trenger plass under `codeling:max_robots`. |
 | `/robot list` | Robotene dine og hvor de er. |
 | `/robot remove <navn>` | Fjerner en robot med navn. Tingene den har, får du. |
@@ -592,7 +622,8 @@ Grensene holder spillet raskt for alle.
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
 - `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
 - Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
-- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn, og høyst 16 slags ødelagte blokker. Høyst 16 hendelser venter på det.
+- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn, høyst 16 slags ødelagte blokker og høyst 16 signalnavn. Høyst 16 hendelser venter på det.
+- "send signal" sender samme navn høyst én gang i sekundet.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -610,6 +641,8 @@ Grensene holder spillet raskt for alle.
 - Et program hører bare chatkommandoene, døden og de ødelagte blokkene til sin egen spiller, redstonesignalet til sin
   egen robot og dagen i sin egen spillers verden, aldri noe om en annen spiller. En chattelinje holdes bare tilbake
   fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
+- Et signal når bare programmet til spilleren det ble sendt til. "send signal" i et program går bare til de andre
+  modene på serveren, aldri til en annen spiller, og har bare med navnet.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 

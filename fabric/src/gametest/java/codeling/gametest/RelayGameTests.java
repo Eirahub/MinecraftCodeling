@@ -1,6 +1,7 @@
 package codeling.gametest;
 
 import codeling.Codeling;
+import codeling.api.Signals;
 import codeling.McCompat;
 import codeling.net.Protocol;
 import codeling.net.ServerRelay;
@@ -8,6 +9,7 @@ import codeling.robot.RobotCamera;
 import codeling.robot.RobotManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -580,6 +582,169 @@ public class RelayGameTests {
             helper.assertTrue(events(b).isEmpty(), "no events: " + events(b));
             b.leave();
             helper.succeed();
+        });
+    }
+
+    // ---- Issue #249: signals
+
+    private static String send(long id, long run, String name) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"signals.send\",\"args\":[\"" + name + "\"]}";
+    }
+
+    // A post from another thread reaches only the named player's run, and only for a name it listens for. Another
+    // player listening for the same name gets nothing.
+    @GameTest
+    public void signalReachesOnlyTheNamedPlayersListeningRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        Browser other = new Browser(helper, helper.makeMockServerPlayerInLevel(), new ArrayList<>());
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr-forest\"]");
+        subscribe(other, other.start(), ",\"signals\":[\"qr-forest\"]");
+        Thread bridge = new Thread(() -> {
+            Signals.post(b.player().getUUID(), "qr-forest", 3);
+            Signals.post(b.player().getUUID(), "qr-lake", 4);
+        });
+        bridge.start();
+        try {
+            bridge.join();
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
+        helper.assertTrue(events(b).isEmpty(), "delivered on the tick");
+        helper.runAfterDelay(5, () -> {
+            helper.assertValueEqual(events(b).stream().map(JsonObject::toString).toList(),
+                    List.of("{\"v\":2,\"t\":\"event\",\"name\":\"signal\",\"args\":[\"qr-forest\",3.0]}"), "events");
+            helper.assertTrue(events(other).isEmpty(), "nothing for the other player: " + events(other));
+            other.leave();
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /robot stop ends the subscription: a signal afterwards gives nothing, and neither does one for a player who is not here.
+    @GameTest
+    public void signalsEndWithTheRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr\"]");
+        helper.getLevel().getServer().getCommands().performPrefixedCommand(b.player().createCommandSourceStack(), "robot stop");
+        Signals.post(b.player().getUUID(), "qr", 1);
+        Signals.post(java.util.UUID.randomUUID(), "qr", 1);
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(events(b).isEmpty(), "no events: " + events(b));
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // Twenty signals in one tick: 16 wait in the shared event queue and the rest are dropped.
+    @GameTest(maxTicks = 60)
+    public void signalEventsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"n\"]");
+        for (int i = 1; i <= 20; i++) Signals.post(b.player().getUUID(), "n", i);
+        helper.runAfterDelay(30, () -> {
+            helper.assertValueEqual(events(b).size(), 16, "events");
+            helper.assertValueEqual(events(b).getLast().get("args").getAsJsonArray().get(1).getAsDouble(), 16.0, "last kept");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /codeling signal: operators only; it answers how many programs it reached, 0 for a player with no listening program.
+    @GameTest
+    public void codelingSignalCommand(GameTestHelper helper) {
+        Browser b = browser(helper);
+        ServerPlayer idle = helper.makeMockServerPlayerInLevel();
+        var server = helper.getLevel().getServer();
+        // An operator's command run as the player, so @s is them (a mock player's name is not unique).
+        var op = server.createCommandSourceStack().withSuppressedOutput().withEntity(b.player());
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr\"]");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr 2.5", op), 1, "reached");
+        helper.assertValueEqual(execute(helper, "codeling signal @s door", op), 0, "a name it does not listen for");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr", op.withEntity(idle)), 0, "no listening program");
+        helper.assertValueEqual(execute(helper, "codeling signal @s \"two words\"", op), 0, "bad name");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr 9", b.player().createCommandSourceStack()), -1, "not for a player without operator rights");
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("args").toString()).toList(), List.of("[\"qr\",2.5]"), "events");
+            server.getPlayerList().remove(idle);
+            b.leave();
+        });
+    }
+
+    // The command's result, or -1 when it is refused before it runs (unknown to the source, or a syntax error).
+    private static int execute(GameTestHelper helper, String command, net.minecraft.commands.CommandSourceStack source) {
+        try {
+            return helper.getLevel().getServer().getCommands().getDispatcher().execute(command, source);
+        } catch (CommandSyntaxException e) {
+            return -1;
+        }
+    }
+
+    // signals.send with no mod taking the name answers false with a message. Other tests may add listeners meanwhile,
+    // so only "no mod took it" is certain here.
+    @GameTest
+    public void signalSendWithNoListenerAnswersFalse(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        b.send(send(1, run, "lamp-red"));
+        b.send(send(2, run, "two words"));
+        helper.assertValueEqual(errorCode(b, 2), "BAD_ARGS", "bad name");
+        helper.succeedWhen(() -> {
+            JsonObject result = b.find("result", 1);
+            helper.assertTrue(result != null, "answered");
+            helper.assertTrue(!result.get("value").getAsBoolean() && result.has("message"), "false with a message: " + result);
+            b.leave();
+        });
+    }
+
+    // A listener hears the name and the player only, once; the same name again within a second is not sent.
+    @GameTest(maxTicks = 100)
+    public void signalSendReachesAListenerOncePerSecond(GameTestHelper helper) {
+        Browser b = browser(helper);
+        List<String> heard = new ArrayList<>();
+        Runnable remove = Signals.onSent((player, name) -> {
+            if (!player.equals(b.player().getUUID())) return false;
+            heard.add(name);
+            return name.startsWith("lamp");
+        });
+        long run = b.start();
+        b.send(send(1, run, "lamp-red"));
+        b.send(send(2, run, "lamp-red"));
+        b.send(send(3, run, "lamp-blue"));
+        b.send(send(4, run, "door"));
+        helper.runAfterDelay(30, () -> b.send(send(5, run, "lamp-red")));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 5) != null, "all answered");
+            List<Boolean> values = new ArrayList<>();
+            for (int id = 1; id <= 5; id++) values.add(b.find("result", id).get("value").getAsBoolean());
+            helper.assertValueEqual(values, List.of(true, false, true, false, true), "answers");
+            helper.assertTrue(b.find("result", 2).get("message").getAsString().contains("less than a second"), "rate limit message");
+            helper.assertValueEqual(heard, List.of("lamp-red", "lamp-blue", "door", "lamp-red"), "heard");
+            remove.run();
+            b.leave();
+        });
+    }
+
+    // A listener that throws is contained: the call answers false, the tick goes on, and the run keeps working.
+    @GameTest
+    public void aThrowingSignalListenerBreaksNothing(GameTestHelper helper) {
+        Browser b = browser(helper);
+        Runnable remove = Signals.onSent((player, name) -> {
+            if (player.equals(b.player().getUUID())) throw new IllegalStateException("a broken listener, on purpose in a GameTest");
+            return false;
+        });
+        long run = b.start();
+        b.send(send(1, run, "lamp"));
+        b.send(send(2, run, "lamp-2"));
+        b.send(player(3, run, "name", "[]"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 3) != null, "the next call answered");
+            helper.assertTrue(!b.find("result", 1).get("value").getAsBoolean() && !b.find("result", 2).get("value").getAsBoolean(), "false");
+            remove.run();
+            b.leave();
         });
     }
 

@@ -47,6 +47,8 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         PLAYER_SAY, PLAYER_POSITION, PLAYER_ORIENTATION, PLAYER_NAME, PLAYER_TELEPORT,
         /** gameplay.timeOfDay / isRaining (issue #87): the owner's dimension, answered by PlayerApi like the player calls. */
         TIME_OF_DAY, IS_RAINING,
+        /** signals.send (issue #249): {@code text} = a signal name, for other mods' listeners only; answered by PlayerApi like the player calls. */
+        SIGNAL_SEND,
         /** Chests, furnaces and other containers next to the robot (issue #71). */
         STORE_ITEMS, TAKE_ITEMS, TAKE_ITEM, CONTAINER_COUNT, CONTAINER_SIZE, SORT_CONTAINER,
         /** agent.craft / canCraft (issue #93) and agent.stonecut (issue #115): {@code a} = item, {@code b} = count. */
@@ -263,6 +265,13 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
             case "gameplay.timeOfDay", "gameplay.isRaining" -> {
                 arity(op, args, 0);
                 return new RobotCommand(op.equals("gameplay.timeOfDay") ? Op.TIME_OF_DAY : Op.IS_RAINING, 0, 0);
+            }
+            case "signals.send" -> {
+                arity(op, args, 1);
+                if (!(args.get(0) instanceof String name)) throw new RobotException(Result.Code.BAD_ARGS, "name must be a string");
+                String problem = codeling.api.Signals.nameProblem(name);
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                return new RobotCommand(Op.SIGNAL_SEND, 0, 0, 0, name);
             }
             case "player.teleport" -> {
                 arity(op, args, 3);

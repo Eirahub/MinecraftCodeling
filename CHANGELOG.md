@@ -19,6 +19,12 @@ Every user-visible change to Codeling is listed here. The format follows
 - Go to another robot (issue #243): `agent.goToRobot(robots.get("Miner"))` and `miner.goToRobot(other)` ("go to
   robot") walk like "move to" to a free block next to another of your own robots and face it, and the "robot (name)
   position" block gives a named robot's position, in Blocks, JavaScript and Python.
+- Signals (issue #249): `signals.onReceived(name, handler)` ("on signal") runs when another mod on the server, or an
+  op with `/codeling signal <players> <name> [number]`, sends you a signal with that name, and `signals.send(name)`
+  ("send signal") sends a name to the server's other mods, in Blocks, JavaScript and Python. Only the name goes out,
+  never to another player, and the same name at most once a second. Other mods use `codeling.api.Signals` in the core
+  jar (`post` from any thread, `onSent` listeners). At most 16 names per run; the 16 waiting events per player are
+  shared with the other events.
 - Robot styles and movement (issue #242): the robot is an articulated model instead of an observer block, with
   three original styles (workshop, industrial, mint) chosen with `/robot skin` and a panel colour with `/robot color`,
   both saved per robot. It walks and turns with its moves, and `/robot animation` plays a head look or a wave.
