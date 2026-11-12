@@ -43,7 +43,7 @@ public final class McCompat {
 
     /** The player's level as a ServerLevel (26.x types ServerPlayer.level() so; 1.21.1 has serverLevel()). */
     public static ServerLevel level(ServerPlayer player) {
-        //? if >=26.1 {
+        //? if >=1.21.11 {
         return player.level();
         //?} else
         /*return player.serverLevel();*/
@@ -82,7 +82,7 @@ public final class McCompat {
 
     /** Whether the player can reach the entity, with {@code buffer} blocks of slack. */
     public static boolean inReach(Player player, Entity entity, double buffer) {
-        //? if >=26.1 {
+        //? if >=1.21.11 {
         return player.isWithinEntityInteractionRange(entity, buffer);
         //?} else
         /*return player.canInteractWithEntity(entity, buffer);*/

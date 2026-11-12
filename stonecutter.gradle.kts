@@ -34,13 +34,21 @@ tasks.register<Exec>("buildEditor") {
 // so any boundary between them gives the same result).
 stonecutter parameters {
     // Minecraft 1.21.11 renamed ResourceLocation to Identifier; the methods we use are the same.
-    replacements.string(current.parsed < "1.21.11") { replace("Identifier", "ResourceLocation") }
+    // ResourceKey.location() became identifier() with it.
+    replacements.string(current.parsed < "1.21.11") {
+        replace("Identifier", "ResourceLocation")
+        replace(".identifier()", ".location()")
+    }
+    replacements.string(current.parsed < "1.21.2") { replace(".getMinY()", ".getMinBuildHeight()") }
+    replacements.string(current.parsed < "1.21.5") { replace(".snapTo(", ".moveTo(") }
+    // GameProfile became a record with authlib 7.
+    replacements.string(current.parsed < "1.21.9") { replace("getGameProfile().name()", "getGameProfile().getName()") }
     replacements.string(current.parsed < "26.1") {
-        replace(".snapTo(", ".moveTo(")
-        replace("getGameProfile().name()", "getGameProfile().getName()")
-        replace(".getMinY()", ".getMinBuildHeight()")
         replace("GuiGraphicsExtractor", "GuiGraphics")
         replace("ContainerInput", "ClickType")
+        replace("renderer.state.level.CameraRenderState", "renderer.state.CameraRenderState")
+        // ItemStackSlotDisplay holds an ItemStack before 26.1 (an ItemStackTemplate from 26.1).
+        replace("s.stack().item().value()", "s.stack().getItem()")
     }
     // EntityTypes came with 26.2. Only these two: replacements run backwards where the condition is false, and from
     // 26.2 on both EntityTypes and EntityType exist. RobotGameTests guards its import.

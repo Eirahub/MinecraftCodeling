@@ -3,6 +3,15 @@ package codeling.robot;
 import codeling.Codeling;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+//? if >=26.1 {
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.world.level.storage.LevelResource;
+//?}
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,8 +58,13 @@ public final class RobotLinks extends SavedData {
     //? if >=1.21.5 {
     // null DataFixTypes: no data fixer for mod data. Fabric's SavedDataStorageMixin accepts it, and NeoForge patches
     // SavedDataType and SavedDataStorage to skip the fixer when it is null (checked in 26.3.0.102, issue #187).
+    //? if >=26.1 {
     private static final SavedDataType<RobotLinks> TYPE = new SavedDataType<>(
             Identifier.fromNamespaceAndPath("codeling", "robots"), RobotLinks::new, CODEC, null);
+    //?} else {
+    /*// Before 26.1 the id is a file name, as before 1.21.5: data/codeling_robots.dat.
+    private static final SavedDataType<RobotLinks> TYPE = new SavedDataType<>("codeling_robots", RobotLinks::new, CODEC, null);
+    *///?}
     //?} else {
     /*// Before 1.21.5 saved data is a CompoundTag under a plain file name: data/codeling_robots.dat (26.x:
     // data/codeling/robots.dat). The fields inside are the same, written by the same CODEC. null DataFixTypes as above.
@@ -96,11 +110,38 @@ public final class RobotLinks extends SavedData {
     }
 
     public static RobotLinks get(MinecraftServer server) {
-        //? if >=1.21.5 {
-        return server.getDataStorage().computeIfAbsent(TYPE);
-        //?} else
-        /*return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);*/
+        //? if >=26.1 {
+        RobotLinks links = server.getDataStorage().get(TYPE);
+        if (links != null) return links;
+        // A world from 1.21.x has data/codeling_robots.dat, which 26.1's world upgrade leaves where it is. Read it once;
+        // set() marks the links dirty, so they are saved as data/codeling/robots.dat. The old file stays for a downgrade.
+        links = readLegacy(server.getWorldPath(LevelResource.DATA).resolve(LEGACY_FILE));
+        if (links == null) return server.getDataStorage().computeIfAbsent(TYPE);
+        Codeling.LOG.info("Robot links read from data/{} (saved before Minecraft 26.1)", LEGACY_FILE);
+        server.getDataStorage().set(TYPE, links);
+        return links;
+        //?} else if >=1.21.5 {
+        /*return server.overworld().getDataStorage().computeIfAbsent(TYPE);
+        *///?} else {
+        /*return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);
+        *///?}
     }
+
+    //? if >=26.1 {
+    static final String LEGACY_FILE = "codeling_robots.dat";
+
+    /** The links in a file saved by 1.21.x ({"data": links, "DataVersion": n}), or null when there is none or it is broken. */
+    static RobotLinks readLegacy(Path file) {
+        if (!Files.isRegularFile(file)) return null;
+        try {
+            return CODEC.parse(NbtOps.INSTANCE, NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap()).get("data"))
+                    .resultOrPartial(error -> Codeling.LOG.error("Could not read {}: {}", file, error)).orElse(null);
+        } catch (IOException | RuntimeException e) {
+            Codeling.LOG.error("Could not read {}", file, e);
+            return null;
+        }
+    }
+    //?}
 
     /** The owner's default robot. */
     public UUID robot(UUID owner) {

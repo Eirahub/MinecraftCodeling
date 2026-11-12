@@ -43,12 +43,12 @@ public final class Codeling {
             ResourceKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "robot"));
     // noSummon: a robot always needs an owner, so it is only created through /robot spawn. The name tag sits 1.7 up
     // (vanilla adds 0.5 to the attachment), clear of the 0.8 block body even seen from above, as from the follow camera.
-    //? if >=26.1 {
+    //? if >=1.21.2 {
     public static final Supplier<EntityType<RobotEntity>> ROBOT = PLATFORM.register(BuiltInRegistries.ENTITY_TYPE, ROBOT_KEY.identifier(),
             () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noLootTable().noSummon().sized(0.8F, 0.8F).nameTagOffset(1.2F)
                     .clientTrackingRange(10).build(ROBOT_KEY));
     //?} else {
-    /*// 1.21.1 has no noLootTable (entity loot tables came later) and builds the type from the plain id.
+    /*// Before 1.21.2 there is no noLootTable (entity loot tables came later), and the type is built from the plain id.
     public static final Supplier<EntityType<RobotEntity>> ROBOT = PLATFORM.register(BuiltInRegistries.ENTITY_TYPE, ROBOT_KEY.location(),
             () -> EntityType.Builder.of(RobotEntity::new, MobCategory.MISC).noSummon().sized(0.8F, 0.8F).nameTagOffset(1.2F)
                     .clientTrackingRange(10).build(ROBOT_KEY.location().toString()));
@@ -84,26 +84,35 @@ public final class Codeling {
 
     /** The free_items game rule (issue #189: one read for every Minecraft version). */
     public static boolean freeItems(MinecraftServer server) {
-        //? if >=1.21.11 {
+        //? if >=26.1 {
         return server.getGameRules().get(FREE_ITEMS.get());
-        //?} else
-        /*return server.getGameRules().getBoolean(FREE_ITEMS.get());*/
+        //?} else if >=1.21.11 {
+        /*return server.overworld().getGameRules().get(FREE_ITEMS.get());
+        *///?} else {
+        /*return server.getGameRules().getBoolean(FREE_ITEMS.get());
+        *///?}
     }
 
     /** The max_robots game rule. */
     public static int maxRobots(MinecraftServer server) {
-        //? if >=1.21.11 {
+        //? if >=26.1 {
         return server.getGameRules().get(MAX_ROBOTS.get());
-        //?} else
-        /*return server.getGameRules().getInt(MAX_ROBOTS.get());*/
+        //?} else if >=1.21.11 {
+        /*return server.overworld().getGameRules().get(MAX_ROBOTS.get());
+        *///?} else {
+        /*return server.getGameRules().getInt(MAX_ROBOTS.get());
+        *///?}
     }
 
     /** The robot_camera game rule. */
     public static RobotCamera.Mode robotCamera(MinecraftServer server) {
-        //? if >=1.21.11 {
+        //? if >=26.1 {
         return server.getGameRules().get(ROBOT_CAMERA.get());
-        //?} else
-        /*return RobotCamera.Mode.valueOf(server.getGameRules().getRule(ROBOT_CAMERA.get()).serialize());*/
+        //?} else if >=1.21.11 {
+        /*return server.overworld().getGameRules().get(ROBOT_CAMERA.get());
+        *///?} else {
+        /*return RobotCamera.Mode.valueOf(server.getGameRules().getRule(ROBOT_CAMERA.get()).serialize());
+        *///?}
     }
 
     private Codeling() {

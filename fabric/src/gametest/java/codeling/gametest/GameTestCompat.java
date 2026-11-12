@@ -9,16 +9,18 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-//? if >=26.1 {
+//? if >=1.21.11 {
 import net.minecraft.server.permissions.LevelBasedPermissionSet;
-import net.minecraft.util.ProblemReporter;
-import net.minecraft.world.level.storage.TagValueInput;
-import net.minecraft.world.level.storage.TagValueOutput;
 //?} else {
 /*import net.fabricmc.fabric.api.gamerule.v1.rule.EnumRule;
 import net.minecraft.server.players.ServerOpListEntry;
 import net.minecraft.world.level.GameRules;
 *///?}
+//? if >=1.21.6 {
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
+//?}
 
 /**
  * Test-side calls whose Minecraft API differs between the versions the GameTests run on (issue #189), next to
@@ -31,7 +33,7 @@ final class GameTestCompat {
     /** Makes the player an op at game master level (the GameTest server's own op level is 0). */
     static void op(ServerPlayer player) {
         var players = player.level().getServer().getPlayerList();
-        //? if >=26.1 {
+        //? if >=1.21.11 {
         players.op(player.nameAndId(), java.util.Optional.of(LevelBasedPermissionSet.GAMEMASTER), java.util.Optional.empty());
         //?} else {
         /*players.getOps().add(new ServerOpListEntry(player.getGameProfile(), 2, false));
@@ -41,7 +43,7 @@ final class GameTestCompat {
 
     static void deop(ServerPlayer player) {
         var players = player.level().getServer().getPlayerList();
-        //? if >=26.1 {
+        //? if >=1.21.11 {
         players.deop(player.nameAndId());
         //?} else
         /*players.deop(player.getGameProfile());*/
@@ -50,7 +52,9 @@ final class GameTestCompat {
     static void setCamera(MinecraftServer server, RobotCamera.Mode mode) {
         //? if >=26.1 {
         server.getGameRules().set(Codeling.ROBOT_CAMERA.get(), mode, server);
-        //?} else {
+        //?} else if >=1.21.11 {
+        /*server.overworld().getGameRules().set(Codeling.ROBOT_CAMERA.get(), mode, server);
+        *///?} else {
         /*@SuppressWarnings("unchecked")
         var key = (GameRules.Key<EnumRule<RobotCamera.Mode>>) Codeling.ROBOT_CAMERA.get();
         server.getGameRules().getRule(key).set(mode, server);
@@ -70,7 +74,7 @@ final class GameTestCompat {
 
     /** The entity's saved data, as a chunk save writes it. */
     static CompoundTag save(Entity entity, RegistryAccess registries) {
-        //? if >=26.1 {
+        //? if >=1.21.6 {
         TagValueOutput out = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, registries);
         entity.saveWithoutId(out);
         return out.buildResult();
@@ -79,7 +83,7 @@ final class GameTestCompat {
     }
 
     static void load(Entity entity, CompoundTag tag, RegistryAccess registries) {
-        //? if >=26.1 {
+        //? if >=1.21.6 {
         entity.load(TagValueInput.create(ProblemReporter.DISCARDING, registries, tag));
         //?} else
         /*entity.load(tag);*/
