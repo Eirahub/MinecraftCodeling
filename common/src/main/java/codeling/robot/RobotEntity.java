@@ -254,6 +254,8 @@ public class RobotEntity extends Entity {
         gravityMode = input.getBooleanOr("GravityMode", false);
         home = input.read("Home", GlobalPos.CODEC).orElse(null);
         setOwnerName(input.getStringOr("OwnerName", ""));
+        setSkin(RobotAppearance.savedSkin(input.getStringOr("Skin", "workshop")));
+        setPrimaryColor(RobotAppearance.savedColor(input.getIntOr("PrimaryColor", -1)));
     }
 
     @Override
@@ -265,6 +267,8 @@ public class RobotEntity extends Entity {
         output.putBoolean("GravityMode", gravityMode);
         output.storeNullable("Home", GlobalPos.CODEC, home);
         output.putString("OwnerName", ownerName());
+        output.putString("Skin", skin());
+        output.putInt("PrimaryColor", primaryColor());
     }
     *///?} else {
     /*@Override
