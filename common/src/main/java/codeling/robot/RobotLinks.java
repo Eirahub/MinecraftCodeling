@@ -44,6 +44,19 @@ public final class RobotLinks extends SavedData {
     public record Key(UUID owner, String name) {
     }
 
+    public record Appearance(String skin, int color) {
+        public Appearance {
+            skin = RobotAppearance.savedSkin(skin);
+            color = RobotAppearance.savedColor(color);
+        }
+
+        private static final Codec<Appearance> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.STRING.optionalFieldOf("skin", "workshop").forGetter(Appearance::skin),
+                Codec.INT.optionalFieldOf("color", -1).forGetter(Appearance::color)
+        ).apply(i, Appearance::new));
+    }
+
+    private static final Codec<Map<UUID, Appearance>> APPEARANCES = Codec.unboundedMap(UUIDUtil.STRING_CODEC, Appearance.CODEC);
     private static final Codec<Map<UUID, UUID>> LINKS = Codec.unboundedMap(UUIDUtil.STRING_CODEC, UUIDUtil.STRING_CODEC);
     private static final Codec<Map<UUID, Map<String, UUID>>> NAMED =
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.unboundedMap(Codec.STRING, UUIDUtil.STRING_CODEC));
@@ -51,10 +64,11 @@ public final class RobotLinks extends SavedData {
             RecordCodecBuilder.create(i -> i.group(
                     LINKS.fieldOf("links").forGetter(RobotLinks::defaults),
                     NAMED.optionalFieldOf("named", Map.of()).forGetter(RobotLinks::named),
-                    UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("orphans", List.of()).forGetter(l -> List.copyOf(l.orphans))
+                    UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("orphans", List.of()).forGetter(l -> List.copyOf(l.orphans)),
+                    APPEARANCES.optionalFieldOf("appearances", Map.of()).forGetter(l -> Map.copyOf(l.appearances))
             ).apply(i, RobotLinks::new)),
             // Worlds saved before orphans existed hold the bare map.
-            LINKS.xmap(links -> new RobotLinks(links, Map.of(), List.of()), RobotLinks::defaults));
+            LINKS.xmap(links -> new RobotLinks(links, Map.of(), List.of(), Map.of()), RobotLinks::defaults));
     //? if >=1.21.5 {
     // null DataFixTypes: no data fixer for mod data. Fabric's SavedDataStorageMixin accepts it, and NeoForge patches
     // SavedDataType and SavedDataStorage to skip the fixer when it is null (checked in 26.3.0.102, issue #187).
@@ -82,15 +96,17 @@ public final class RobotLinks extends SavedData {
 
     private final Map<Key, UUID> robots = new HashMap<>();
     private final Set<UUID> orphans;
+    private final Map<UUID, Appearance> appearances;
 
     private RobotLinks() {
-        this(Map.of(), Map.of(), List.of());
+        this(Map.of(), Map.of(), List.of(), Map.of());
     }
 
-    private RobotLinks(Map<UUID, UUID> links, Map<UUID, Map<String, UUID>> named, List<UUID> orphans) {
+    private RobotLinks(Map<UUID, UUID> links, Map<UUID, Map<String, UUID>> named, List<UUID> orphans, Map<UUID, Appearance> appearances) {
         links.forEach((owner, robot) -> robots.put(new Key(owner, ""), robot));
         named.forEach((owner, names) -> names.forEach((name, robot) -> robots.put(new Key(owner, name), robot)));
         this.orphans = new HashSet<>(orphans);
+        this.appearances = new HashMap<>(appearances);
     }
 
     private Map<UUID, UUID> defaults() {
@@ -152,6 +168,15 @@ public final class RobotLinks extends SavedData {
         return robots.get(key);
     }
 
+    public Appearance appearance(UUID robot) {
+        return appearances.getOrDefault(robot, new Appearance("workshop", -1));
+    }
+
+    void setAppearance(UUID robot, String skin, int color) {
+        Appearance appearance = new Appearance(skin, color);
+        if (!appearance.equals(appearances.put(robot, appearance))) setDirty();
+    }
+
     /** Which owner's robot (and which name) the entity {@code robot} is, or null when it is no one's (a stale copy). */
     public Key key(UUID robot) {
         for (Map.Entry<Key, UUID> e : robots.entrySet()) if (e.getValue().equals(robot)) return e.getKey();
@@ -195,6 +220,7 @@ public final class RobotLinks extends SavedData {
     /** True once for an orphan, which is then forgotten: only that first copy may give its items back. */
     boolean takeOrphan(UUID robot) {
         if (!orphans.remove(robot)) return false;
+        appearances.remove(robot);
         setDirty();
         return true;
     }

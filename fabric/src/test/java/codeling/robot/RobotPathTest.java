@@ -90,6 +90,26 @@ class RobotPathTest {
         assertEquals(new BlockPos(4, 0, 0), path.get(path.size() - 1));
     }
 
+    // Issue #243: beside a free target (the block another robot stands in), never on it.
+    @Test
+    void endsBesideAFreeTarget() {
+        World world = new World();
+        world.floor = true;
+        BlockPos other = new BlockPos(5, 1, 0);
+        RobotPath search = new RobotPath(world, new BlockPos(0, 1, 0), other, true, true);
+        while (!search.finished()) search.search(100);
+        assertEquals(new BlockPos(4, 1, 0), search.path().get(search.path().size() - 1));
+        // already next to it: a path of one block, the start
+        search = new RobotPath(world, new BlockPos(5, 1, 1), other, true, true);
+        search.search(100);
+        assertEquals(List.of(new BlockPos(5, 1, 1)), search.path());
+        // in the same block: one step to a free block next to it
+        search = new RobotPath(world, other, other, true, true);
+        search.search(100);
+        assertEquals(2, search.path().size());
+        assertEquals(1, search.path().get(1).distManhattan(other));
+    }
+
     @Test
     void goesThroughClosedDoors() {
         World world = new World().wall(2, -40, 40, 1).wall(2, -40, 40, 2);
@@ -110,6 +130,7 @@ class RobotPathTest {
         assertEquals(1, boxed.search(RobotPath.MAX_NODES));
         assertTrue(boxed.finished());
         assertNull(boxed.path());
+        assertFalse(boxed.capped(), "no way at all is not the cap");
 
         // An enclosed target in an open world: the search spreads over calls and stops at the cap.
         World open = new World();
@@ -125,6 +146,7 @@ class RobotPathTest {
         assertTrue(capped.finished());
         assertEquals(RobotPath.MAX_NODES, total);
         assertNull(capped.path());
+        assertTrue(capped.capped(), "stopped by the cap");
         assertFalse(new RobotPath(open, BlockPos.ZERO, new BlockPos(99, 0, 0), false).search(10) > 0, "an unloaded target is no path");
     }
 

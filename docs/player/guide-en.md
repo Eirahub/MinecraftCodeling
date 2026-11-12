@@ -85,8 +85,8 @@ To stop a program, press the stop button in the editor, or type `/robot stop` in
 
 ## Examples
 
-The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": seven small
-programs, such as a staircase, a tunnel, a room with a fence and a guard patrol. Click one to read what it teaches,
+The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": eight small
+programs, such as a staircase, a tunnel, a room with a fence, a guard patrol and torches in the dark. Click one to read what it teaches,
 then press "Open Example" under Blocks, Python or JavaScript. You get a new project of your own with the program in
 it: press Run to try it, and change it as you like. The example itself stays as it was.
 
@@ -196,6 +196,7 @@ Slots are the robot's 27 inventory places, numbered 1 to 27.
 | agent move to (position) | `agent.moveTo(pos(0, 0, 5))` | Finds a path and walks there. Answers true or false. Opens wooden doors on the way. |
 | agent set home | `agent.setHome()` | Remembers where the robot stands as its home. Also `/robot sethome`. |
 | agent go home | `agent.goHome()` | Walks home like "move to". False if there is no home or no way. |
+| agent go to robot (name) | `agent.goToRobot(robots.get("Miner"))` | Walks like "move to" to a free block next to your robot Miner and turns to face it. Answers true or false. See "Several robots". |
 | agent follow path (of block) | `agent.followPath()` | Walks along the path it stands on, or a path of the block you pick (`agent.followPath(Block.Gravel)`), one step up or down too, until the path ends or splits. A robot right next to the path steps onto it; one further away answers end and says "I am not on the path". At most 256 blocks. Answers why it stopped: end, junction, blocked or limit (`PathStop.Junction`). At a junction it stops facing the way it came: turn and follow the path again. |
 | agent follow path of (block) keep (left/right) | `agent.followPath(Block.OakPlanks, TurnDirection.Left)` | Keeps one hand on the wall, as you can in a real maze. At every junction it takes the way furthest to the left (or right). At a dead end with a wall in front it turns round and walks back. It stops where the path ends with no wall in front (the way out: end), back where it started (end), or after 256 blocks (limit: follow the path again to go on). Press + twice on the block to choose the side. |
 
@@ -218,6 +219,7 @@ Slots are the robot's 27 inventory places, numbered 1 to 27.
 | agent detect (hostile mob/animal/player/item) (direction) | `agent.detectEntity(EntityKind.Mob, SixDirection.Forward)` | True if one is in the block next to the robot. |
 | agent count nearby (kind) within (radius) | `agent.countNearby(EntityKind.Animal, 4)` | How many are near the robot, at most 8 blocks away. |
 | agent redstone power (direction) | `agent.redstonePower(SixDirection.Forward)` | Redstone power, 0 to 15. |
+| on agent redstone powered | `agent.onRedstonePowered(function () { })` | Runs its code each time the block your robot stands in gets a redstone signal, for example when you flip a lever next to it. See "React to blocks, redstone and the day" below. |
 | agent position | `agent.getPosition()` | Where the robot is. |
 | agent orientation | `agent.getOrientation()` | Which way it looks, in degrees. |
 | agent find nearest (block) within (radius) | `agent.findNearest(Block.OakLog, 16)` | The nearest block of that kind, or nothing. |
@@ -233,6 +235,9 @@ The radar looks at most 16 blocks around the robot. Invisible players and player
 | agent nearest (kind) within (radius) | `agent.nearestEntity(EntityKind.Player, 8)` | Where the nearest one is, or nothing. |
 | agent detect liquid (direction) | `agent.detectLiquid(SixDirection.Down)` | Water, lava or none (`Liquid.Lava`). |
 | agent is safe (direction) | `agent.isSafe(SixDirection.Forward)` | False if that block has lava in it or under it, a drop of more than 3 blocks under it, or a hostile mob in it or right next to it. A wall is safe, because the robot cannot go there. |
+| agent light level | `agent.lightLevel()` | How light it is where the robot stands: 0 (dark) to 15 (daylight, or a torch right there). Sky light is lower at night and in rain. Hostile mobs can spawn where it is 0. |
+| agent biome | `agent.biome()` | The biome where the robot stands, as a short text: `"plains"`, `"desert"`. Biomes from mods keep the mod name: `"mymod:crystal_cave"`. |
+| agent temperature | `agent.temperature()` | How warm that biome is: snowy plains 0, plains 0.8, desert 2. Below 0.15 it snows instead of rains. |
 
 ### Measuring
 
@@ -334,6 +339,81 @@ player.onChat("jump", function (num1, num2, num3) {
   stop button in the editor, or type `/robot stop`, to end it. From then on your chat lines are shown as usual again.
 - At most 16 chat commands wait for your program; more at once are dropped.
 
+#### React to blocks, redstone and the day
+
+Three more blocks let your program wait for something to happen. This program says so each time you dig up diamond
+ore, each time the robot gets a signal, and each morning:
+
+```
+blocks.onBlockBroken(Block.DiamondOre, function () {
+    player.say("Diamonds!")
+})
+agent.onRedstonePowered(function () {
+    agent.move(SixDirection.Forward, 1)
+})
+gameplay.onDayStart(function () {
+    player.say("Good morning")
+})
+```
+
+- "on (block) broken" runs when you break that kind of block yourself. Blocks your robots break, and blocks other
+  players break, do not count. A program can listen for at most 16 kinds of block.
+- "on agent redstone powered" runs when the block your default robot stands in goes from no redstone signal to a
+  signal: a lever, a button or a redstone block next to the robot, for example. It runs once per new signal, not
+  again while the signal stays. A robot that already has a signal when the program starts does not count. Robots
+  with a name do not have this block.
+- "on day start" runs when the time of day goes round from night to morning in your world. Sleeping through the night
+  counts, and so does `/time set` to an earlier time of day (`/time set day` in the evening). `/time add` a whole
+  day does not.
+- These programs keep running after their last line too, until you press stop or type `/robot stop`. At most 16 events
+  wait for your program; more at once are dropped.
+
+### Time and weather (category Gameplay)
+
+These blocks read the world you are in. They work without a robot.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| time of day | `gameplay.timeOfDay()` | The time in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. The Nether and the End have the Overworld's time. |
+| is raining | `gameplay.isRaining()` | True when it rains or thunders in your dimension (snow counts too). Never in the Nether or the End. It does not say whether rain reaches one spot: under a roof it still answers true. |
+| on day start | `gameplay.onDayStart(function () { })` | Runs its code when a new day starts (time 0, sunrise). See "React to blocks, redstone and the day" above. |
+
+This program works only in daytime and stops when night comes:
+
+```
+while (gameplay.timeOfDay() < 12000) {
+    agent.move(SixDirection.Forward, 1)
+}
+```
+
+### Signals (category Signals)
+
+A signal is a name, such as `qr-forest` or `lamp-red`. Another mod on the server can send one to you, for example
+when you scan a QR code at a museum post or reach a checkpoint, and your program can send one to the other mods, for
+example to switch a lamp. An op can send one with `/codeling signal` (see "Chat commands" below), so a command block
+or a map can send signals without any other mod.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| on signal (name) | `signals.onReceived("qr-forest", function (value) { })` | Runs its code when a signal with that name comes to you. `value` is the number it carries, 0 when it has none. |
+| send signal (name) | `signals.send("lamp-red")` | Sends the name to the other mods on the server. The robot log shows true when a mod took it, else false and why. |
+
+```
+signals.onReceived("qr-forest", function (value) {
+    agent.move(SixDirection.Forward, value)
+})
+signals.send("lamp-red")
+```
+
+- A name is one word of letters, digits, `-` and `_`, 1 to 32 characters. Case matters: `Lamp` and `lamp` are two
+  names. A program can listen for at most 16 names.
+- A signal comes only to your own program, only while it runs and has an "on signal" block for that name. Signals
+  share the 16 waiting events with chat, death, blocks, redstone and the day.
+- "send signal" sends the name only, never anything else from your program. It goes to the other mods on the server,
+  never to another player's program and never back to your own. The same name goes at most once a second; a second
+  one sooner answers false. On a server without a mod that listens, it always answers false.
+- A program with an "on signal" block keeps running after its last line, until you press stop or type `/robot stop`.
+
 ### Positions (category Positions)
 
 | Block | JavaScript | What it does |
@@ -359,6 +439,7 @@ player.onChat("jump", function (num1, num2, num3) {
 |---|---|---|
 | fill with (block) from (a) to (b) (how) | `blocks.fill(Block.Stone, pos(1, 0, 1), pos(5, 3, 5), FillOperation.Hollow)` | Fills the box. Hollow makes walls with air inside, Outline only the walls, Keep fills only air. Air clears the box. |
 | place (block) at (position) | `blocks.place(Block.Glass, pos(0, 2, 0))` | Places one block. |
+| on (block) broken | `blocks.onBlockBroken(Block.DiamondOre, function () { })` | Runs its code when you break that kind of block by hand. See "React to blocks, redstone and the day" above. |
 | line of (block) from (a) to (b) | `shapes.line(Block.OakPlanks, pos(0, 0, 1), pos(5, 3, 1))` | A straight line of blocks. |
 | circle of (block) center (c) radius (r) around (axis) (how) | `shapes.circle(Block.Stone, pos(0, 0, 8), 5, Axis.Y, ShapeOperation.Outline)` | A circle; around Y it lies flat on the ground. |
 | sphere of (block) center (c) radius (r) (how) | `shapes.sphere(Block.Glass, pos(0, 6, 0), 4, ShapeOperation.Hollow)` | A ball. Hollow makes a bubble with air inside. |
@@ -424,9 +505,35 @@ code inside it run at the same time as the rest, so Miner and your default robot
 program waits for each command before the next, as always.
 
 In Blocks, the Robots category has "robot (name)", "run in parallel" and the most used robot blocks: move, turn,
-move to, place, destroy, collect all and say. Put "robot (name)" in a variable and use the variable in those blocks.
+move to, go to robot, position, place, destroy, collect all and say. Put "robot (name)" in a variable and use the variable in those blocks.
 The other robot calls (for example `miner.findNearest(Block.CoalOre, 16)`) are in JavaScript and Python. The agent
 blocks stay as they are, for your default robot.
+
+### Go to another robot
+
+"go to robot" sends one of your robots to another one, the first step of any job they share:
+
+```
+let miner = robots.get("Miner")
+agent.goToRobot(miner)
+miner.goToRobot(robots.get(""))
+```
+
+The robot walks (or flies) the same way as "move to" and stops on a free block next to the other robot, turned to
+face it. If it ends right above or below it, it keeps the way it faced. It answers true when it got there, and false
+when there is no way, no free block next to the other robot, or the other robot moved away while it walked (then
+just ask again). A robot told to go to itself answers true at once; one that is already next to the other only turns.
+`robots.get("")` is your default robot, `agent`, so the last line walks Miner to `agent`.
+
+Only your own robots can be the target: another player's robot is never found, even with the same name. These
+stop the program with an error that you can catch (see "Errors, and checking your own program"):
+
+- `BAD_ARGS`: you have no robot with that name. The message lists the robots you have.
+- `UNLOADED`: the other robot is not loaded (far from every player).
+- `OUT_OF_RANGE`: the other robot is in another dimension, or so far away that the path search gives up.
+
+"robot (name) position" gives where a robot is, for the position blocks: the distance to it, `player.teleport` to it
+(singleplayer or op only), or building next to it.
 
 ### Name tags
 
@@ -447,6 +554,7 @@ your default robot.
 |---|---|
 | `/codeling` | Opens the editor in your browser. |
 | `/codeling chat <text>` | Sends a chat line to your own running program's "on chat command" code, as typing it in the chat would. Works on servers whose chat plugins take chat lines first. Says so when no program of yours is listening. |
+| `/codeling signal <players> <name> [number]` | Sends a signal to the programs of the players named (for example `@a` or a player name), with the number (0 without one). Ops only, and command blocks. It says how many programs got it and names the players it did not reach. |
 | `/robot spawn [name]` | Spawns your robot, or moves it to you. Stops a running program. A new robot with a name needs room under `codeling:max_robots`. |
 | `/robot list` | Your robots and where they are. |
 | `/robot remove <name>` | Removes a robot with a name. Its items go to you. |
@@ -483,6 +591,14 @@ While you look through the robot, your own body stays where it is and does not m
 
 `/robot camera follow` puts the camera behind and above the robot instead, so you can watch a long build job or route. The camera turns with the robot. Move the mouse to look around the robot, and use the scroll wheel to come closer or move away (2 to 12 blocks). When a wall is in the way, the camera moves in front of it. "Robot camera: follow" in Key Binds gives it a key of its own. The same rules apply as for the eyes view.
 
+## Robot appearance
+
+The robot is one block tall and has three original skins. Use `/robot skin workshop`, `/robot skin industrial` or `/robot skin mint`. Add a robot name after the skin to change a named robot, for example `/robot skin mint Miner`. Names and skins survive saving and moving between dimensions.
+
+Walking and left/right turns animate automatically. Use `/robot animation look_left`, `look_right`, `look_up`, `look_down` or `wave` for a short gesture; add a robot name at the end when needed. `idle` cancels a gesture. The lamp is a visual detail; directional illumination is separate work.
+
+Use `/robot color 3366FF` for a custom primary panel color, or `/robot color reset` to restore the selected skin's palette. An optional robot name follows the color. Metal, eyes, lamp and joints retain their original colors.
+
 ## Limits
 
 These keep the game fast for everyone.
@@ -491,12 +607,14 @@ These keep the game fast for everyone.
 - `move` goes at most 64 blocks per command. Each block takes 4 game ticks (0.2 seconds).
 - `find nearest` and the measuring blocks look at most 32 blocks away from the robot.
 - Fill and shapes build at most 32 blocks away from the robot, at most 32768 blocks in one go, 256 blocks per tick.
-- `move to` gives up when the path is very long or there is none, and answers false.
+- `move to` gives up when the path is very long or there is none, and answers false. `go to robot` answers
+  `OUT_OF_RANGE` when the path is that long.
 - The robot only works in loaded parts of the world (near players).
 - Amounts are at most 64. Robot slots are 1 to 27. Chest slots are 1 to 54.
 - `say` shows at most 80 characters, and the player's `say` at most 256.
 - The game runs at most one player block per tick (20 a second) for you; more than 16 waiting is refused with `RATE_LIMITED`.
-- A program listens for at most 16 chat command keywords of at most 32 characters. At most 16 chat and death events wait for it.
+- A program listens for at most 16 chat command keywords of at most 32 characters, at most 16 kinds of broken block and at most 16 signal names. At most 16 events wait for it.
+- "send signal" sends the same name at most once a second.
 - Gravity is off at the start, so the robot floats. Turn it on with "agent gravity" or `/robot gravity true`.
 - The program runs in your browser. If you close the tab or leave the world, the program stops. After 10 seconds without contact the game stops the robot.
 
@@ -511,8 +629,11 @@ These keep the game fast for everyone.
 - In survival the robot gathers its own resources. "agent give" and `/robot give` only work in creative mode, or when the world has `/gamerule codeling:free_items true`. Otherwise put items in the robot through its inventory screen.
 - Ops can stop all robots with `/robot stop all`.
 - A program's `player.say` goes to its own player only, and `player.teleport` works on a server only for ops.
-- A program hears only its own player's chat commands and death, never another player's. A chat line is held back
-  from the chat only while your program runs and listens for its first word.
+- A program hears only its own player's chat commands, death and broken blocks, its own robot's redstone signal and
+  the day in its own player's world, never anything about another player. A chat line is held back from the chat
+  only while your program runs and listens for its first word.
+- A signal reaches only the program of the player it was sent to. A program's "send signal" goes to the server's
+  other mods only, never to another player, and carries the name only.
 - The gamerule `codeling:robot_camera` decides who may use the robot camera: `owner` (the default: every player through their own robot), `ops` (only ops) or `off` (nobody). For example `/gamerule codeling:robot_camera off`. On NeoForge 26.3 the Edit Game Rules screen shows this rule as a text field: type `off`, `owner` or `ops` (on NeoForge 1.21.1 the screen leaves it out; use the command). The server checks this, and the camera ends at once when the rule takes it away.
 - The robot breaks and uses things as if it were you. If the server protects an area, the robot cannot change it either.
 

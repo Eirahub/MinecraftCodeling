@@ -24,13 +24,16 @@ public final class ChatCommands {
         if (keyword.isEmpty() || keyword.length() > MAX_KEYWORD_LENGTH) {
             return "an on chat command keyword must be 1 to " + MAX_KEYWORD_LENGTH + " characters long";
         }
-        for (int i = 0; i < keyword.length(); i++) {
-            char c = keyword.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '-' && c != '_') {
-                return "an on chat command keyword is one word of letters, digits, - and _ (or * for every line)";
-            }
+        return isWord(keyword) ? null : "an on chat command keyword is one word of letters, digits, - and _ (or * for every line)";
+    }
+
+    /** True when {@code s} has only letters, digits, - and _ (the length is checked by the caller). Signal names (issue #249) use it too. */
+    public static boolean isWord(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '-' && c != '_') return false;
         }
-        return null;
+        return true;
     }
 
     /**

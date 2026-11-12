@@ -2,10 +2,13 @@ package codeling.gametest;
 
 import codeling.Codeling;
 import codeling.net.ServerRelay;
+import codeling.robot.Result;
 import codeling.robot.RobotCommand;
 import codeling.robot.RobotEntity;
+import codeling.robot.RobotException;
 import codeling.robot.RobotLinks;
 import codeling.robot.RobotManager;
+import codeling.robot.RobotPath;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.ArrayList;
@@ -25,6 +28,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -306,6 +310,127 @@ public class MultiRobotGameTests {
             helper.assertValueEqual(back.blockPosition(), helper.absolutePos(START.south()), "it still takes commands");
             back.inventory().clearContent();
             back.discard();
+        });
+    }
+
+    // Issue #242: /robot skin and /robot color stay with a named robot, and its name with them, through a save and a
+    // load and through /robot spawn while it is unloaded. Only that robot changes. A save from before styles is workshop.
+    @GameTest(maxTicks = 100, environment = MORE)
+    public void styleStaysWithTheRobotThroughSaveLoadAndRespawn(GameTestHelper helper) {
+        ServerPlayer player = player(helper);
+        run(player, "robot spawn");
+        run(player, "robot spawn Miner");
+        helper.assertTrue(run(player, "robot skin industrial Miner").toString().contains("industrial"), "skin set");
+        run(player, "robot color 3366FF Miner");
+        helper.assertTrue(run(player, "robot skin chrome Miner").toString().contains("workshop, industrial or mint"), "unknown skin refused");
+        RobotEntity miner = RobotManager.robot(key(player, "Miner"));
+        RobotEntity first = RobotManager.robot(player.getUUID());
+        helper.assertValueEqual(miner.skin(), "industrial", "Miner's skin");
+        helper.assertValueEqual(miner.primaryColor(), 0x3366FF, "Miner's colour");
+        helper.assertValueEqual(first.skin(), "workshop", "the default robot keeps its own skin");
+
+        CompoundTag saved = GameTestCompat.save(miner, helper.getLevel().registryAccess());
+        RobotEntity back = new RobotEntity(Codeling.ROBOT.get(), helper.getLevel());
+        GameTestCompat.load(back, saved, helper.getLevel().registryAccess());
+        helper.assertValueEqual(back.skin(), "industrial", "skin after a load");
+        helper.assertValueEqual(back.primaryColor(), 0x3366FF, "colour after a load");
+        helper.assertValueEqual(back.getCustomName().getString(), "Miner", "name after a load");
+        saved.remove("Skin");
+        saved.remove("PrimaryColor");
+        RobotEntity old = new RobotEntity(Codeling.ROBOT.get(), helper.getLevel());
+        GameTestCompat.load(old, saved, helper.getLevel().registryAccess());
+        helper.assertValueEqual(old.skin(), "workshop", "a save from before styles");
+        helper.assertValueEqual(old.primaryColor(), -1, "no colour in a save from before styles");
+
+        miner.inventory().clearContent();
+        miner.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+        run(player, "robot spawn Miner"); // a new robot in its place, from the links
+        RobotEntity respawned = RobotManager.robot(key(player, "Miner"));
+        helper.assertTrue(respawned != null && respawned != miner, "Miner spawned again");
+        helper.assertValueEqual(respawned.skin(), "industrial", "skin after a spawn while unloaded");
+        helper.assertValueEqual(respawned.primaryColor(), 0x3366FF, "colour after a spawn while unloaded");
+        leave(helper, player);
+        helper.succeed();
+    }
+
+    /** Queues agent.goToRobot(target) for the player's robot {@code robot} ("" for the default robot); the result goes in the list. */
+    private static List<Result> goTo(GameTestHelper helper, ServerPlayer player, String robot, String target) {
+        return goTo(new ArrayList<>(), helper, player, robot, target);
+    }
+
+    private static List<Result> goTo(List<Result> results, GameTestHelper helper, ServerPlayer player, String robot, String target) {
+        RobotLinks.Key key = key(player, robot);
+        try {
+            RobotManager.submit(key, RobotManager.queue(key).run(), RobotCommand.parse("agent.goToRobot", List.of(target)), results::add);
+        } catch (RobotException e) {
+            helper.fail("goToRobot rejected: " + e.result());
+        }
+        return results;
+    }
+
+    // Issue #243: the default robot walks to the player's Miner, past another player's Miner that is nearer, and ends
+    // level with it, next to it and facing it. Then Miner, already next to it, goes to agent: it only turns. Going to
+    // itself answers true at once.
+    @GameTest(maxTicks = 200)
+    public void goToAnotherRobotEndsNextToItFacingIt(GameTestHelper helper) {
+        ServerPlayer player = player(helper);
+        ServerPlayer stranger = player(helper);
+        RobotEntity agent = spawn(helper, player, "", START);
+        RobotEntity miner = spawn(helper, player, "Miner", START.south(4).east(2));
+        RobotEntity decoy = spawn(helper, stranger, "Miner", START.east(2));
+        List<Result> there = goTo(helper, player, "", "Miner");
+        List<Result> beside = new ArrayList<>();
+        List<Result> self = new ArrayList<>();
+        BlockPos minerAt = miner.blockPosition();
+        helper.runAfterDelay(80, () -> {
+            helper.assertValueEqual(there, List.of(Result.ok(true)), "arrived");
+            BlockPos at = agent.blockPosition();
+            helper.assertValueEqual(at.distManhattan(minerAt), 1, "next to the player's Miner");
+            helper.assertValueEqual(at.getY(), minerAt.getY(), "level with it");
+            helper.assertValueEqual(agent.getDirection(), RobotPath.direction(at, minerAt), "facing it");
+            helper.assertTrue(at.distManhattan(decoy.blockPosition()) > 1, "not at the other player's Miner");
+            goTo(beside, helper, player, "Miner", "");
+            goTo(self, helper, player, "", "");
+        });
+        helper.runAfterDelay(100, () -> {
+            helper.assertValueEqual(beside, List.of(Result.ok(true)), "Miner was already next to agent");
+            helper.assertValueEqual(miner.blockPosition(), minerAt, "Miner did not move");
+            helper.assertValueEqual(miner.getDirection(), RobotPath.direction(minerAt, agent.blockPosition()), "Miner faces agent");
+            helper.assertValueEqual(self, List.of(Result.ok(true, "agent is this robot itself, so it is already there")), "to itself");
+            decoy.discard();
+            leave(helper, player, stranger);
+            helper.succeed();
+        });
+    }
+
+    // Issue #243: a target with no free block next to it answers false at once; an unknown name says which robots the
+    // player has (never another player's); a robot that is not loaded is UNLOADED; another player's robot of the
+    // same name is never found.
+    @GameTest(maxTicks = 100)
+    public void goToRobotRefusals(GameTestHelper helper) {
+        ServerPlayer player = player(helper);
+        ServerPlayer stranger = player(helper);
+        RobotEntity agent = spawn(helper, player, "", START);
+        BlockPos shut = START.south(4).above(2);
+        for (Direction d : Direction.values()) helper.setBlock(shut.relative(d), Blocks.STONE);
+        spawn(helper, player, "Miner", shut);
+        spawn(helper, player, "Digger", START.east(4)).remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+        RobotEntity secret = spawn(helper, stranger, "Secret", START.east(2));
+        List<Result> results = goTo(helper, player, "", "Miner");
+        List<Result> nobody = goTo(helper, player, "", "Nobody");
+        List<Result> digger = goTo(helper, player, "", "Digger");
+        List<Result> strangers = goTo(helper, stranger, "Secret", "Miner");
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(results, List.of(Result.ok(false, "there is no free block next to robot Miner")), "boxed in");
+            helper.assertValueEqual(nobody, List.of(Result.error(Result.Code.BAD_ARGS,
+                    "you have no robot called Nobody; your robots are agent (the default robot), Digger, Miner")), "unknown name: the player's robots");
+            helper.assertValueEqual(digger, List.of(Result.error(Result.Code.UNLOADED, "robot Digger is not loaded (see /robot list)")), "not loaded");
+            helper.assertValueEqual(strangers, List.of(Result.error(Result.Code.BAD_ARGS,
+                    "you have no robot called Miner; your robots are Secret")), "the stranger has no Miner, and sees only their own names");
+            helper.assertValueEqual(agent.blockPosition(), helper.absolutePos(START), "agent did not move");
+            helper.assertValueEqual(secret.blockPosition(), helper.absolutePos(START.east(2)), "Secret did not move");
+            secret.discard();
+            leave(helper, player, stranger);
         });
     }
 }

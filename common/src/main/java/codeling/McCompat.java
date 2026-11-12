@@ -1,5 +1,7 @@
 package codeling;
 
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -31,6 +33,14 @@ public final class McCompat {
         return player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
         //?} else
         /*return player.hasPermissions(2);*/
+    }
+
+    /** A command source with op level 2 (game master), for a command's requires: /codeling signal (issue #249). */
+    public static boolean isGamemaster(CommandSourceStack source) {
+        //? if >=1.21.11 {
+        return Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source);
+        //?} else
+        /*return source.hasPermission(Commands.LEVEL_GAMEMASTERS);*/
     }
 
     /** The host of a singleplayer world (also once it is opened to LAN); false on a dedicated server. */
@@ -86,6 +96,14 @@ public final class McCompat {
         return player.isWithinEntityInteractionRange(entity, buffer);
         //?} else
         /*return player.canInteractWithEntity(entity, buffer);*/
+    }
+
+    /** The time of day in ticks, not wrapped: 26.1 moved it to world clocks, and every dimension reads the Overworld's. */
+    public static long dayTime(Level level) {
+        //? if >=26.1 {
+        return level.getOverworldClockTime();
+        //?} else
+        /*return level.getDayTime();*/
     }
 
     public static int chunkX(ChunkPos chunk) {

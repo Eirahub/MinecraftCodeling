@@ -244,6 +244,19 @@ namespace pxsim.agent {
     }
 
     /**
+     * Walk or fly to another of your robots, the same way as move to, and stop on a free block next to it, facing it.
+     * True when it got there, false when there is no way, no free block next to it, or it moved away meanwhile. The
+     * other robot must be loaded and in the same dimension, and close enough for the search. robots.get("") is agent.
+     * @param robot which of your robots to go to
+     */
+    //% blockId=agent_go_to_robot block="agent go to %robot=robots_get"
+    //% group="Movement" weight=95
+    export function goToRobotAsync(robot: Robot): Promise<boolean> {
+        if (!robot) return Promise.resolve(false);
+        return call("agent.goToRobot", [robot.name]);
+    }
+
+    /**
      * Walk along a path of one kind of block (dirt path, gravel, planks, ...) until it ends or splits. Without a block
      * the robot follows the block it stands on. With a block, a robot next to the path steps onto it; one that is not
      * on the path or next to it answers end and says "I am not on the path". It goes forward if it can, else the only way the path goes, one step
@@ -399,6 +412,17 @@ namespace pxsim.agent {
     }
 
     /**
+     * Run code when your robot gets a redstone signal: when the block it stands in goes from no signal to a signal,
+     * for example from a lever, a button or a redstone block next to it. Only your default robot, while it is loaded.
+     * @param handler the code to run
+     */
+    //% blockId=agent_on_redstone_powered block="on agent redstone powered"
+    //% group="Inspecting" weight=78
+    export function onRedstonePowered(handler: () => void): void {
+        board().onRedstonePowered(handler as any as RefAction);
+    }
+
+    /**
      * Where the robot is: its block position in the world.
      */
     //% blockId=agent_get_position block="agent position"
@@ -495,6 +519,38 @@ namespace pxsim.agent {
     //% group="Sensors" weight=59
     export function isSafeAsync(direction: SixDirection): Promise<boolean> {
         return call("agent.isSafe", [direction]);
+    }
+
+    // World queries (issue #87): the robot's own block, nothing further away.
+
+    /**
+     * How light it is where the robot stands, 0 (dark) to 15 (full daylight or right next to a torch). Sky light is
+     * lower at night and in rain. Hostile mobs can spawn on blocks with light 0.
+     */
+    //% blockId=agent_light_level block="agent light level"
+    //% group="Sensors" weight=57
+    export function lightLevelAsync(): Promise<number> {
+        return call("agent.lightLevel", []);
+    }
+
+    /**
+     * The biome where the robot stands, as its short id: "plains", "desert", "dark_forest". Biomes from other mods
+     * keep their mod name: "mymod:crystal_cave".
+     */
+    //% blockId=agent_biome block="agent biome"
+    //% group="Sensors" weight=56
+    export function biomeAsync(): Promise<string> {
+        return call("agent.biome", []);
+    }
+
+    /**
+     * The temperature of the biome where the robot stands. Biomes below 0.15 get snow instead of rain (snowy plains 0),
+     * plains 0.8, desert 2.
+     */
+    //% blockId=agent_temperature block="agent temperature"
+    //% group="Sensors" weight=55
+    export function temperatureAsync(): Promise<number> {
+        return call("agent.temperature", []);
     }
 
     // The server answers [x, y, z], or no value when nothing was found.
@@ -968,6 +1024,25 @@ namespace pxsim {
             return this.on(() => agent.sayAsync(text));
         }
 
+        /**
+         * Walk or fly to another of your robots and stop next to it, facing it, like agent go to. True when it got there.
+         * @param other which of your robots to go to
+         */
+        //% blockId=robot_go_to_robot block="%robot=robots_get|go to %other=robots_get"
+        //% blockNamespace=robots weight=88
+        goToRobotAsync(other: Robot): Promise<boolean> {
+            return this.on(() => agent.goToRobotAsync(other));
+        }
+
+        /**
+         * Where the robot is: its block position in the world, like agent position.
+         */
+        //% blockId=robot_get_position block="%robot=robots_get|position"
+        //% blockNamespace=robots weight=83
+        getPositionAsync(): Promise<Position> {
+            return this.on(() => agent.getPositionAsync());
+        }
+
         // The other agent calls, in JavaScript and Python only (no blocks: the agent blocks already show them all).
 
         /** Like agent.setHome. */
@@ -1036,12 +1111,6 @@ namespace pxsim {
             return this.on(() => agent.redstonePowerAsync(direction));
         }
 
-        /** Like agent.getPosition. */
-        //%
-        getPositionAsync(): Promise<Position> {
-            return this.on(() => agent.getPositionAsync());
-        }
-
         /** Like agent.getOrientation. */
         //%
         getOrientationAsync(): Promise<number> {
@@ -1082,6 +1151,24 @@ namespace pxsim {
         //%
         isSafeAsync(direction: SixDirection): Promise<boolean> {
             return this.on(() => agent.isSafeAsync(direction));
+        }
+
+        /** Like agent.lightLevel. */
+        //%
+        lightLevelAsync(): Promise<number> {
+            return this.on(() => agent.lightLevelAsync());
+        }
+
+        /** Like agent.biome. */
+        //%
+        biomeAsync(): Promise<string> {
+            return this.on(() => agent.biomeAsync());
+        }
+
+        /** Like agent.temperature. */
+        //%
+        temperatureAsync(): Promise<number> {
+            return this.on(() => agent.temperatureAsync());
         }
 
         /** Like agent.measure. */
@@ -1347,10 +1434,76 @@ namespace pxsim.player {
     }
 }
 
+// Time and weather (issue #87): MakeCode's gameplay category. They read the dimension you are in and need no robot.
+namespace pxsim.gameplay {
+    /**
+     * The time of day in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. Every
+     * dimension has the Overworld's time.
+     */
+    //% blockId=gameplay_time_of_day block="time of day"
+    //% weight=100
+    export function timeOfDayAsync(): Promise<number> {
+        return agent.call("gameplay.timeOfDay", [], "");
+    }
+
+    /**
+     * True when it rains or thunders where you are (snow in cold biomes counts too). Never in the Nether or the End.
+     */
+    //% blockId=gameplay_is_raining block="is raining"
+    //% weight=90
+    export function isRainingAsync(): Promise<boolean> {
+        return agent.call("gameplay.isRaining", [], "");
+    }
+
+    /**
+     * Run code when a new day starts where you are: when the time of day goes round from the night to the morning
+     * (time 0). Sleeping through the night counts, and so does /time set to an earlier time of day.
+     * @param handler the code to run
+     */
+    //% blockId=gameplay_on_day_start block="on day start"
+    //% weight=80
+    export function onDayStart(handler: () => void): void {
+        board().onDayStart(handler as any as RefAction);
+    }
+}
+
+// Issue #249: named signals. Another mod on the server (or an operator with /codeling signal) sends one to you, and
+// your program can send a name to other mods. Never to another player's program, and never any text but the name.
+namespace pxsim.signals {
+    /**
+     * Run code when a signal with this name comes to you: from another mod on the server (a QR code scanned, a
+     * checkpoint reached) or from /codeling signal. value is the number it carries, 0 when it has none. Names are one
+     * word of letters, digits, - and _, and case matters. A program with handlers keeps running until you press Stop.
+     * @param name the signal's name, eg: "qr-forest"
+     * @param handler the code to run
+     */
+    //% blockId=signals_on_received block="on signal %name"
+    //% draggableParameters=reporter
+    //% weight=100
+    export function onReceived(name: string, handler: (value: number) => void): void {
+        board().onSignal("" + name, handler as any as RefAction);
+    }
+
+    /**
+     * Send a signal to the other mods on the server, for example to switch a lamp. Only the name goes, and the same
+     * name at most once a second. It is never sent to another player. The log shows true when a mod took it, else
+     * false and why.
+     * @param name the signal's name, eg: "lamp-red"
+     */
+    //% blockId=signals_send block="send signal %name"
+    //% weight=90
+    // A statement, like agent.place, so pasted `signals.send(...)` lines stay blocks; the server's true/false goes to the log.
+    // shortcut: no way to read the answer in a program, add a boolean block if players ask for one.
+    export async function sendAsync(name: string): Promise<void> {
+        await agent.call("signals.send", ["" + name], "");
+    }
+}
+
 namespace pxsim.robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its
-     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list).
+     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list). The empty
+     * name "" is your default robot, agent, so Miner go to robot "" walks Miner to agent.
      * @param name the robot's name, eg: "Miner"
      */
     //% blockId=robots_get block="robot %name"
@@ -1392,6 +1545,18 @@ namespace pxsim.blocks {
     export async function placeAsync(block: number, position: Position): Promise<void> {
         const p = await position.toWorldAsync();
         await agent.call("blocks.fill", [block, p.x, p.y, p.z, p.x, p.y, p.z, FillOperation.Replace]);
+    }
+
+    /**
+     * Run code when you break a block of this kind by hand, as MakeCode's on block broken. Blocks your robots break
+     * and blocks other players break do not count.
+     * @param block the kind of block, eg: Block.DiamondOre
+     * @param handler the code to run
+     */
+    //% blockId=blocks_on_block_broken block="on %block broken"
+    //% block.shadow=codeling_block weight=88
+    export function onBlockBroken(block: number, handler: () => void): void {
+        board().onBlockBroken(block, handler as any as RefAction);
     }
 }
 

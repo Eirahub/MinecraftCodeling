@@ -6,6 +6,38 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-11-12
+
+The third pre-release, for testing.
+
+### Added
+
+- World queries (issue #87): `gameplay.timeOfDay()` and `gameplay.isRaining()` read the time and weather of your
+  dimension, and `agent.lightLevel()`, `agent.biome()` and `agent.temperature()` read the robot's own block, in
+  Blocks, JavaScript and Python, with a new "Torches in the dark" example.
+- More events (issue #89): `blocks.onBlockBroken(block, handler)` ("on block broken") runs when you break that kind of
+  block by hand, `agent.onRedstonePowered(handler)` ("on agent redstone powered") when your default robot's block gets
+  a new redstone signal, and `gameplay.onDayStart(handler)` ("on day start") when the time of day wraps round to the
+  morning, in Blocks, JavaScript and Python. Never for other players' breaks or your robot's own. At most 16 blocks
+  per run; the 16 waiting events per player are shared with chat and death.
+- Go to another robot (issue #243): `agent.goToRobot(robots.get("Miner"))` and `miner.goToRobot(other)` ("go to
+  robot") walk like "move to" to a free block next to another of your own robots and face it, and the "robot (name)
+  position" block gives a named robot's position, in Blocks, JavaScript and Python.
+- Signals (issue #249): `signals.onReceived(name, handler)` ("on signal") runs when another mod on the server, or an
+  op with `/codeling signal <players> <name> [number]`, sends you a signal with that name, and `signals.send(name)`
+  ("send signal") sends a name to the server's other mods, in Blocks, JavaScript and Python. Only the name goes out,
+  never to another player, and the same name at most once a second. Other mods use `codeling.api.Signals` in the core
+  jar (`post` from any thread, `onSent` listeners). At most 16 names per run; the 16 waiting events per player are
+  shared with the other events.
+- Robot styles and movement (issue #242): the robot is an articulated model instead of an observer block, with
+  three original styles (workshop, industrial, mint) chosen with `/robot skin` and a panel colour with `/robot color`,
+  both saved per robot. It walks and turns with its moves, and `/robot animation` plays a head look or a wave.
+
+### Fixed
+
+- `scripts/setup-multimc.ps1 -Release` stopped with a bare 404 for a draft release or a tag without a release. It
+  now says so and shows the `gh release download` and `-JarDir` commands that work instead.
+
 ## [0.0.2] - 2026-11-12
 
 The second pre-release, for testing.

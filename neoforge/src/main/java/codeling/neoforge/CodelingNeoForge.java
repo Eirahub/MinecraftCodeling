@@ -16,6 +16,10 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+//? if >=26.1 {
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
+//?} else
+/*import net.neoforged.neoforge.event.level.BlockEvent.BreakEvent;*/
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -58,6 +62,12 @@ public final class CodelingNeoForge {
         });
         // Lowest priority and not when cancelled: only a death that happens counts.
         game.addListener(EventPriority.LOWEST, (LivingDeathEvent event) -> Codeling.died(event.getEntity()));
+        // Issue #89: fired before the block goes; lowest priority and not when cancelled, so only a break that happens.
+        // 26.1 renamed BlockEvent.BreakEvent to BreakBlockEvent.
+        //? if >=26.1 {
+        game.addListener(EventPriority.LOWEST, (BreakBlockEvent event) -> Codeling.blockBroken(event.getPlayer(), event.getState()));
+        //?} else
+        /*game.addListener(EventPriority.LOWEST, (BreakEvent event) -> Codeling.blockBroken(event.getPlayer(), event.getState()));*/
         game.addListener((RegisterCommandsEvent event) -> RobotCommands.register(event.getDispatcher()));
     }
 

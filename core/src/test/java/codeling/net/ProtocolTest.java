@@ -179,6 +179,8 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.IS_OPEN, 3, 0), sim("agent.isOpen", "[3]"));
         assertEquals(new RobotCommand(RobotCommand.Op.REDSTONE_POWER, 5, 0), sim("agent.redstonePower", "[5]"));
         assertEquals(new RobotCommand(RobotCommand.Op.MOVE_TO, 10, -64, 3), sim("agent.moveTo", "[10,-64,3]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.GO_TO_ROBOT, 0, 0, 0, "Miner"), sim("agent.goToRobot", "[\"Miner\"]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.GO_TO_ROBOT, 0, 0, 0, ""), sim("agent.goToRobot", "[\"\"]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FOLLOW_PATH, 0, 0), sim("agent.followPath", "[0]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FOLLOW_PATH, 0, RobotCommand.LEFT_TURN), sim("agent.followPath", "[0,2]"));
         assertEquals(new RobotCommand(RobotCommand.Op.MEASURE, 0, 32), sim("agent.measure", "[0,32]"));
@@ -198,6 +200,14 @@ class ProtocolTest {
         assertEquals(new RobotCommand(RobotCommand.Op.IS_SAFE, 0, 0), sim("agent.isSafe", "[0]"));
         assertEquals(new RobotCommand(RobotCommand.Op.FREE_SLOTS, 0, 0), sim("agent.freeSlots", "[]"));
         assertEquals(new RobotCommand(RobotCommand.Op.IS_INVENTORY_FULL, 0, 0), sim("agent.isInventoryFull", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.LIGHT_LEVEL, 0, 0), sim("agent.lightLevel", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.BIOME, 0, 0), sim("agent.biome", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.TEMPERATURE, 0, 0), sim("agent.temperature", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.TIME_OF_DAY, 0, 0), sim("gameplay.timeOfDay", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.IS_RAINING, 0, 0), sim("gameplay.isRaining", "[]"));
+        assertEquals(new RobotCommand(RobotCommand.Op.SIGNAL_SEND, 0, 0, 0, "lamp-red"), sim("signals.send", "[\"lamp-red\"]"));
+        assertEquals(Result.Code.BAD_ARGS, assertThrows(RobotException.class, () -> sim("signals.send", "[\"lamp red\"]")).code);
+        assertEquals(Result.Code.BAD_ARGS, assertThrows(RobotException.class, () -> sim("signals.send", "[7]")).code);
         int stone = codeling.robot.BlockIds.byName("stone");
         assertEquals(new RobotCommand(RobotCommand.Op.FILL, 0, 64, 0, 4, 60, 4, stone, 3, null), sim("blocks.fill", "[" + stone + ",0,64,0,4,60,4,3]"));
         assertEquals(new RobotCommand(RobotCommand.Op.LINE, 1, 2, 3, 4, 5, 6, 0, 0, null), sim("shapes.line", "[0,1,2,3,4,5,6]"));

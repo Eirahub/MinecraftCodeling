@@ -6,7 +6,11 @@
 // Reporters are put in a variable: a bare call of a value block is grey in Blocks. Names are unique per program.
 export const BLOCK_PROGRAMS = {
     // First: Blocks writes event blocks before the code on start, in this order.
+    gameplay_on_day_start: "gameplay.onDayStart(function () {\n    agent.say(\"Morning\")\n})",
     player_on_chat: "player.onChat(\"jump\", function (num1, num2) {\n    agent.move(SixDirection.Up, num2)\n})",
+    signals_on_received: "signals.onReceived(\"qr-forest\", function (value) {\n    agent.move(SixDirection.Forward, value)\n})",
+    agent_on_redstone_powered: "agent.onRedstonePowered(function () {\n    agent.say(\"Click\")\n})",
+    blocks_on_block_broken: "blocks.onBlockBroken(Block.DiamondOre, function () {\n    agent.say(\"Diamond\")\n})",
     player_on_died: "player.onDied(function () {\n    agent.say(\"Oops\")\n})",
     agent_move: "agent.move(SixDirection.Back, 2)",
     agent_turn: "agent.turn(TurnDirection.Right)",
@@ -29,6 +33,9 @@ export const BLOCK_PROGRAMS = {
     agent_detect_liquid: "let liquidAhead = agent.detectLiquid(SixDirection.Left)",
     agent_liquid: "let wantedLiquid = Liquid.Water",
     agent_is_safe: "let safeBelow = agent.isSafe(SixDirection.Down)",
+    agent_light_level: "let light = agent.lightLevel()",
+    agent_biome: "let biomeHere = agent.biome()",
+    agent_temperature: "let warmth = agent.temperature()",
     agent_is_open: "let doorOpen = agent.isOpen(SixDirection.Up)",
     agent_redstone_power: "let power = agent.redstonePower(SixDirection.Back)",
     agent_get_position: "let here = agent.getPosition()",
@@ -68,6 +75,9 @@ export const BLOCK_PROGRAMS = {
     robot_move: "digger.move(SixDirection.Back, 3)",
     robot_turn: "digger.turn(TurnDirection.Right)",
     robot_move_to: "let diggerArrived = digger.moveTo(pos(1, 0, 4))",
+    agent_go_to_robot: "let metDigger = agent.goToRobot(digger)",
+    robot_go_to_robot: "let diggerMetBuilder = digger.goToRobot(robots.get(\"Builder\"))",
+    robot_get_position: "let diggerAt = digger.getPosition()",
     robot_place: "digger.place(SixDirection.Down)",
     robot_destroy: "digger.destroy(SixDirection.Left)",
     robot_collect_all: "digger.collectAll()",
@@ -110,7 +120,10 @@ export const BLOCK_PROGRAMS = {
     player_get_orientation: "let myHeading = player.getOrientation()",
     player_name: "let myName = player.name()",
     player_teleport: "player.teleport(pos(0, 4, 0))",
+    gameplay_time_of_day: "let ticks = gameplay.timeOfDay()",
+    gameplay_is_raining: "let raining = gameplay.isRaining()",
     player_run_chat_command: "player.runChatCommand(\"jump 3\")",
+    signals_send: "signals.send(\"lamp-red\")",
     loops_pause: "loops.pause(500)",
     // Last: Blocks writes forever after the code on start (afterOnStart), so anywhere else its line would move.
     loops_forever: "loops.forever(function () {\n    agent.say(\"Again\")\n})",

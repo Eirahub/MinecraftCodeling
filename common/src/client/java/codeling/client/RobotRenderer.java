@@ -1,72 +1,110 @@
 package codeling.client;
 
-// Render states arrived in Minecraft 1.21.2 and the submit pipeline in 1.21.9; before 1.21.2 a renderer draws directly
-// in render(). All draw the same thing: a scaled observer facing the robot's way and the same text lines.
-//? if >=1.21.2 {
 import codeling.robot.RobotEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import java.util.ArrayList;
 import java.util.List;
-//? if >=1.21.9 {
-import net.minecraft.client.renderer.SubmitNodeCollector;
-//?} else {
-/*import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-*///?}
-//? if >=26.1
-import net.minecraft.client.renderer.block.BlockModelResolver;
-import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.TntRenderer;
-import net.minecraft.client.renderer.entity.state.TntRenderState;
-//? if >=1.21.9
-import net.minecraft.client.renderer.state.level.CameraRenderState;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ObserverBlock;
-//?} else {
-/*import codeling.robot.RobotEntity;
-import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.ArrayList;
-import java.util.List;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import java.util.Map;
+import java.util.WeakHashMap;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ObserverBlock;
+//? if >=1.21.2 {
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+//?}
+//? if >=1.21.9 {
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+//?} else {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
+//? if >=1.21.11 {
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.rendertype.RenderType;
+//?} else {
+/*import net.minecraft.client.renderer.RenderType;
 *///?}
 
-// shortcut: placeholder vanilla look, replace when the robot design is decided.
-// Draws a scaled vanilla observer block whose face points the way the robot faces (same path as TntRenderer).
 //? if >=1.21.2 {
 public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.State> {
-    private static final float SCALE = 0.8F;
-    // shortcut: 8 blocks counts as up close for the owner's name (issue #151); vanilla shows scores within 10.
+//?} else {
+/*public class RobotRenderer extends EntityRenderer<RobotEntity> {*/
+//?}
     private static final double OWNER_DISTANCE_SQ = 8 * 8;
-    /** One text line over the robot, as vanilla stacks a score under a name. */
     private static final float LINE = 9.0F * 1.15F * 0.025F;
-    //? if >=26.1
-    private final BlockModelResolver blockModelResolver;
-    //? if <1.21.9
-    /*private final BlockRenderDispatcher blockRenderer;*/
-
-    /** The text lines over the robot, bottom first. */
-    public static class State extends TntRenderState {
-        public final List<Component> lines = new ArrayList<>();
-    }
+    private static final Identifier PRIMARY_MASK = Identifier.fromNamespaceAndPath("codeling", "textures/entity/robot_primary_mask.png");
+    private final RobotModel model = new RobotModel();
+    private final Map<RobotEntity, RobotMotion> motions = new WeakHashMap<>();
 
     public RobotRenderer(EntityRendererProvider.Context context) {
         super(context);
-        //? if >=26.1
-        this.blockModelResolver = context.getBlockModelResolver();
-        //? if <1.21.9
-        /*this.blockRenderer = context.getBlockRenderDispatcher();*/
+        shadowRadius = 0.35F;
+    }
+
+    private static Identifier texture(RobotEntity entity) {
+        return Identifier.fromNamespaceAndPath("codeling", "textures/entity/robot_" + entity.skin() + ".png");
+    }
+
+    private static RenderType renderType(Identifier texture) {
+        //? if >=26.1 {
+        return RenderTypes.entityCutout(texture);
+        //?} else if >=1.21.11 {
+        /*return RenderTypes.entityCutoutNoCull(texture);*/
+        //?} else
+        /*return RenderType.entityCutoutNoCull(texture);*/
+    }
+
+    private RobotMotion.Frame frame(RobotEntity entity, float partialTick) {
+        return motions.computeIfAbsent(entity, ignored -> new RobotMotion()).sample(entity, partialTick, model);
+    }
+
+    private boolean lookedAtUpClose(RobotEntity entity, double distance) {
+        return entityRenderDispatcher.crosshairPickEntity == entity && distance < OWNER_DISTANCE_SQ;
+    }
+
+    private List<Component> lines(RobotEntity entity, double distance, boolean showName) {
+        List<Component> lines = new ArrayList<>();
+        if (!entity.said().isEmpty()) {
+            lines.add(Component.literal(entity.said()));
+            return lines;
+        }
+        if (lookedAtUpClose(entity, distance) && !entity.ownerName().isEmpty()) lines.add(Component.literal(entity.ownerName() + "'s robot"));
+        if (showName) lines.add(entity.getCustomName());
+        return lines;
+    }
+
+    private static void position(PoseStack poses, RobotMotion.Frame frame) {
+        poses.translate(frame.offset().x, frame.offset().y, frame.offset().z);
+        //? if >=26.3 {
+        poses.rotate(Axis.YP.rotationDegrees(180 - frame.yaw()));
+        //?} else
+        /*poses.mulPose(Axis.YP.rotationDegrees(180 - frame.yaw()));*/
+    }
+
+    private interface DrawLayer {
+        void draw(ModelPart part, PoseStack poses, Identifier texture, int color);
+    }
+
+    private void drawLayers(PoseStack poses, RobotMotion.Frame frame, Identifier texture, int primaryColor, DrawLayer draw) {
+        model.draw(poses, frame.animation(), frame.seconds(), frame.amount(), frame.skipRoot(), (part, transformed) -> draw.draw(part, transformed, texture, -1));
+        if (primaryColor < 0) return;
+        poses.pushPose();
+        poses.scale(1.0005F, 1.0005F, 1.0005F);
+        model.draw(poses, frame.animation(), frame.seconds(), frame.amount(), frame.skipRoot(),
+                (part, transformed) -> draw.draw(part, transformed, PRIMARY_MASK, 0xFF000000 | primaryColor));
+        poses.popPose();
+    }
+
+    //? if >=1.21.2 {
+    public static class State extends EntityRenderState {
+        public List<Component> lines = List.of();
+        public Identifier texture;
+        public int primaryColor;
+        public RobotMotion.Frame frame;
     }
 
     @Override
@@ -77,151 +115,99 @@ public class RobotRenderer extends EntityRenderer<RobotEntity, RobotRenderer.Sta
     @Override
     public void extractRenderState(RobotEntity entity, State state, float partialTicks) {
         super.extractRenderState(entity, state, partialTicks);
-        //? if >=26.1 {
-        blockModelResolver.update(state.blockState,
-                Blocks.OBSERVER.defaultBlockState().setValue(ObserverBlock.FACING, entity.getDirection()),
-                TntRenderer.BLOCK_DISPLAY_CONTEXT);
-        //?} else
-        /*state.blockState = Blocks.OBSERVER.defaultBlockState().setValue(ObserverBlock.FACING, entity.getDirection());*/
-        state.lines.clear();
-        if (state.nameTag == null) return; // nothing to show, or too far away
-        // agent.say: while the robot talks, its bubble takes the place of the tag (issue #80).
-        if (!entity.said().isEmpty()) {
-            state.lines.add(Component.literal(entity.said()));
-            return;
-        }
-        // Issue #151: the owner's name under the robot's name, when the player looks at the robot up close.
-        if (lookedAtUpClose(entity, state.distanceToCameraSq) && !entity.ownerName().isEmpty()) {
-            state.lines.add(Component.literal(entity.ownerName() + "'s robot"));
-        }
-        if (super.shouldShowName(entity, state.distanceToCameraSq)) state.lines.add(entity.getCustomName());
+        state.texture = texture(entity);
+        state.primaryColor = entity.primaryColor();
+        state.frame = frame(entity, partialTicks);
+        state.lines = state.nameTag == null ? List.of() : lines(entity, state.distanceToCameraSq, super.shouldShowName(entity, state.distanceToCameraSq));
     }
 
-    private boolean lookedAtUpClose(RobotEntity entity, double distanceToCameraSq) {
-        return entityRenderDispatcher.crosshairPickEntity == entity && distanceToCameraSq < OWNER_DISTANCE_SQ;
-    }
-
-    // The name tag (vanilla: shown when /robot nametag is on, or when looked at), the owner up close, or the bubble.
     @Override
-    protected boolean shouldShowName(RobotEntity entity, double distanceToCameraSq) {
-        return super.shouldShowName(entity, distanceToCameraSq) || !entity.said().isEmpty() || lookedAtUpClose(entity, distanceToCameraSq);
+    protected boolean shouldShowName(RobotEntity entity, double distance) {
+        return super.shouldShowName(entity, distance) || !entity.said().isEmpty() || lookedAtUpClose(entity, distance);
     }
 
     //? if >=1.21.9 {
     @Override
     //? if >=26.1 {
-    protected void submitNameDisplay(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
+    protected void submitNameDisplay(State state, PoseStack poses, SubmitNodeCollector collector, CameraRenderState camera) {
     //?} else
-    /*protected void submitNameTag(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {*/
+    /*protected void submitNameTag(State state, PoseStack poses, SubmitNodeCollector collector, CameraRenderState camera) {*/
         if (state.nameTagAttachment == null) return;
-        poseStack.pushPose();
+        poses.pushPose();
         for (Component line : state.lines) {
             //? if >=26.2 {
-            collector.submitNameTag(poseStack, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, camera);
+            collector.submitNameTag(poses, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, camera);
             //?} else
-            /*collector.submitNameTag(poseStack, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, state.distanceToCameraSq, camera);*/
-            poseStack.translate(0.0F, LINE, 0.0F);
+            /*collector.submitNameTag(poses, state.nameTagAttachment, 0, line, !state.isDiscrete, state.lightCoords, state.distanceToCameraSq, camera);*/
+            poses.translate(0, LINE, 0);
         }
-        poseStack.popPose();
+        poses.popPose();
     }
 
     @Override
-    public void submit(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
-        poseStack.pushPose();
-        poseStack.scale(SCALE, SCALE, SCALE);
-        poseStack.translate(-0.5F, 0.0F, -0.5F);
-        //? if >=26.1 {
-        state.blockState.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
-        //?} else
-        /*if (state.blockState != null) collector.submitBlock(poseStack, state.blockState, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);*/
-        poseStack.popPose();
-        super.submit(state, poseStack, collector, camera);
+    public void submit(State state, PoseStack poses, SubmitNodeCollector collector, CameraRenderState camera) {
+        poses.pushPose();
+        position(poses, state.frame);
+        drawLayers(poses, state.frame, state.texture, state.primaryColor,
+                (part, transformed, texture, color) -> {
+                    //? if >=26.3 {
+                    collector.submitModelPart(part, transformed, renderType(texture), state.lightCoords, OverlayTexture.NO_OVERLAY, null, color, state.outlineColor);
+                    //?} else if >=26.2 {
+                    /*collector.submitModelPart(part, transformed, renderType(texture), state.lightCoords, OverlayTexture.NO_OVERLAY, null, color, null, state.outlineColor);*/
+                    //?} else {
+                    /*collector.submitModelPart(part, transformed, renderType(texture), state.lightCoords, OverlayTexture.NO_OVERLAY, null, false, false, color, null, state.outlineColor);*/
+                    //?}
+                });
+        poses.popPose();
+        super.submit(state, poses, collector, camera);
     }
     //?} else {
-    /*// 1.21.2 to 1.21.8 draw from the render state in render(); super.render draws the name tag through renderNameTag.
-    @Override
-    protected void renderNameTag(State state, Component name, PoseStack poseStack, MultiBufferSource buffers, int light) {
-        poseStack.pushPose();
+    /*@Override
+    protected void renderNameTag(State state, Component unused, PoseStack poses, MultiBufferSource buffers, int light) {
+        poses.pushPose();
         for (Component line : state.lines) {
-            super.renderNameTag(state, line, poseStack, buffers, light);
-            poseStack.translate(0.0F, LINE, 0.0F);
+            super.renderNameTag(state, line, poses, buffers, light);
+            poses.translate(0, LINE, 0);
         }
-        poseStack.popPose();
+        poses.popPose();
     }
 
     @Override
-    public void render(State state, PoseStack poseStack, MultiBufferSource buffers, int light) {
-        poseStack.pushPose();
-        poseStack.scale(SCALE, SCALE, SCALE);
-        poseStack.translate(-0.5F, 0.0F, -0.5F);
-        if (state.blockState != null) blockRenderer.renderSingleBlock(state.blockState, poseStack, buffers, light, OverlayTexture.NO_OVERLAY);
-        poseStack.popPose();
-        super.render(state, poseStack, buffers, light);
+    public void render(State state, PoseStack poses, MultiBufferSource buffers, int light) {
+        poses.pushPose();
+        position(poses, state.frame);
+        drawLayers(poses, state.frame, state.texture, state.primaryColor,
+                (part, transformed, texture, color) -> part.render(transformed, buffers.getBuffer(renderType(texture)), light, OverlayTexture.NO_OVERLAY, color));
+        poses.popPose();
+        super.render(state, poses, buffers, light);
     }
     *///?}
-}
-//?} else {
-/*public class RobotRenderer extends EntityRenderer<RobotEntity> {
-    private static final float SCALE = 0.8F;
-    // shortcut: 8 blocks counts as up close for the owner's name (issue #151); vanilla shows scores within 10.
-    private static final double OWNER_DISTANCE_SQ = 8 * 8;
-    /^* One text line over the robot, as vanilla stacks a score under a name. ^/
-    private static final float LINE = 9.0F * 1.15F * 0.025F;
-    private final BlockRenderDispatcher blockRenderer;
-
-    public RobotRenderer(EntityRendererProvider.Context context) {
-        super(context);
-        this.blockRenderer = context.getBlockRenderDispatcher();
-    }
-
-    @Override
-    public void render(RobotEntity entity, float yaw, float partialTicks, PoseStack poseStack, MultiBufferSource buffers, int light) {
-        poseStack.pushPose();
-        poseStack.scale(SCALE, SCALE, SCALE);
-        poseStack.translate(-0.5F, 0.0F, -0.5F);
-        blockRenderer.renderSingleBlock(Blocks.OBSERVER.defaultBlockState().setValue(ObserverBlock.FACING, entity.getDirection()),
-                poseStack, buffers, light, OverlayTexture.NO_OVERLAY);
-        poseStack.popPose();
-        // No super.render: it would draw vanilla's single name tag; the lines below replace it.
+    //?} else {
+    /*@Override
+    public void render(RobotEntity entity, float yaw, float partialTick, PoseStack poses, MultiBufferSource buffers, int light) {
+        RobotMotion.Frame frame = frame(entity, partialTick);
+        poses.pushPose();
+        position(poses, frame);
+        drawLayers(poses, frame, texture(entity), entity.primaryColor(),
+                (part, transformed, texture, color) -> part.render(transformed, buffers.getBuffer(renderType(texture)), light, OverlayTexture.NO_OVERLAY, color));
+        poses.popPose();
         if (!shouldShowName(entity)) return;
-        poseStack.pushPose();
-        for (Component line : lines(entity, entityRenderDispatcher.distanceToSqr(entity))) {
-            renderNameTag(entity, line, poseStack, buffers, light, partialTicks);
-            poseStack.translate(0.0F, LINE, 0.0F);
+        poses.pushPose();
+        for (Component line : lines(entity, entityRenderDispatcher.distanceToSqr(entity), super.shouldShowName(entity))) {
+            renderNameTag(entity, line, poses, buffers, light, partialTick);
+            poses.translate(0, LINE, 0);
         }
-        poseStack.popPose();
+        poses.popPose();
     }
 
-    /^* The text lines over the robot, bottom first: the bubble, or the owner up close and the name. ^/
-    private List<Component> lines(RobotEntity entity, double distanceToCameraSq) {
-        List<Component> lines = new ArrayList<>();
-        // agent.say: while the robot talks, its bubble takes the place of the tag (issue #80).
-        if (!entity.said().isEmpty()) {
-            lines.add(Component.literal(entity.said()));
-            return lines;
-        }
-        // Issue #151: the owner's name under the robot's name, when the player looks at the robot up close.
-        if (lookedAtUpClose(entity, distanceToCameraSq) && !entity.ownerName().isEmpty()) {
-            lines.add(Component.literal(entity.ownerName() + "'s robot"));
-        }
-        if (super.shouldShowName(entity)) lines.add(entity.getCustomName());
-        return lines;
-    }
-
-    private boolean lookedAtUpClose(RobotEntity entity, double distanceToCameraSq) {
-        return entityRenderDispatcher.crosshairPickEntity == entity && distanceToCameraSq < OWNER_DISTANCE_SQ;
-    }
-
-    // The name tag (vanilla: shown when /robot nametag is on, or when looked at), the owner up close, or the bubble.
     @Override
     protected boolean shouldShowName(RobotEntity entity) {
-        return super.shouldShowName(entity) || !entity.said().isEmpty()
-                || lookedAtUpClose(entity, entityRenderDispatcher.distanceToSqr(entity));
+        return super.shouldShowName(entity) || !entity.said().isEmpty() || lookedAtUpClose(entity, entityRenderDispatcher.distanceToSqr(entity));
     }
 
     @Override
     public Identifier getTextureLocation(RobotEntity entity) {
-        return TextureAtlas.LOCATION_BLOCKS;
+        return texture(entity);
     }
+    *///?}
 }
-*///?}

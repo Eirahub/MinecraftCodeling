@@ -23,6 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code b} = kind; countNearby {@code a} = kind, {@code b} = radius.
  * Sensors (issues #159, #161, #162): radar {@code a} = kind, {@code b} = radius; detectLiquid and isSafe {@code a} =
  * direction; freeSlots and isInventoryFull take nothing.
+ * World queries (issue #87): gameplay.timeOfDay, gameplay.isRaining, lightLevel, biome and temperature take nothing.
  * Building (issue #90, {@link RobotShapes}): {@code g} = the block ({@link BlockIds} code, 0 for air), {@code h} = the
  * FillOperation or ShapeOperation; fill and line {@code a, b, c} to {@code d, e, f} = the two world corners; circle and
  * sphere {@code a, b, c} = the world centre, {@code d} = radius, circle {@code e} = axis. maze (issue #182)
@@ -44,6 +45,10 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
          * {@link #MAX_PLAYER_SAY}; teleport {@code a, b, c} = world x, y, z. Answered by PlayerApi, never queued on a robot.
          */
         PLAYER_SAY, PLAYER_POSITION, PLAYER_ORIENTATION, PLAYER_NAME, PLAYER_TELEPORT,
+        /** gameplay.timeOfDay / isRaining (issue #87): the owner's dimension, answered by PlayerApi like the player calls. */
+        TIME_OF_DAY, IS_RAINING,
+        /** signals.send (issue #249): {@code text} = a signal name, for other mods' listeners only; answered by PlayerApi like the player calls. */
+        SIGNAL_SEND,
         /** Chests, furnaces and other containers next to the robot (issue #71). */
         STORE_ITEMS, TAKE_ITEMS, TAKE_ITEM, CONTAINER_COUNT, CONTAINER_SIZE, SORT_CONTAINER,
         /** agent.craft / canCraft (issue #93) and agent.stonecut (issue #115): {@code a} = item, {@code b} = count. */
@@ -52,6 +57,11 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         INTERACT, IS_OPEN, REDSTONE_POWER,
         /** agent.moveTo (issue #44): {@code a, b, c} = world x, y, z; the editor resolves ~ and ^ positions first. */
         MOVE_TO,
+        /**
+         * agent.goToRobot (issue #243): {@code text} = the name of another of the owner's robots, "" for the default
+         * robot. Walks like MOVE_TO to a free block next to that robot; the server looks the robot up when it starts.
+         */
+        GO_TO_ROBOT,
         /** agent.followPath (issue #179): {@code a} = the path block ({@link BlockIds} code), 0 (air) for the block under the robot; {@code b} = the side to keep to (#180), 0 or LEFT_TURN / RIGHT_TURN. */
         FOLLOW_PATH,
         /** Measuring (issues #127 to #132): reads only, the robot does not move. */
@@ -64,6 +74,8 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
         DETECT_ENTITY, COUNT_NEARBY,
         /** agent.radar (issue #159), detectLiquid and isSafe (#161), freeSlots and isInventoryFull (#162): reads only. */
         RADAR, DETECT_LIQUID, IS_SAFE, FREE_SLOTS, IS_INVENTORY_FULL,
+        /** agent.lightLevel, biome and temperature (issue #87): reads of the robot's own block only. */
+        LIGHT_LEVEL, BIOME, TEMPERATURE,
         /** blocks.fill, shapes.line, shapes.circle, shapes.sphere (issue #90): bulk placement through the FakePlayer. */
         FILL, LINE, CIRCLE, SPHERE,
         /** shapes.maze (issue #182): built by the same loop as the shapes. */
@@ -250,6 +262,17 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
                 arity(op, args, 0);
                 return new RobotCommand(op.equals("player.position") ? Op.PLAYER_POSITION : op.equals("player.name") ? Op.PLAYER_NAME : Op.PLAYER_ORIENTATION, 0, 0);
             }
+            case "gameplay.timeOfDay", "gameplay.isRaining" -> {
+                arity(op, args, 0);
+                return new RobotCommand(op.equals("gameplay.timeOfDay") ? Op.TIME_OF_DAY : Op.IS_RAINING, 0, 0);
+            }
+            case "signals.send" -> {
+                arity(op, args, 1);
+                if (!(args.get(0) instanceof String name)) throw new RobotException(Result.Code.BAD_ARGS, "name must be a string");
+                String problem = codeling.api.Signals.nameProblem(name);
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                return new RobotCommand(Op.SIGNAL_SEND, 0, 0, 0, name);
+            }
             case "player.teleport" -> {
                 arity(op, args, 3);
                 return new RobotCommand(Op.PLAYER_TELEPORT, coordinate(args.get(0), "x"), coordinate(args.get(1), "y"), coordinate(args.get(2), "z"));
@@ -283,6 +306,13 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
             case "agent.moveTo" -> {
                 arity(op, args, 3);
                 return new RobotCommand(Op.MOVE_TO, coordinate(args.get(0), "x"), coordinate(args.get(1), "y"), coordinate(args.get(2), "z"));
+            }
+            case "agent.goToRobot" -> {
+                arity(op, args, 1);
+                if (!(args.get(0) instanceof String name)) throw new RobotException(Result.Code.BAD_ARGS, "robot must be a robot's name");
+                String problem = name.isEmpty() ? null : nameProblem(name);
+                if (problem != null) throw new RobotException(Result.Code.BAD_ARGS, problem);
+                return new RobotCommand(Op.GO_TO_ROBOT, 0, 0, 0, name);
             }
             case "agent.followPath" -> {
                 // The side is optional (issue #180), so a client that sends only the block still works.
@@ -350,6 +380,10 @@ public record RobotCommand(Op op, int a, int b, int c, int d, int e, int f, int 
             case "agent.detectLiquid", "agent.isSafe" -> {
                 arity(op, args, 1);
                 return new RobotCommand(op.equals("agent.isSafe") ? Op.IS_SAFE : Op.DETECT_LIQUID, direction(args.get(0)), 0);
+            }
+            case "agent.lightLevel", "agent.biome", "agent.temperature" -> {
+                arity(op, args, 0);
+                return new RobotCommand(op.equals("agent.lightLevel") ? Op.LIGHT_LEVEL : op.equals("agent.biome") ? Op.BIOME : Op.TEMPERATURE, 0, 0);
             }
             case "agent.freeSlots", "agent.isInventoryFull" -> {
                 arity(op, args, 0);

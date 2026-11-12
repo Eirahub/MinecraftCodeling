@@ -44,6 +44,10 @@ public class RobotEntity extends Entity {
     private static final EntityDataAccessor<String> SAY = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.STRING);
     /** The owner's player name, synced so the renderer can show it up close (issue #151); saved for offline owners. */
     private static final EntityDataAccessor<String> OWNER_NAME = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> SKIN = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> ANIMATION = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Long> ANIMATION_START = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Integer> PRIMARY_COLOR = SynchedEntityData.defineId(RobotEntity.class, EntityDataSerializers.INT);
     private int sayTicks;
     private UUID owner;
     /** Which of its owner's robots this is (issue #140); set by RobotManager from robots.dat, null for a stale copy. */
@@ -95,6 +99,45 @@ public class RobotEntity extends Entity {
 
     void setOwnerName(String name) {
         entityData.set(OWNER_NAME, name);
+    }
+
+    public String skin() {
+        return entityData.get(SKIN);
+    }
+
+    public void setSkin(String skin) {
+        entityData.set(SKIN, RobotAppearance.requireSkin(skin));
+        rememberAppearance();
+    }
+
+    public int primaryColor() {
+        return entityData.get(PRIMARY_COLOR);
+    }
+
+    public void setPrimaryColor(int color) {
+        if (color < -1 || color > 0xFFFFFF) throw new IllegalArgumentException("RGB color out of range");
+        entityData.set(PRIMARY_COLOR, color);
+        rememberAppearance();
+    }
+
+    void rememberAppearance() {
+        if (key != null && level() instanceof ServerLevel serverLevel) {
+            RobotLinks links = RobotLinks.get(serverLevel.getServer());
+            if (getUUID().equals(links.robot(key))) links.setAppearance(getUUID(), skin(), primaryColor());
+        }
+    }
+
+    public String animation() {
+        return entityData.get(ANIMATION);
+    }
+
+    public void animate(String animation) {
+        entityData.set(ANIMATION, RobotAppearance.requireAnimation(animation));
+        entityData.set(ANIMATION_START, level().getGameTime());
+    }
+
+    public float animationSeconds(float partialTick) {
+        return Math.max(0, (level().getGameTime() - entityData.get(ANIMATION_START) + partialTick) / 20.0F);
     }
 
     /** 27 slots, index 0 is MakeCode slot 1. */
@@ -167,6 +210,10 @@ public class RobotEntity extends Entity {
     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
         entityData.define(SAY, "");
         entityData.define(OWNER_NAME, "");
+        entityData.define(SKIN, "workshop");
+        entityData.define(PRIMARY_COLOR, -1);
+        entityData.define(ANIMATION, "idle");
+        entityData.define(ANIMATION_START, 0L);
     }
 
     // The same keys and value formats on every version: before 1.21.6 entities save to a CompoundTag directly.
@@ -180,6 +227,8 @@ public class RobotEntity extends Entity {
         gravityMode = input.getBooleanOr("GravityMode", false);
         home = input.read("Home", GlobalPos.CODEC).orElse(null);
         setOwnerName(input.getStringOr("OwnerName", ""));
+        setSkin(RobotAppearance.savedSkin(input.getStringOr("Skin", "workshop")));
+        setPrimaryColor(RobotAppearance.savedColor(input.getIntOr("PrimaryColor", -1)));
     }
 
     @Override
@@ -191,6 +240,8 @@ public class RobotEntity extends Entity {
         output.putBoolean("GravityMode", gravityMode);
         output.storeNullable("Home", GlobalPos.CODEC, home);
         output.putString("OwnerName", ownerName());
+        output.putString("Skin", skin());
+        output.putInt("PrimaryColor", primaryColor());
     }
     //?} else if >=1.21.5 {
     /*// 1.21.5's CompoundTag has the ValueInput style getters and codec reads, and no UUID methods any more.
@@ -203,6 +254,8 @@ public class RobotEntity extends Entity {
         gravityMode = input.getBooleanOr("GravityMode", false);
         home = input.read("Home", GlobalPos.CODEC).orElse(null);
         setOwnerName(input.getStringOr("OwnerName", ""));
+        setSkin(RobotAppearance.savedSkin(input.getStringOr("Skin", "workshop")));
+        setPrimaryColor(RobotAppearance.savedColor(input.getIntOr("PrimaryColor", -1)));
     }
 
     @Override
@@ -214,6 +267,8 @@ public class RobotEntity extends Entity {
         output.putBoolean("GravityMode", gravityMode);
         output.storeNullable("Home", GlobalPos.CODEC, home);
         output.putString("OwnerName", ownerName());
+        output.putString("Skin", skin());
+        output.putInt("PrimaryColor", primaryColor());
     }
     *///?} else {
     /*@Override
@@ -225,6 +280,8 @@ public class RobotEntity extends Entity {
         gravityMode = input.getBoolean("GravityMode");
         home = input.contains("Home") ? GlobalPos.CODEC.parse(NbtOps.INSTANCE, input.get("Home")).result().orElse(null) : null;
         setOwnerName(input.getString("OwnerName"));
+        setSkin(RobotAppearance.savedSkin(input.getString("Skin")));
+        setPrimaryColor(RobotAppearance.savedColor(input.contains("PrimaryColor") ? input.getInt("PrimaryColor") : -1));
     }
 
     @Override
@@ -236,6 +293,8 @@ public class RobotEntity extends Entity {
         output.putBoolean("GravityMode", gravityMode);
         if (home != null) GlobalPos.CODEC.encodeStart(NbtOps.INSTANCE, home).result().ifPresent(tag -> output.put("Home", tag));
         output.putString("OwnerName", ownerName());
+        output.putString("Skin", skin());
+        output.putInt("PrimaryColor", primaryColor());
     }
     *///?}
 

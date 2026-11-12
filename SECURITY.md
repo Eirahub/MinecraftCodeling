@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Codeling has only pre-releases so far (0.0.1 and 0.0.2). The current `develop` branch gets security fixes, and so
+Codeling has only pre-releases so far (0.0.1, 0.0.2 and 0.0.3). The current `develop` branch gets security fixes, and so
 does the latest release, as follows.
 
 The latest release for each supported Minecraft version (now 26.3, 26.2, 26.1 to 26.1.2, 1.21.1 and 1.21.2 to 1.21.11,

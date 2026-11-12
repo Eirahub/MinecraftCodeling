@@ -33,10 +33,24 @@ namespace player {
 }
 
 /**
+ * The time and weather where you are (issue #87)
+ */
+//% color=#F9A825 weight=92 icon=""
+namespace gameplay {
+}
+
+/**
  * Your other robots, by name (issue #141). agent is your default robot.
  */
 //% color=#558B2F weight=95 icon="\uf0c0"
 namespace robots {
+}
+
+/**
+ * Named signals to and from other mods on the server, or from /codeling signal (issue #249)
+ */
+//% color=#E65100 weight=85 icon="\uf1eb"
+namespace signals {
 }
 
 /**

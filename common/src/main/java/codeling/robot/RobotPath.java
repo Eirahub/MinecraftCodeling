@@ -20,7 +20,8 @@ import net.minecraft.core.Direction;
  * robot stands on something.</li>
  * </ul>
  * A closed wooden door or fence gate counts as free: the robot opens it on the way (issue #109). When the target
- * itself is solid (a log from findNearest), the path ends next to it. Unloaded blocks are never entered.
+ * itself is solid (a log from findNearest), the path ends next to it, and so it does when told to stop beside the target
+ * (agent.goToRobot, issue #243: the target is the block another robot stands in). Unloaded blocks are never entered.
  */
 public final class RobotPath {
     // shortcut: proposals (issue #46), like SCAN_BLOCKS_PER_TICK; move to server config with the other limits in step 4.
@@ -56,10 +57,15 @@ public final class RobotPath {
     private List<BlockPos> path;
 
     public RobotPath(Grid grid, BlockPos start, BlockPos target, boolean walking) {
+        this(grid, start, target, walking, false);
+    }
+
+    /** With {@code beside} the path ends on a block next to the target, as for a solid target, even when it is free. */
+    public RobotPath(Grid grid, BlockPos start, BlockPos target, boolean walking, boolean beside) {
         this.grid = grid;
         this.target = target;
         this.walking = walking;
-        this.solidTarget = grid.blocked(target) && !grid.opens(target);
+        this.solidTarget = beside || grid.blocked(target) && !grid.opens(target);
         if (!grid.loaded(target)) {
             finished = true;
             return;
@@ -109,6 +115,11 @@ public final class RobotPath {
 
     public boolean finished() {
         return finished;
+    }
+
+    /** True when the search stopped at {@link #MAX_NODES} without a path, rather than running out of places to try. */
+    public boolean capped() {
+        return finished && path == null && expanded >= MAX_NODES;
     }
 
     /** The blocks from the start to the end, both included; null when there is no path or the cap was hit. */

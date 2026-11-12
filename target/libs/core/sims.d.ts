@@ -183,6 +183,17 @@ declare namespace agent {
     function goHome(): boolean;
 
     /**
+     * Walk or fly to another of your robots, the same way as move to, and stop on a free block next to it, facing it.
+     * True when it got there, false when there is no way, no free block next to it, or it moved away meanwhile. The
+     * other robot must be loaded and in the same dimension, and close enough for the search. robots.get("") is agent.
+     * @param robot which of your robots to go to
+     */
+    //% blockId=agent_go_to_robot block="agent go to %robot=robots_get"
+    //% group="Movement" weight=95
+    //% shim=agent::goToRobotAsync promise
+    function goToRobot(robot: Robot): boolean;
+
+    /**
      * Walk along a path of one kind of block (dirt path, gravel, planks, ...) until it ends or splits. Without a block
      * the robot follows the block it stands on. With a block, a robot next to the path steps onto it; one that is not
      * on the path or next to it answers end and says "I am not on the path". It goes forward if it can, else the only way the path goes, one step
@@ -302,6 +313,16 @@ declare namespace agent {
     function redstonePower(direction: SixDirection): number;
 
     /**
+     * Run code when your robot gets a redstone signal: when the block it stands in goes from no signal to a signal,
+     * for example from a lever, a button or a redstone block next to it. Only your default robot, while it is loaded.
+     * @param handler the code to run
+     */
+    //% blockId=agent_on_redstone_powered block="on agent redstone powered"
+    //% group="Inspecting" weight=78
+    //% shim=agent::onRedstonePowered
+    function onRedstonePowered(handler: () => void): void;
+
+    /**
      * Where the robot is: its block position in the world.
      */
     //% blockId=agent_get_position block="agent position"
@@ -384,6 +405,34 @@ declare namespace agent {
     //% group="Sensors" weight=59
     //% shim=agent::isSafeAsync promise
     function isSafe(direction: SixDirection): boolean;
+
+    // World queries (issue #87): the robot's own block, nothing further away.
+    /**
+     * How light it is where the robot stands, 0 (dark) to 15 (full daylight or right next to a torch). Sky light is
+     * lower at night and in rain. Hostile mobs can spawn on blocks with light 0.
+     */
+    //% blockId=agent_light_level block="agent light level"
+    //% group="Sensors" weight=57
+    //% shim=agent::lightLevelAsync promise
+    function lightLevel(): number;
+
+    /**
+     * The biome where the robot stands, as its short id: "plains", "desert", "dark_forest". Biomes from other mods
+     * keep their mod name: "mymod:crystal_cave".
+     */
+    //% blockId=agent_biome block="agent biome"
+    //% group="Sensors" weight=56
+    //% shim=agent::biomeAsync promise
+    function biome(): string;
+
+    /**
+     * The temperature of the biome where the robot stands. Biomes below 0.15 get snow instead of rain (snowy plains 0),
+     * plains 0.8, desert 2.
+     */
+    //% blockId=agent_temperature block="agent temperature"
+    //% group="Sensors" weight=55
+    //% shim=agent::temperatureAsync promise
+    function temperature(): number;
 
     // Measuring (issues #126 to #132): the robot reads blocks in loaded chunks and does not move.
     /**
@@ -781,6 +830,23 @@ declare namespace agent {
         //% shim=.sayAsync promise
         public say(text: string): void;
 
+        /**
+         * Walk or fly to another of your robots and stop next to it, facing it, like agent go to. True when it got there.
+         * @param other which of your robots to go to
+         */
+        //% blockId=robot_go_to_robot block="%robot=robots_get|go to %other=robots_get"
+        //% blockNamespace=robots weight=88
+        //% shim=.goToRobotAsync promise
+        public goToRobot(other: Robot): boolean;
+
+        /**
+         * Where the robot is: its block position in the world, like agent position.
+         */
+        //% blockId=robot_get_position block="%robot=robots_get|position"
+        //% blockNamespace=robots weight=83
+        //% shim=.getPositionAsync promise
+        public getPosition(): Position;
+
         // The other agent calls, in JavaScript and Python only (no blocks: the agent blocks already show them all).
         /** Like agent.setHome. */
         //%
@@ -837,11 +903,6 @@ declare namespace agent {
         //% shim=.redstonePowerAsync promise
         public redstonePower(direction: SixDirection): number;
 
-        /** Like agent.getPosition. */
-        //%
-        //% shim=.getPositionAsync promise
-        public getPosition(): Position;
-
         /** Like agent.getOrientation. */
         //%
         //% shim=.getOrientationAsync promise
@@ -876,6 +937,21 @@ declare namespace agent {
         //%
         //% shim=.isSafeAsync promise
         public isSafe(direction: SixDirection): boolean;
+
+        /** Like agent.lightLevel. */
+        //%
+        //% shim=.lightLevelAsync promise
+        public lightLevel(): number;
+
+        /** Like agent.biome. */
+        //%
+        //% shim=.biomeAsync promise
+        public biome(): string;
+
+        /** Like agent.temperature. */
+        //%
+        //% shim=.temperatureAsync promise
+        public temperature(): number;
 
         /** Like agent.measure. */
         //%
@@ -1097,10 +1173,68 @@ declare namespace player {
     function runChatCommand(command: string): void;
 
 }
+declare namespace gameplay {
+    /**
+     * The time of day in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. Every
+     * dimension has the Overworld's time.
+     */
+    //% blockId=gameplay_time_of_day block="time of day"
+    //% weight=100
+    //% shim=gameplay::timeOfDayAsync promise
+    function timeOfDay(): number;
+
+    /**
+     * True when it rains or thunders where you are (snow in cold biomes counts too). Never in the Nether or the End.
+     */
+    //% blockId=gameplay_is_raining block="is raining"
+    //% weight=90
+    //% shim=gameplay::isRainingAsync promise
+    function isRaining(): boolean;
+
+    /**
+     * Run code when a new day starts where you are: when the time of day goes round from the night to the morning
+     * (time 0). Sleeping through the night counts, and so does /time set to an earlier time of day.
+     * @param handler the code to run
+     */
+    //% blockId=gameplay_on_day_start block="on day start"
+    //% weight=80
+    //% shim=gameplay::onDayStart
+    function onDayStart(handler: () => void): void;
+
+}
+declare namespace signals {
+    /**
+     * Run code when a signal with this name comes to you: from another mod on the server (a QR code scanned, a
+     * checkpoint reached) or from /codeling signal. value is the number it carries, 0 when it has none. Names are one
+     * word of letters, digits, - and _, and case matters. A program with handlers keeps running until you press Stop.
+     * @param name the signal's name, eg: "qr-forest"
+     * @param handler the code to run
+     */
+    //% blockId=signals_on_received block="on signal %name"
+    //% draggableParameters=reporter
+    //% weight=100
+    //% shim=signals::onReceived
+    function onReceived(name: string, handler: (value: number) => void): void;
+
+    /**
+     * Send a signal to the other mods on the server, for example to switch a lamp. Only the name goes, and the same
+     * name at most once a second. It is never sent to another player. The log shows true when a mod took it, else
+     * false and why.
+     * @param name the signal's name, eg: "lamp-red"
+     */
+    //% blockId=signals_send block="send signal %name"
+    //% weight=90
+    // A statement, like agent.place, so pasted `signals.send(...)` lines stay blocks; the server's true/false goes to the log.
+    // shortcut: no way to read the answer in a program, add a boolean block if players ask for one.
+    //% shim=signals::sendAsync promise
+    function send(name: string): void;
+
+}
 declare namespace robots {
     /**
      * One of your robots, by the name it got with /robot spawn <name>. It does what agent does. Give each robot its
-     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list).
+     * own "run in parallel" so they work at the same time. The robot must exist in the game (see /robot list). The empty
+     * name "" is your default robot, agent, so Miner go to robot "" walks Miner to agent.
      * @param name the robot's name, eg: "Miner"
      */
     //% blockId=robots_get block="robot %name"
@@ -1133,6 +1267,17 @@ declare namespace blocks {
     //% block.shadow=codeling_block weight=89
     //% shim=blocks::placeAsync promise
     function place(block: number, position: Position): void;
+
+    /**
+     * Run code when you break a block of this kind by hand, as MakeCode's on block broken. Blocks your robots break
+     * and blocks other players break do not count.
+     * @param block the kind of block, eg: Block.DiamondOre
+     * @param handler the code to run
+     */
+    //% blockId=blocks_on_block_broken block="on %block broken"
+    //% block.shadow=codeling_block weight=88
+    //% shim=blocks::onBlockBroken
+    function onBlockBroken(block: number, handler: () => void): void;
 
 }
 declare namespace shapes {

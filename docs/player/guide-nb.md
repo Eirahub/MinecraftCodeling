@@ -87,8 +87,8 @@ For å stoppe et program trykker du på stoppknappen i editoren, eller skriver `
 
 ## Eksempler
 
-Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": sju små programmer,
-for eksempel en trapp, en tunnel, et rom med gjerde og en vaktpatrulje. Klikk på ett for å lese hva det lærer deg,
+Startsiden i editoren (den første siden du ser) har raden "Eksempler" under "Mine prosjekter": åtte små programmer,
+for eksempel en trapp, en tunnel, et rom med gjerde, en vaktpatrulje og fakler i mørket. Klikk på ett for å lese hva det lærer deg,
 og trykk så på "Åpne eksempel" under Blokker, Python eller JavaScript. Da får du et nytt prosjekt med programmet i:
 trykk på Kjør-knappen for å prøve det, og endre det som du vil. Selve eksempelet blir som det var.
 
@@ -198,6 +198,7 @@ Plassene er robotens 27 inventarplasser, nummerert fra 1 til 27.
 | robot gå til (posisjon) | `agent.moveTo(pos(0, 0, 5))` | Finner en vei og går dit. Svarer sann eller usann. Åpner tredører underveis. |
 | robot sett hjem | `agent.setHome()` | Husker hvor roboten står, som hjemmet sitt. Også `/robot sethome`. |
 | robot gå hjem | `agent.goHome()` | Går hjem som "gå til". Usann hvis den ikke har noe hjem eller ingen vei. |
+| robot gå til robot (navn) | `agent.goToRobot(robots.get("Miner"))` | Går som "gå til" til en ledig blokk ved siden av roboten din Miner og snur seg mot den. Svarer sann eller usann. Se "Flere roboter". |
 | robot følg sti (av blokk) | `agent.followPath()` | Går langs stien den står på, eller en sti av blokken du velger (`agent.followPath(Block.Gravel)`), også ett trinn opp eller ned, til stien slutter eller deler seg. En robot rett ved siden av stien går opp på den; står den lenger unna, svarer den slutt og sier "I am not on the path". Høyst 256 blokker. Svarer hvorfor den stoppet: slutt, veikryss, sperret eller grense (`PathStop.Junction`). I et veikryss stopper den vendt samme vei som den kom: snu den og følg stien igjen. |
 | robot følg sti av (blokk) hold (venstre/høyre) | `agent.followPath(Block.OakPlanks, TurnDirection.Left)` | Holder én hånd på veggen, slik du kan gjøre i en ekte labyrint. I hvert veikryss tar den veien lengst til venstre (eller høyre). I en blindvei med vegg foran snur den og går tilbake. Den stopper der stien slutter uten vegg foran (veien ut: slutt), tilbake der den startet (slutt), eller etter 256 blokker (grense: følg stien igjen for å gå videre). Trykk + to ganger på blokken for å velge side. |
 
@@ -220,6 +221,7 @@ Plassene er robotens 27 inventarplasser, nummerert fra 1 til 27.
 | robot oppdag (fiendtlig skapning/dyr/spiller/gjenstand) (retning) | `agent.detectEntity(EntityKind.Mob, SixDirection.Forward)` | Sann hvis en slik er i blokken ved siden av roboten. |
 | robot tell i nærheten (type) innen (radius) | `agent.countNearby(EntityKind.Animal, 4)` | Hvor mange som er nær roboten, høyst 8 blokker unna. |
 | robot redstonestyrke (retning) | `agent.redstonePower(SixDirection.Forward)` | Rødsteinstyrke fra 0 til 15. |
+| når roboten får redstonesignal | `agent.onRedstonePowered(function () { })` | Kjører koden sin hver gang blokken roboten står i, får et redstonesignal, for eksempel når du slår på en spak ved siden av den. Se "Reager på blokker, redstone og dagen" under. |
 | robot posisjon | `agent.getPosition()` | Hvor roboten er. |
 | robot retning | `agent.getOrientation()` | Hvilken vei den ser, i grader. |
 | robot finn nærmeste (blokk) innen (radius) | `agent.findNearest(Block.OakLog, 16)` | Den nærmeste blokken av den typen, eller ingenting. |
@@ -235,6 +237,9 @@ Radaren ser høyst 16 blokker rundt roboten. Usynlige spillere og spillere i til
 | robot nærmeste (type) innen (radius) | `agent.nearestEntity(EntityKind.Player, 8)` | Hvor den nærmeste er, eller ingenting. |
 | robot oppdag væske (retning) | `agent.detectLiquid(SixDirection.Down)` | Vann, lava eller ingen (`Liquid.Lava`). |
 | robot er trygt (retning) | `agent.isSafe(SixDirection.Forward)` | Usann hvis blokken har lava i seg eller under seg, et fall på mer enn 3 blokker under seg, eller en fiendtlig skapning i seg eller rett ved siden av. En vegg er trygg, for roboten kan ikke gå dit. |
+| robot lysnivå | `agent.lightLevel()` | Hvor lyst det er der roboten står: 0 (mørkt) til 15 (dagslys, eller en fakkel rett der). Lyset fra himmelen er svakere om natten og når det regner. Fiendtlige skapninger kan dukke opp der det er 0. |
+| robot biom | `agent.biome()` | Biomet der roboten står, som en kort tekst: `"plains"`, `"desert"`. Biomer fra modder har med navnet på modden: `"mymod:crystal_cave"`. |
+| robot temperatur | `agent.temperature()` | Hvor varmt biomet er: snøslette 0, slette 0,8, ørken 2. Under 0,15 snør det i stedet for å regne. |
 
 ### Måling
 
@@ -337,6 +342,82 @@ player.onChat("jump", function (num1, num2, num3) {
   dine som vanlig igjen.
 - Høyst 16 chatkommandoer venter på programmet ditt; flere på en gang blir forkastet.
 
+#### Reager på blokker, redstone og dagen
+
+Tre blokker til lar programmet ditt vente på at noe skjer. Dette programmet sier fra hver gang du graver opp
+diamantmalm, hver gang roboten får et signal, og hver morgen:
+
+```
+blocks.onBlockBroken(Block.DiamondOre, function () {
+    player.say("Diamanter!")
+})
+agent.onRedstonePowered(function () {
+    agent.move(SixDirection.Forward, 1)
+})
+gameplay.onDayStart(function () {
+    player.say("God morgen")
+})
+```
+
+- "når (blokk) blir ødelagt" kjører når du selv ødelegger en slik blokk. Blokker robotene dine ødelegger, og blokker
+  andre spillere ødelegger, teller ikke. Et program kan lytte etter høyst 16 slags blokker.
+- "når roboten får redstonesignal" kjører når blokken standardroboten din står i, går fra intet redstonesignal til et
+  signal: for eksempel en spak, en knapp eller en redstoneblokk ved siden av roboten. Den kjører én gang per nytt
+  signal, ikke igjen mens signalet varer. En robot som alt har signal når programmet starter, teller ikke. Roboter
+  med navn har ikke denne blokken.
+- "når en ny dag begynner" kjører når tiden på døgnet går rundt fra natt til morgen i verdenen din. Å sove gjennom
+  natten teller, og det gjør også `/time set` til et tidligere tidspunkt på døgnet (`/time set day` om kvelden).
+  `/time add` med et helt døgn gjør det ikke.
+- Også disse programmene fortsetter å kjøre etter siste linje, til du trykker på stopp eller skriver `/robot stop`.
+  Høyst 16 hendelser venter på programmet ditt; flere på en gang blir forkastet.
+
+### Tid og vær (kategorien Vær og tid)
+
+Disse blokkene leser verdenen du er i. De virker uten robot.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| tid på døgnet | `gameplay.timeOfDay()` | Tiden i spill-tikk, 0 til 23999: 0 er soloppgang, 6000 middag, 12000 solnedgang, 18000 midnatt. Nether og End har tiden i Oververdenen. |
+| regner det | `gameplay.isRaining()` | Sann når det regner eller tordner i dimensjonen din (snø teller også). Aldri i Nether eller End. Den sier ikke om regnet når ett bestemt sted: under et tak svarer den fortsatt sann. |
+| når en ny dag begynner | `gameplay.onDayStart(function () { })` | Kjører koden sin når en ny dag begynner (tid 0, soloppgang). Se "Reager på blokker, redstone og dagen" over. |
+
+Dette programmet jobber bare om dagen og stopper når natten kommer:
+
+```
+while (gameplay.timeOfDay() < 12000) {
+    agent.move(SixDirection.Forward, 1)
+}
+```
+
+### Signaler (kategorien Signaler)
+
+Et signal er et navn, som `qr-forest` eller `lamp-red`. En annen mod på serveren kan sende et til deg, for eksempel
+når du skanner en QR-kode ved en post i et museum eller når et sjekkpunkt, og programmet ditt kan sende et til de
+andre modene, for eksempel for å slå på en lampe. En operatør kan sende et med `/codeling signal` (se
+"Chattekommandoer" under), slik at en kommandoblokk eller et kart kan sende signaler uten noen annen mod.
+
+| Blokk | JavaScript | Hva den gjør |
+|---|---|---|
+| når signal (navn) kommer | `signals.onReceived("qr-forest", function (value) { })` | Kjører koden sin når et signal med det navnet kommer til deg. `value` er tallet det har med, 0 når det ikke har noe. |
+| send signal (navn) | `signals.send("lamp-red")` | Sender navnet til de andre modene på serveren. Robotloggen viser sann når en mod tok det, ellers usann og hvorfor. |
+
+```
+signals.onReceived("qr-forest", function (value) {
+    agent.move(SixDirection.Forward, value)
+})
+signals.send("lamp-red")
+```
+
+- Et navn er ett ord av bokstaver, sifre, `-` og `_`, 1 til 32 tegn. Store og små bokstaver teller: `Lamp` og `lamp`
+  er to navn. Et program kan lytte etter høyst 16 navn.
+- Et signal kommer bare til ditt eget program, bare mens det kjører og har en "når signal"-blokk for det navnet.
+  Signaler deler de 16 ventende hendelsene med chat, død, blokker, redstone og dagen.
+- "send signal" sender bare navnet, aldri noe annet fra programmet ditt. Det går til de andre modene på serveren,
+  aldri til en annen spillers program og aldri tilbake til ditt eget. Samme navn går høyst én gang i sekundet; et
+  nytt før det svarer usann. På en server uten en mod som lytter, svarer det alltid usann.
+- Et program med en "når signal"-blokk fortsetter å kjøre etter siste linje, til du trykker på stopp eller skriver
+  `/robot stop`.
+
 ### Posisjoner (kategorien Posisjoner)
 
 | Blokk | JavaScript | Hva den gjør |
@@ -362,6 +443,7 @@ player.onChat("jump", function (num1, num2, num3) {
 |---|---|---|
 | fyll med (blokk) fra (a) til (b) (hvordan) | `blocks.fill(Block.Stone, pos(1, 0, 1), pos(5, 3, 5), FillOperation.Hollow)` | Fyller boksen. Hul gir vegger med luft inni, omriss bare veggene, behold fyller bare luft. Luft tømmer boksen. |
 | plasser (blokk) ved (posisjon) | `blocks.place(Block.Glass, pos(0, 2, 0))` | Plasserer én blokk. |
+| når (blokk) blir ødelagt | `blocks.onBlockBroken(Block.DiamondOre, function () { })` | Kjører koden sin når du selv ødelegger en slik blokk. Se "Reager på blokker, redstone og dagen" over. |
 | linje av (blokk) fra (a) til (b) | `shapes.line(Block.OakPlanks, pos(0, 0, 1), pos(5, 3, 1))` | En rett linje med blokker. |
 | sirkel av (blokk) sentrum (s) radius (r) rundt (akse) (hvordan) | `shapes.circle(Block.Stone, pos(0, 0, 8), 5, Axis.Y, ShapeOperation.Outline)` | En sirkel; rundt Y ligger den flatt på bakken. |
 | kule av (blokk) sentrum (s) radius (r) (hvordan) | `shapes.sphere(Block.Glass, pos(0, 6, 0), 4, ShapeOperation.Hollow)` | En kule. Hul gir en boble med luft inni. |
@@ -430,9 +512,36 @@ kjøre samtidig med resten, så Miner og standardroboten flytter seg sammen. Ute
 kommando før den neste, som alltid.
 
 I Blokker har kategorien Roboter "robot (navn)", "kjør samtidig" og de mest brukte robotblokkene: flytt, snu, gå til,
-plasser, ødelegg, samle alt og si. Legg "robot (navn)" i en variabel og bruk variabelen i de blokkene. De andre
+gå til robot, posisjon, plasser, ødelegg, samle alt og si. Legg "robot (navn)" i en variabel og bruk variabelen i de blokkene. De andre
 robotkallene (for eksempel `miner.findNearest(Block.CoalOre, 16)`) finnes i JavaScript og Python. Robotblokkene for
 `agent` er som før og gjelder standardroboten din.
+
+### Gå til en annen robot
+
+"gå til robot" sender en av robotene dine til en annen, det første steget i alt robotene gjør sammen:
+
+```
+let miner = robots.get("Miner")
+agent.goToRobot(miner)
+miner.goToRobot(robots.get(""))
+```
+
+Roboten går (eller flyr) på samme måte som "gå til" og stopper på en ledig blokk ved siden av den andre roboten,
+snudd mot den. Ender den rett over eller under, beholder den retningen den hadde. Den svarer sann når den kom fram,
+og usann når det ikke finnes noen vei, ingen ledig blokk ved siden av den andre roboten, eller den andre roboten
+flyttet seg mens den gikk (spør da bare på nytt). En robot som skal gå til seg selv, svarer sann med en gang; en som
+alt står ved siden av den andre, snur seg bare. `robots.get("")` er standardroboten din, `agent`, så den siste linjen
+sender Miner til `agent`.
+
+Bare dine egne roboter kan være målet: en annen spillers robot blir aldri funnet, selv med samme navn. Disse stopper
+programmet med en feil som du kan fange (se "Feil, og å sjekke sitt eget program"):
+
+- `BAD_ARGS`: du har ingen robot med det navnet. Meldingen viser robotene du har.
+- `UNLOADED`: den andre roboten er ikke lastet (langt unna alle spillere).
+- `OUT_OF_RANGE`: den andre roboten er i en annen dimensjon, eller så langt unna at veisøket gir opp.
+
+"robot (navn) posisjon" gir hvor en robot er, til posisjonsblokkene: avstanden til den, `player.teleport` dit
+(bare enspiller eller operatør), eller bygging ved siden av den.
 
 ### Navneskilt
 
@@ -453,6 +562,7 @@ standardroboten din.
 |---|---|
 | `/codeling` | Åpner editoren i nettleseren. |
 | `/codeling chat <tekst>` | Sender en chattelinje til "når chatkommando"-koden i ditt eget program, slik det å skrive den i chatten ville gjort. Virker på servere der chatteutvidelser tar chattelinjene først. Sier fra når ingen av programmene dine lytter. |
+| `/codeling signal <spillere> <navn> [tall]` | Sender et signal til programmene til spillerne du nevner (for eksempel `@a` eller et spillernavn), med tallet (0 uten tall). Bare for operatører, og for kommandoblokker. Den sier hvor mange programmer som fikk det, og nevner spillerne det ikke nådde. |
 | `/robot spawn [navn]` | Lager roboten din, eller flytter den til deg. Stopper et program som kjører. En ny robot med navn trenger plass under `codeling:max_robots`. |
 | `/robot list` | Robotene dine og hvor de er. |
 | `/robot remove <navn>` | Fjerner en robot med navn. Tingene den har, får du. |
@@ -490,6 +600,14 @@ Mens du ser gjennom roboten, står kroppen din stille der den er. Øverst til ve
 
 `/robot camera follow` setter i stedet kameraet bak og over roboten, så du kan se på en lang byggejobb eller rute. Kameraet snur seg med roboten. Beveg musa for å se rundt roboten, og bruk musehjulet for å komme nærmere eller lenger unna (2 til 12 blokker). Står en vegg i veien, flytter kameraet seg foran den. "Robot camera: follow" i Tastebindinger gir det en egen tast. De samme reglene gjelder som for øyne-visningen.
 
+## Robotens utseende
+
+Roboten er én blokk høy og har tre egne skins. Bruk `/robot skin workshop`, `/robot skin industrial` eller `/robot skin mint`. Legg til et robotnavn etter skinet for å endre en robot med navn, for eksempel `/robot skin mint Miner`. Navn og skins består når du lagrer og når roboten bytter dimensjon.
+
+Gåing og svinger til venstre og høyre animeres av seg selv. Bruk `/robot animation look_left`, `look_right`, `look_up`, `look_down` eller `wave` for en kort bevegelse. Legg til et robotnavn til slutt når det trengs. `idle` avbryter en bevegelse. Lampen er bare en visuell detalj. Lys i en bestemt retning er eget arbeid.
+
+Bruk `/robot color 3366FF` for en egen hovedfarge på panelene, eller `/robot color reset` for å gå tilbake til fargene i det valgte skinet. Et robotnavn kan stå etter fargen. Metall, øyne, lampe og ledd beholder sine opprinnelige farger.
+
 ## Grenser
 
 Grensene holder spillet raskt for alle.
@@ -498,12 +616,14 @@ Grensene holder spillet raskt for alle.
 - `flytt` går høyst 64 blokker per kommando. Hver blokk tar 4 spilltikk (0,2 sekunder).
 - `finn nærmeste` og måleblokkene ser høyst 32 blokker ut fra roboten.
 - Fyll og former bygger høyst 32 blokker ut fra roboten, høyst 32768 blokker om gangen, 256 blokker per tikk.
-- `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann.
+- `gå til` gir opp når veien er veldig lang eller ikke finnes, og svarer usann. `gå til robot` svarer
+  `OUT_OF_RANGE` når veien er så lang.
 - Roboten virker bare i deler av verdenen som er lastet inn (nær spillere).
 - Antall er høyst 64. Robotplassene er 1 til 27. Kisteplassene er 1 til 54.
 - `si` viser høyst 80 tegn, og spillerens `si i chatten` høyst 256.
 - Spillet kjører høyst én spillerblokk per tikk (20 i sekundet) for deg; flere enn 16 som venter, nektes med `RATE_LIMITED`.
-- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn. Høyst 16 chatte- og dødshendelser venter på det.
+- Et program lytter etter høyst 16 nøkkelord for chatkommandoer, hvert på høyst 32 tegn, høyst 16 slags ødelagte blokker og høyst 16 signalnavn. Høyst 16 hendelser venter på det.
+- "send signal" sender samme navn høyst én gang i sekundet.
 - Tyngdekraften er av fra start, så roboten svever. Slå den på med "robot tyngdekraft" eller `/robot gravity true`.
 - Programmet kjører i nettleseren din. Lukker du fanen eller forlater verdenen, stopper programmet. Etter 10 sekunder uten kontakt stopper spillet roboten.
 
@@ -518,8 +638,11 @@ Grensene holder spillet raskt for alle.
 - I overlevelse samler roboten sine egne ressurser. "robot gi" og `/robot give` virker bare i kreativ modus, eller når verdenen har `/gamerule codeling:free_items true`. Ellers legger du ting i roboten gjennom inventarskjermen dens.
 - Operatører kan stoppe alle roboter med `/robot stop all`.
 - `player.say` i et program går bare til spilleren som kjører det, og `player.teleport` virker på en server bare for operatører.
-- Et program hører bare chatkommandoene og døden til sin egen spiller, aldri en annen spillers. En chattelinje holdes
-  bare tilbake fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
+- Et program hører bare chatkommandoene, døden og de ødelagte blokkene til sin egen spiller, redstonesignalet til sin
+  egen robot og dagen i sin egen spillers verden, aldri noe om en annen spiller. En chattelinje holdes bare tilbake
+  fra chatten mens programmet ditt kjører og lytter etter det første ordet i den.
+- Et signal når bare programmet til spilleren det ble sendt til. "send signal" i et program går bare til de andre
+  modene på serveren, aldri til en annen spiller, og har bare med navnet.
 - Spillregelen `codeling:robot_camera` bestemmer hvem som kan bruke robotkameraet: `owner` (standard: hver spiller gjennom sin egen robot), `ops` (bare operatører) eller `off` (ingen). For eksempel `/gamerule codeling:robot_camera off`. På NeoForge 26.3 viser skjermen Edit Game Rules regelen som et tekstfelt: skriv `off`, `owner` eller `ops` (på NeoForge 1.21.1 er den ikke med på skjermen; bruk kommandoen). Serveren sjekker dette, og kameraet slutter med en gang når regelen tar det bort.
 - Roboten knuser og bruker ting som om den var deg. Hvis serveren beskytter et område, kan heller ikke roboten endre det.
 

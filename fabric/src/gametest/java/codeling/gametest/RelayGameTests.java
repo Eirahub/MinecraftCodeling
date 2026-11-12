@@ -1,12 +1,15 @@
 package codeling.gametest;
 
 import codeling.Codeling;
+import codeling.api.Signals;
+import codeling.McCompat;
 import codeling.net.Protocol;
 import codeling.net.ServerRelay;
 import codeling.robot.RobotCamera;
 import codeling.robot.RobotManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -20,6 +23,7 @@ import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -306,6 +310,47 @@ public class RelayGameTests {
         });
     }
 
+    private static void command(GameTestHelper helper, String command) {
+        var server = helper.getLevel().getServer();
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
+    }
+
+    private static String gameplay(long id, long run, String op) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"gameplay." + op + "\",\"args\":[]}";
+    }
+
+    // Issue #87: the time and the weather of the owner's dimension, set with /time and /weather and read back. One test,
+    // so nothing else changes them meanwhile; both are put back at the end. Issue #89: the day start event is checked
+    // here too, so this stays the only test that changes the time: 1234 to 23000 is no new day, 23000 to 100 is one.
+    @GameTest(maxTicks = 200)
+    public void timeOfDayAndRainAreRead(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long before = McCompat.dayTime(helper.getLevel());
+        command(helper, "time set 1234");
+        command(helper, "weather clear");
+        long run = b.start();
+        subscribe(b, run, ",\"dayStart\":true");
+        b.send(gameplay(1, run, "timeOfDay"));
+        b.send(gameplay(2, run, "isRaining"));
+        command(helper, "weather rain");
+        helper.runAfterDelay(5, () -> command(helper, "time set 23000"));
+        helper.runAfterDelay(8, () -> command(helper, "time set 100"));
+        // The rain level rises by 0.01 a tick and counts as rain from 0.2.
+        helper.runAfterDelay(40, () -> b.send(gameplay(3, run, "isRaining")));
+        helper.succeedWhen(() -> {
+            for (int id = 1; id <= 3; id++) helper.assertTrue(b.find("result", id) != null, "result " + id);
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("name").getAsString()).toList(), List.of("dayStart"), "one day start");
+            long time = b.find("result", 1).get("value").getAsLong();
+            // The daylight cycle may run in the test server, so a few ticks may have passed.
+            helper.assertTrue(time >= 1234 && time < 1234 + 20, "time of day " + time);
+            helper.assertValueEqual(b.find("result", 2).get("value").getAsBoolean(), false, "clear");
+            helper.assertValueEqual(b.find("result", 3).get("value").getAsBoolean(), true, "rain");
+            command(helper, "weather clear");
+            command(helper, "time set " + Math.floorMod(before, 24000L));
+            b.leave();
+        });
+    }
+
     // ---- Issue #27: chat and death events
 
     // Every chat line that was broadcast, as "<sender uuid> <text>": CHAT_MESSAGE fires only for lines not held back.
@@ -439,6 +484,267 @@ public class RelayGameTests {
             helper.assertValueEqual(events(b).getLast().get("args").getAsJsonArray().get(1).getAsDouble(), 16.0, "last kept");
             b.leave();
             helper.succeed();
+        });
+    }
+
+    // ---- Issue #89: block broken and redstone events (the day start is in timeOfDayAndRainAreRead)
+
+    private static final int STONE = 1;
+
+    // Only the owner's own break of a block the program listens for: another player's stone and the owner's dirt give nothing.
+    @GameTest
+    public void blockBrokenByTheOwnerOnly(GameTestHelper helper) {
+        Browser b = browser(helper);
+        ServerPlayer other = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(START.east(2), Blocks.STONE);
+        helper.setBlock(START.east(3), Blocks.STONE);
+        helper.setBlock(START.east(4), Blocks.DIRT);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        other.gameMode.destroyBlock(helper.absolutePos(START.east(2)));
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(3)));
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(4)));
+        helper.runAfterDelay(5, () -> {
+            helper.assertBlockPresent(Blocks.AIR, START.east(2));
+            helper.assertBlockPresent(Blocks.AIR, START.east(4));
+            helper.assertValueEqual(events(b).stream().map(JsonObject::toString).toList(),
+                    List.of("{\"v\":2,\"t\":\"event\",\"name\":\"blockBroken\",\"args\":[" + STONE + "]}"), "events");
+            helper.getLevel().getServer().getPlayerList().remove(other);
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // The robot breaks blocks through a FakePlayer with its owner's UUID: that is never the owner's break.
+    @GameTest(maxTicks = 100)
+    public void robotsOwnBreakIsNoEvent(GameTestHelper helper) {
+        Browser b = browser(helper);
+        helper.setBlock(START.south(), Blocks.STONE);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        b.send("{\"v\":2,\"t\":\"cmd\",\"id\":1,\"run\":" + run + ",\"op\":\"agent.destroy\",\"args\":[0]}");
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 1) != null, "destroy answered");
+            helper.assertBlockPresent(Blocks.AIR, START.south());
+            helper.assertTrue(events(b).isEmpty(), "no event: " + events(b));
+            b.leave();
+        });
+    }
+
+    // Twenty breaks in one tick: 16 events wait and the rest are dropped, as for chat.
+    @GameTest(maxTicks = 60)
+    public void blockBrokenEventsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        List<BlockPos> stones = new ArrayList<>();
+        for (int x = 0; x < 5; x++) for (int y = 2; y < 6; y++) stones.add(new BlockPos(x, y, 5));
+        stones.forEach(p -> helper.setBlock(p, Blocks.STONE));
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "]");
+        stones.forEach(p -> b.player().gameMode.destroyBlock(helper.absolutePos(p)));
+        helper.runAfterDelay(30, () -> {
+            helper.assertValueEqual(events(b).size(), 16, "events");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // One event each time the robot's block goes from no signal to a signal, none while the signal stays.
+    @GameTest(maxTicks = 60)
+    public void redstoneAtTheRobotOncePerRisingEdge(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"redstone\":true");
+        helper.runAfterDelay(2, () -> helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK));
+        helper.runAfterDelay(8, () -> {
+            helper.assertValueEqual(events(b).size(), 1, "first signal");
+            helper.setBlock(START.east(), Blocks.AIR);
+        });
+        helper.runAfterDelay(12, () -> helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK));
+        helper.runAfterDelay(20, () -> {
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("name").getAsString()).toList(), List.of("redstonePowered", "redstonePowered"), "events");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /robot stop ends these subscriptions too: a break and a signal afterwards give nothing.
+    @GameTest
+    public void blockAndRedstoneEndWithTheRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        helper.setBlock(START.east(3), Blocks.STONE);
+        long run = b.start();
+        subscribe(b, run, ",\"broken\":[" + STONE + "],\"redstone\":true");
+        helper.getLevel().getServer().getCommands().performPrefixedCommand(b.player().createCommandSourceStack(), "robot stop");
+        b.player().gameMode.destroyBlock(helper.absolutePos(START.east(3)));
+        helper.setBlock(START.east(), Blocks.REDSTONE_BLOCK);
+        helper.runAfterDelay(5, () -> {
+            helper.assertBlockPresent(Blocks.AIR, START.east(3));
+            helper.assertTrue(events(b).isEmpty(), "no events: " + events(b));
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // ---- Issue #249: signals
+
+    private static String send(long id, long run, String name) {
+        return "{\"v\":2,\"t\":\"cmd\",\"id\":" + id + ",\"run\":" + run + ",\"op\":\"signals.send\",\"args\":[\"" + name + "\"]}";
+    }
+
+    // A post from another thread reaches only the named player's run, and only for a name it listens for. Another
+    // player listening for the same name gets nothing.
+    @GameTest
+    public void signalReachesOnlyTheNamedPlayersListeningRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        Browser other = new Browser(helper, helper.makeMockServerPlayerInLevel(), new ArrayList<>());
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr-forest\"]");
+        subscribe(other, other.start(), ",\"signals\":[\"qr-forest\"]");
+        Thread bridge = new Thread(() -> {
+            Signals.post(b.player().getUUID(), "qr-forest", 3);
+            Signals.post(b.player().getUUID(), "qr-lake", 4);
+        });
+        bridge.start();
+        try {
+            bridge.join();
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
+        helper.assertTrue(events(b).isEmpty(), "delivered on the tick");
+        helper.runAfterDelay(5, () -> {
+            helper.assertValueEqual(events(b).stream().map(JsonObject::toString).toList(),
+                    List.of("{\"v\":2,\"t\":\"event\",\"name\":\"signal\",\"args\":[\"qr-forest\",3.0]}"), "events");
+            helper.assertTrue(events(other).isEmpty(), "nothing for the other player: " + events(other));
+            other.leave();
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /robot stop ends the subscription: a signal afterwards gives nothing, and neither does one for a player who is not here.
+    @GameTest
+    public void signalsEndWithTheRun(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr\"]");
+        helper.getLevel().getServer().getCommands().performPrefixedCommand(b.player().createCommandSourceStack(), "robot stop");
+        Signals.post(b.player().getUUID(), "qr", 1);
+        Signals.post(java.util.UUID.randomUUID(), "qr", 1);
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(events(b).isEmpty(), "no events: " + events(b));
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // Twenty signals in one tick: 16 wait in the shared event queue and the rest are dropped.
+    @GameTest(maxTicks = 60)
+    public void signalEventsAreCapped(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"n\"]");
+        for (int i = 1; i <= 20; i++) Signals.post(b.player().getUUID(), "n", i);
+        helper.runAfterDelay(30, () -> {
+            helper.assertValueEqual(events(b).size(), 16, "events");
+            helper.assertValueEqual(events(b).getLast().get("args").getAsJsonArray().get(1).getAsDouble(), 16.0, "last kept");
+            b.leave();
+            helper.succeed();
+        });
+    }
+
+    // /codeling signal: operators only; it answers how many programs it reached, 0 for a player with no listening program.
+    @GameTest
+    public void codelingSignalCommand(GameTestHelper helper) {
+        Browser b = browser(helper);
+        ServerPlayer idle = helper.makeMockServerPlayerInLevel();
+        var server = helper.getLevel().getServer();
+        // An operator's command run as the player, so @s is them (a mock player's name is not unique).
+        var op = server.createCommandSourceStack().withSuppressedOutput().withEntity(b.player());
+        long run = b.start();
+        subscribe(b, run, ",\"signals\":[\"qr\"]");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr 2.5", op), 1, "reached");
+        helper.assertValueEqual(execute(helper, "codeling signal @s door", op), 0, "a name it does not listen for");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr", op.withEntity(idle)), 0, "no listening program");
+        helper.assertValueEqual(execute(helper, "codeling signal @s \"two words\"", op), 0, "bad name");
+        helper.assertValueEqual(execute(helper, "codeling signal @s qr 9", b.player().createCommandSourceStack()), -1, "not for a player without operator rights");
+        helper.succeedWhen(() -> {
+            helper.assertValueEqual(events(b).stream().map(e -> e.get("args").toString()).toList(), List.of("[\"qr\",2.5]"), "events");
+            server.getPlayerList().remove(idle);
+            b.leave();
+        });
+    }
+
+    // The command's result, or -1 when it is refused before it runs (unknown to the source, or a syntax error).
+    private static int execute(GameTestHelper helper, String command, net.minecraft.commands.CommandSourceStack source) {
+        try {
+            return helper.getLevel().getServer().getCommands().getDispatcher().execute(command, source);
+        } catch (CommandSyntaxException e) {
+            return -1;
+        }
+    }
+
+    // signals.send with no mod taking the name answers false with a message. Other tests may add listeners meanwhile,
+    // so only "no mod took it" is certain here.
+    @GameTest
+    public void signalSendWithNoListenerAnswersFalse(GameTestHelper helper) {
+        Browser b = browser(helper);
+        long run = b.start();
+        b.send(send(1, run, "lamp-red"));
+        b.send(send(2, run, "two words"));
+        helper.assertValueEqual(errorCode(b, 2), "BAD_ARGS", "bad name");
+        helper.succeedWhen(() -> {
+            JsonObject result = b.find("result", 1);
+            helper.assertTrue(result != null, "answered");
+            helper.assertTrue(!result.get("value").getAsBoolean() && result.has("message"), "false with a message: " + result);
+            b.leave();
+        });
+    }
+
+    // A listener hears the name and the player only, once; the same name again within a second is not sent.
+    @GameTest(maxTicks = 100)
+    public void signalSendReachesAListenerOncePerSecond(GameTestHelper helper) {
+        Browser b = browser(helper);
+        List<String> heard = new ArrayList<>();
+        Runnable remove = Signals.onSent((player, name) -> {
+            if (!player.equals(b.player().getUUID())) return false;
+            heard.add(name);
+            return name.startsWith("lamp");
+        });
+        long run = b.start();
+        b.send(send(1, run, "lamp-red"));
+        b.send(send(2, run, "lamp-red"));
+        b.send(send(3, run, "lamp-blue"));
+        b.send(send(4, run, "door"));
+        helper.runAfterDelay(30, () -> b.send(send(5, run, "lamp-red")));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 5) != null, "all answered");
+            List<Boolean> values = new ArrayList<>();
+            for (int id = 1; id <= 5; id++) values.add(b.find("result", id).get("value").getAsBoolean());
+            helper.assertValueEqual(values, List.of(true, false, true, false, true), "answers");
+            helper.assertTrue(b.find("result", 2).get("message").getAsString().contains("less than a second"), "rate limit message");
+            helper.assertValueEqual(heard, List.of("lamp-red", "lamp-blue", "door", "lamp-red"), "heard");
+            remove.run();
+            b.leave();
+        });
+    }
+
+    // A listener that throws is contained: the call answers false, the tick goes on, and the run keeps working.
+    @GameTest
+    public void aThrowingSignalListenerBreaksNothing(GameTestHelper helper) {
+        Browser b = browser(helper);
+        Runnable remove = Signals.onSent((player, name) -> {
+            if (player.equals(b.player().getUUID())) throw new IllegalStateException("a broken listener, on purpose in a GameTest");
+            return false;
+        });
+        long run = b.start();
+        b.send(send(1, run, "lamp"));
+        b.send(send(2, run, "lamp-2"));
+        b.send(player(3, run, "name", "[]"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(b.find("result", 3) != null, "the next call answered");
+            helper.assertTrue(!b.find("result", 1).get("value").getAsBoolean() && !b.find("result", 2).get("value").getAsBoolean(), "false");
+            remove.run();
+            b.leave();
         });
     }
 

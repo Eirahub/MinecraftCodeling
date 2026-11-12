@@ -6,6 +6,7 @@ import codeling.platform.Platform;
 import com.mojang.authlib.GameProfile;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -150,6 +151,7 @@ public final class RobotManager {
         robot.setKey(key);
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(owner);
         if (player != null) robot.setOwnerName(player.getGameProfile().name());
+        robot.rememberAppearance();
         LOADED.put(key, robot);
         Codeling.LOG.info("spawn: {} was loaded into the world at {} in {}.", label(level.getServer(), key), fmt(robot.position()), dim(level));
     }
@@ -239,9 +241,16 @@ public final class RobotManager {
         if (player != null) robot.setOwnerName(player.getGameProfile().name());
         robot.snapTo(pos, facing.toYRot(), 0);
         RobotLinks links = RobotLinks.get(level.getServer());
+        RobotLinks.Appearance previousAppearance = links.appearance(links.robot(key));
+        if (old == null) {
+            robot.setSkin(previousAppearance.skin());
+            robot.setPrimaryColor(previousAppearance.color());
+        }
         if (old != null) {
             // Another dimension: the items move to the new robot, so the old one drops nothing when it is discarded.
             for (int i = 0; i < RobotCommand.SLOTS; i++) robot.inventory().setItem(i, old.inventory().removeItemNoUpdate(i));
+            robot.setSkin(old.skin());
+            robot.setPrimaryColor(old.primaryColor());
             robot.setCustomName(old.getCustomName());
             robot.setCustomNameVisible(old.isCustomNameVisible());
             old.discard();
@@ -250,6 +259,7 @@ public final class RobotManager {
             links.orphan(links.robot(key));
         }
         links.set(key, robot.getUUID());
+        robot.rememberAppearance();
         level.addFreshEntity(robot);
         Codeling.LOG.info("spawn: Created {} at {}, facing {}, in {}. It now stands at {}.{}", label(level.getServer(), key), fmt(pos), facing.getName(),
                 dim(level), fmt(robot.position()), robot.position().distanceTo(pos) > 0.5 ? " This is NOT where it was asked to go." : "");
@@ -509,6 +519,10 @@ public final class RobotManager {
             navigate(robot, queue, entry, new BlockPos(command.a(), command.b(), command.c()));
             return;
         }
+        if (command.op() == RobotCommand.Op.GO_TO_ROBOT) {
+            goToRobot(robot, queue, entry);
+            return;
+        }
         if (command.op() == RobotCommand.Op.FOLLOW_PATH) {
             follow(robot, queue, entry);
             return;
@@ -553,7 +567,7 @@ public final class RobotManager {
 
     private static boolean isPath(RobotQueue.Entry entry) {
         return switch (entry.command.op()) {
-            case MOVE_TO, COME, GO_HOME, FOLLOW_PATH -> true;
+            case MOVE_TO, GO_TO_ROBOT, COME, GO_HOME, FOLLOW_PATH -> true;
             default -> false;
         };
     }
@@ -878,7 +892,7 @@ public final class RobotManager {
         RobotCommand command = entry.command;
         Level level = robot.level();
         if (entry.path == null) {
-            entry.path = new RobotPath(grid(level), robot.blockPosition(), target, robot.gravityMode());
+            entry.path = new RobotPath(grid(level), robot.blockPosition(), target, robot.gravityMode(), command.op() == RobotCommand.Op.GO_TO_ROBOT);
             pathStart(robot, entry, " to " + at(target));
         }
         if (!entry.path.finished()) {
@@ -886,6 +900,12 @@ public final class RobotManager {
             if (!entry.path.finished()) return;
         }
         List<BlockPos> path = entry.path.path();
+        if (path == null && entry.path.capped() && command.op() == RobotCommand.Op.GO_TO_ROBOT) {
+            pathEnd(robot, entry, "the search limit was reached");
+            queue.finish(Result.error(Result.Code.OUT_OF_RANGE, "no way to " + robotName(command.text())
+                    + " within the path search limit of " + RobotPath.MAX_NODES + " blocks (it is too far, or there is no way)"));
+            return;
+        }
         if (path == null || !robot.blockPosition().equals(path.get(entry.step))) {
             pathEnd(robot, entry, path == null ? "no route was found" : "the robot is not where the planned route says (the world changed)");
             if (command.op() == RobotCommand.Op.COME) teleport(robot, queue, entry, target);
@@ -894,7 +914,13 @@ public final class RobotManager {
         }
         BlockPos at = path.get(entry.step);
         if (entry.step == path.size() - 1) {
-            // Next to a solid target: face it, so destroy forward or interact forward reaches it.
+            if (command.op() == RobotCommand.Op.GO_TO_ROBOT && at.distManhattan(target) != 1) {
+                // The other robot moved while this one walked: it got to where the other robot was, not to it.
+                pathEnd(robot, entry, "the other robot moved away meanwhile");
+                queue.finish(Result.ok(false, robotName(command.text()) + " moved away while this robot walked to it"));
+                return;
+            }
+            // Next to a solid target (or the other robot): face it, so destroy forward or interact forward reaches it.
             Direction toTarget = RobotPath.direction(at, target);
             if (!at.equals(target) && toTarget.getAxis().isHorizontal()) robot.setYRot(toTarget.toYRot());
             pathEnd(robot, entry, "reached the target");
@@ -902,6 +928,54 @@ public final class RobotManager {
             return;
         }
         walk(robot, queue, entry, path, Result.ok(false));
+    }
+
+    /**
+     * agent.goToRobot (issue #243): walks like moveTo to a free block next to another of the owner's robots, turns to
+     * face it when it ends beside it (above or below it, the robot keeps its facing), and answers true. The other robot
+     * is looked up by this robot's owner and the name only, so another player's robot is never the target, and again
+     * every tick, so it must stay loaded and in this dimension; if it moves meanwhile, the answer is false. Going to
+     * itself answers true at once. No free block next to it answers false at once; the search limit answers OUT_OF_RANGE.
+     */
+    private static void goToRobot(RobotEntity robot, RobotQueue queue, RobotQueue.Entry entry) {
+        RobotLinks.Key key = new RobotLinks.Key(robot.key().owner(), entry.command.text());
+        String name = robotName(key.name());
+        if (key.equals(robot.key())) {
+            queue.finish(Result.ok(true, name + " is this robot itself, so it is already there"));
+            return;
+        }
+        RobotEntity other = LOADED.get(key);
+        Level level = robot.level();
+        if (other == null) {
+            RobotLinks links = RobotLinks.get(level.getServer());
+            if (links.robot(key) != null) {
+                queue.finish(Result.error(Result.Code.UNLOADED, name + " is not loaded (see /robot list)"));
+                return;
+            }
+            // Only the owner's own robot names, never another player's.
+            List<String> mine = new ArrayList<>(links.names(key.owner()));
+            if (links.robot(key.owner()) != null) mine.add(0, "agent (the default robot)");
+            queue.finish(Result.error(Result.Code.BAD_ARGS, (key.name().isEmpty() ? "you have no default robot" : "you have no robot called " + key.name())
+                    + "; your robots are " + String.join(", ", mine)));
+            return;
+        }
+        if (other.level() != level) {
+            queue.finish(Result.error(Result.Code.OUT_OF_RANGE, name + " is in another dimension"));
+            return;
+        }
+        BlockPos target = other.blockPosition();
+        if (entry.path == null && Arrays.stream(Direction.values()).map(target::relative)
+                .noneMatch(p -> level.isLoaded(p) && (!blocked(level, p) || opens(level, p)))) {
+            Codeling.LOG.info("path: {} cannot go to {}: no free block next to it at {}.", label(robot), label(other), at(target));
+            queue.finish(Result.ok(false, "there is no free block next to " + name));
+            return;
+        }
+        navigate(robot, queue, entry, target);
+    }
+
+    // "robot Miner", or "agent" for the default robot, as programs call them.
+    private static String robotName(String name) {
+        return name.isEmpty() ? "agent" : "robot " + name;
     }
 
     // One move along a planned path, from the block at entry.step to the next; the robot turns to each sideways step.
@@ -1110,6 +1184,19 @@ public final class RobotManager {
             case IS_INVENTORY_FULL -> {
                 return Result.ok(freeSlots(inv) == 0);
             }
+            // Issue #87: the robot's own block only, which is loaded while the robot is. Light as F3 and mob spawning see
+            // it: the brighter of block light and sky light, the sky darkened at night and in rain.
+            case LIGHT_LEVEL -> {
+                return Result.ok(level.getMaxLocalRawBrightness(robot.blockPosition()));
+            }
+            case BIOME -> {
+                String id = level.getBiome(robot.blockPosition()).getRegisteredName();
+                return Result.ok(id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id);
+            }
+            // shortcut: the biome's base temperature (plains 0.8), not lowered with height; use Biome.getTemperature if players need that.
+            case TEMPERATURE -> {
+                return Result.ok(Math.round(level.getBiome(robot.blockPosition()).value().getBaseTemperature() * 100) / 100.0);
+            }
             default -> {
             }
         }
@@ -1142,14 +1229,7 @@ public final class RobotManager {
             case DETECT_ENTITY -> Result.ok(!entities(level, new AABB(target), command.b()).isEmpty());
             case DETECT_LIQUID -> Result.ok(liquid(level, target));
             case IS_SAFE -> Result.ok(safe(level, target));
-            // F3's value: what a source gives out (redstone dust its power, a lever 15), otherwise what the block receives.
-            //? if >=26.2 {
-            case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? state.getOwnSignal(level, target) : level.getBestNeighborSignal(target));
-            //?} else {
-            /*// shortcut: before 26.2 there is no getOwnSignal, so a source's power is its strongest side; matches F3 for
-            // dust, levers, buttons and torches, may differ for a block that powers one side only.
-            case REDSTONE_POWER -> Result.ok(state.isSignalSource() ? ownSignal(level, target, state) : level.getBestNeighborSignal(target));
-            *///?}
+            case REDSTONE_POWER -> Result.ok(redstonePower(level, target));
             case DROP -> Result.ok(drop(level, target, inv.removeItem(command.b() - 1, command.c())));
             case DROP_ALL -> {
                 boolean any = false;
@@ -1392,6 +1472,21 @@ public final class RobotManager {
             }
         }
         return entities(level, new AABB(pos).inflate(1), MOB).isEmpty();
+    }
+
+    /**
+     * F3's value at pos: what a source gives out (redstone dust its power, a lever 15), otherwise what the block
+     * receives. agent.redstonePower and the onRedstonePowered event (issue #89) both read it. The chunk must be loaded.
+     */
+    public static int redstonePower(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        //? if >=26.2 {
+        return state.isSignalSource() ? state.getOwnSignal(level, pos) : level.getBestNeighborSignal(pos);
+        //?} else {
+        /*// shortcut: before 26.2 there is no getOwnSignal, so a source's power is its strongest side; matches F3 for
+        // dust, levers, buttons and torches, may differ for a block that powers one side only.
+        return state.isSignalSource() ? ownSignal(level, pos, state) : level.getBestNeighborSignal(pos);
+        *///?}
     }
 
     //? if <26.2 {
