@@ -85,8 +85,8 @@ To stop a program, press the stop button in the editor, or type `/robot stop` in
 
 ## Examples
 
-The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": seven small
-programs, such as a staircase, a tunnel, a room with a fence and a guard patrol. Click one to read what it teaches,
+The start page of the editor (the first page it shows) has an "Examples" row under "My Projects": eight small
+programs, such as a staircase, a tunnel, a room with a fence, a guard patrol and torches in the dark. Click one to read what it teaches,
 then press "Open Example" under Blocks, Python or JavaScript. You get a new project of your own with the program in
 it: press Run to try it, and change it as you like. The example itself stays as it was.
 
@@ -233,6 +233,9 @@ The radar looks at most 16 blocks around the robot. Invisible players and player
 | agent nearest (kind) within (radius) | `agent.nearestEntity(EntityKind.Player, 8)` | Where the nearest one is, or nothing. |
 | agent detect liquid (direction) | `agent.detectLiquid(SixDirection.Down)` | Water, lava or none (`Liquid.Lava`). |
 | agent is safe (direction) | `agent.isSafe(SixDirection.Forward)` | False if that block has lava in it or under it, a drop of more than 3 blocks under it, or a hostile mob in it or right next to it. A wall is safe, because the robot cannot go there. |
+| agent light level | `agent.lightLevel()` | How light it is where the robot stands: 0 (dark) to 15 (daylight, or a torch right there). Sky light is lower at night and in rain. Hostile mobs can spawn where it is 0. |
+| agent biome | `agent.biome()` | The biome where the robot stands, as a short text: `"plains"`, `"desert"`. Biomes from mods keep the mod name: `"mymod:crystal_cave"`. |
+| agent temperature | `agent.temperature()` | How warm that biome is: snowy plains 0, plains 0.8, desert 2. Below 0.15 it snows instead of rains. |
 
 ### Measuring
 
@@ -333,6 +336,23 @@ player.onChat("jump", function (num1, num2, num3) {
 - A program with "on chat command" or "on player died" keeps running after its last line, so it can react. Press the
   stop button in the editor, or type `/robot stop`, to end it. From then on your chat lines are shown as usual again.
 - At most 16 chat commands wait for your program; more at once are dropped.
+
+### Time and weather (category Gameplay)
+
+These blocks read the world you are in. They work without a robot.
+
+| Block | JavaScript | What it does |
+|---|---|---|
+| time of day | `gameplay.timeOfDay()` | The time in game ticks, 0 to 23999: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight. The Nether and the End have the Overworld's time. |
+| is raining | `gameplay.isRaining()` | True when it rains or thunders in your dimension (snow counts too). Never in the Nether or the End. It does not say whether rain reaches one spot: under a roof it still answers true. |
+
+This program works only in daytime and stops when night comes:
+
+```
+while (gameplay.timeOfDay() < 12000) {
+    agent.move(SixDirection.Forward, 1)
+}
+```
 
 ### Positions (category Positions)
 

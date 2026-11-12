@@ -6,6 +6,12 @@ Every user-visible change to Codeling is listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- World queries (issue #87): `gameplay.timeOfDay()` and `gameplay.isRaining()` read the time and weather of your
+  dimension, and `agent.lightLevel()`, `agent.biome()` and `agent.temperature()` read the robot's own block, in
+  Blocks, JavaScript and Python, with a new "Torches in the dark" example.
+
 ## [0.0.2] - 2026-11-12
 
 The second pre-release, for testing.
