@@ -630,6 +630,7 @@ Grensene holder spillet raskt for alle.
 ## Flerspiller
 
 - Serveren trenger Codeling for sin modlaster (Fabric Loader og Fabric API, eller NeoForge). Alle spillere som vil programmere, trenger samme modlaster og Codeling også.
+- Bruk samme Codeling-versjon på serveren og hos alle spillerne. Å blande versjoner er ikke støttet og ikke testet.
 - Bare du kan programmere roboten din. Ingen andre kan sende den kommandoer. Det gjelder roboter med navn også: et
   navn velger alltid bare en av dine egne roboter.
 - `/gamerule codeling:max_robots <1-16>` bestemmer hvor mange roboter hver spiller kan ha (1, standard, er én robot
