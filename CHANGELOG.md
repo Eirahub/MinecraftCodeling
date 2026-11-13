@@ -10,6 +10,9 @@ Every user-visible change to Codeling is listed here. The format follows
 
 The third pre-release, for testing.
 
+**Use the same Codeling version on the server and on every client.** Mixing versions (for example a 0.0.2 client
+on a 0.0.3 server) is not supported and has not been tested.
+
 ### Added
 
 - World queries (issue #87): `gameplay.timeOfDay()` and `gameplay.isRaining()` read the time and weather of your
