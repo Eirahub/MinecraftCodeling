@@ -17,6 +17,9 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Builds and tests all ten versions in a row: 15 and 17 minutes in the last green runs. A hung GameTest server
+    # stops its Gradle task after 10 minutes (issue #252); this is the limit for anything else that hangs.
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:

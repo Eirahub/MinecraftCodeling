@@ -98,6 +98,10 @@ Areas in use: `Core`, `Editor`, `Minecraft mod`, `NeoForge loader`, `Build`, `CI
 3. `mc-1-21-1` job: `./gradlew :fabric:1.21.1:build` and `:neoforge:1.21.1:build`.
 4. `client-gametest` job, on `main` and manual runs only: `./gradlew :fabric:26.3:runClientGameTest` under Xvfb.
 
+### A GameTest run that hangs
+
+A server GameTest task (`runGameTest` on Fabric, `runGameTestServer` on NeoForge) stops after 10 minutes and fails with "The server GameTests hung", and every CI job that runs GameTests has a `timeout-minutes` of its own. When one of them cuts a job off, rerun the job. Mock players on Minecraft 1.21.6 to 1.21.8 used to hang this way (issue #252); if it happens again, take a thread dump of the game JVM while it hangs and add it to #252: `jps -l` lists the Java processes (the game is the one that is not `GradleDaemon`), then `jstack <pid> > hang.txt`.
+
 ## Versioning
 
 Three version numbers change independently of each other:
